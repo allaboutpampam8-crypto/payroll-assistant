@@ -12,6 +12,8 @@ import {
   Loader2,
   CheckCircle2,
   Clock,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { PayrollTodo, Priority } from '@/lib/types';
 
@@ -25,10 +27,22 @@ export default function TodoListWidget({
   onRefresh,
 }: TodoListWidgetProps) {
   const [filter, setFilter] = useState<'ALL' | 'ACTIVE' | 'COMPLETED'>('ACTIVE');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [newTitle, setNewTitle] = useState('');
   const [newPriority, setNewPriority] = useState<Priority>('NORMAL');
   const [newDueDate, setNewDueDate] = useState('');
   const [loadingAdd, setLoadingAdd] = useState(false);
+
+  const handleFilterChange = (newFilter: 'ALL' | 'ACTIVE' | 'COMPLETED') => {
+    setFilter(newFilter);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1);
+  };
 
   const handleAddTodo = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,6 +106,12 @@ export default function TodoListWidget({
     return true;
   });
 
+  const totalPages = Math.ceil(filteredTodos.length / pageSize) || 1;
+  const safeCurrentPage = Math.min(Math.max(currentPage, 1), totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, filteredTodos.length);
+  const paginatedTodos = filteredTodos.slice(startIndex, startIndex + pageSize);
+
   const activeCount = todos.filter((t) => !t.isCompleted).length;
   const completedCount = todos.filter((t) => t.isCompleted).length;
   const todayStr = new Date().toISOString().split('T')[0];
@@ -117,7 +137,7 @@ export default function TodoListWidget({
         {/* Filter Tabs */}
         <div className="w-full sm:w-auto overflow-x-auto flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold self-start sm:self-auto">
           <button
-            onClick={() => setFilter('ACTIVE')}
+            onClick={() => handleFilterChange('ACTIVE')}
             className={`shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
               filter === 'ACTIVE'
                 ? 'bg-white text-indigo-700 shadow-xs'
@@ -128,7 +148,7 @@ export default function TodoListWidget({
             <span className="hidden sm:inline">Perlu Dikerjakan ({activeCount})</span>
           </button>
           <button
-            onClick={() => setFilter('COMPLETED')}
+            onClick={() => handleFilterChange('COMPLETED')}
             className={`shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
               filter === 'COMPLETED'
                 ? 'bg-white text-emerald-700 shadow-xs'
@@ -138,7 +158,7 @@ export default function TodoListWidget({
             Selesai ({completedCount})
           </button>
           <button
-            onClick={() => setFilter('ALL')}
+            onClick={() => handleFilterChange('ALL')}
             className={`shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
               filter === 'ALL'
                 ? 'bg-white text-slate-900 shadow-xs'
@@ -214,7 +234,7 @@ export default function TodoListWidget({
             </p>
           </div>
         ) : (
-          filteredTodos.map((todo) => {
+          paginatedTodos.map((todo) => {
             const isOverdue =
               todo.dueDate && todo.dueDate < todayStr && !todo.isCompleted;
             const isDueToday = todo.dueDate === todayStr && !todo.isCompleted;
@@ -324,6 +344,89 @@ export default function TodoListWidget({
           })
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {filteredTodos.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50/70 p-3 sm:px-4 rounded-xl border border-slate-200/60 text-xs text-slate-500 mt-2">
+          {/* Informasi Rentang Data & Pilihan Jumlah Baris */}
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+            <span>
+              Menampilkan <strong className="text-slate-700">{startIndex + 1}</strong> -{' '}
+              <strong className="text-slate-700">{endIndex}</strong> dari{' '}
+              <strong className="text-slate-700">{filteredTodos.length}</strong> tugas
+            </span>
+
+            <div className="flex items-center gap-1.5">
+              <span className="hidden sm:inline">Baris:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold bg-white text-slate-700 outline-none focus:border-indigo-600"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Tombol Navigasi Halaman */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+              disabled={safeCurrentPage === 1}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Sebelumnya</span>
+            </button>
+
+            {/* Indikator Tombol Nomor Halaman */}
+            <div className="flex items-center gap-1 px-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((page) => {
+                  return (
+                    page === 1 ||
+                    page === totalPages ||
+                    Math.abs(page - safeCurrentPage) <= 1
+                  );
+                })
+                .map((page, idx, arr) => {
+                  const prev = arr[idx - 1];
+                  const showEllipsis = prev && page - prev > 1;
+
+                  return (
+                    <React.Fragment key={page}>
+                      {showEllipsis && (
+                        <span className="px-1 text-xs text-slate-400">...</span>
+                      )}
+                      <button
+                        onClick={() => setCurrentPage(page)}
+                        className={`h-7 w-7 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                          safeCurrentPage === page
+                            ? 'bg-indigo-600 text-white shadow-2xs'
+                            : 'text-slate-600 hover:bg-white border border-transparent hover:border-slate-200'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    </React.Fragment>
+                  );
+                })}
+            </div>
+
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+              disabled={safeCurrentPage === totalPages || totalPages === 0}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+            >
+              <span className="hidden sm:inline">Selanjutnya</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
