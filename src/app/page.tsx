@@ -715,34 +715,28 @@ export default function AssistantDashboard() {
       </main>
 
       {/* Floating Bottom Bar Khusus Mobile */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2 pb-[max(0.625rem,env(safe-area-inset-bottom))] flex items-center justify-between gap-2 shadow-2xl">
+      <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] flex items-center justify-between gap-2.5 shadow-2xl">
         <button
           onClick={() => setActiveTab(activeTab === 'REPORTS' ? 'TODOS' : 'REPORTS')}
-          className={`flex items-center justify-center p-2.5 rounded-xl border transition-all cursor-pointer ${
-            activeTab === 'TODOS'
-              ? 'bg-indigo-600 text-white border-indigo-600'
-              : 'bg-slate-100 text-slate-700 border-slate-200'
-          }`}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/60 transition-all cursor-pointer"
           title={activeTab === 'REPORTS' ? 'Buka To-Do List' : 'Buka Laporan'}
         >
           {activeTab === 'REPORTS' ? (
-            <ListTodo className="h-5 w-5" />
+            <>
+              <ListTodo className="h-4 w-4 text-indigo-600" />
+              <span>To-Do List</span>
+            </>
           ) : (
-            <ClipboardList className="h-5 w-5" />
+            <>
+              <ClipboardList className="h-4 w-4 text-indigo-600" />
+              <span>Laporan</span>
+            </>
           )}
         </button>
 
-        <Link
-          href="/lapor"
-          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200"
-        >
-          <ExternalLink className="h-4 w-4 text-slate-500" />
-          <span>Form Pegawai</span>
-        </Link>
-
         <button
           onClick={handleExport}
-          className="flex items-center justify-center p-2.5 rounded-xl text-emerald-700 bg-emerald-50 border border-emerald-200"
+          className="flex items-center justify-center p-2.5 rounded-xl text-emerald-700 bg-emerald-50 border border-emerald-200 transition-all cursor-pointer"
           title="Rekap Excel"
         >
           <FileSpreadsheet className="h-5 w-5" />
@@ -750,7 +744,7 @@ export default function AssistantDashboard() {
 
         <button
           onClick={() => setIsQuickEntryOpen(true)}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 shadow-md shadow-indigo-600/30"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
         >
           <Plus className="h-4 w-4" />
           <span>Catat Laporan</span>
