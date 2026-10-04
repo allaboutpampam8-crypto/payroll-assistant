@@ -57,19 +57,19 @@ export default function CutoffSettingsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-100 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
               <Calendar className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-sm sm:text-base font-bold text-slate-900">
                 Pengaturan Periode & Cut-Off
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-[11px] sm:text-xs text-slate-500">
                 Sesuaikan jadwal payroll untuk kalkulasi pengingat otomatis.
               </p>
             </div>
@@ -83,7 +83,7 @@ export default function CutoffSettingsModal({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSave} className="p-6 space-y-4">
+        <form onSubmit={handleSave} className="p-4 sm:p-6 space-y-4">
           {errorMsg && (
             <div className="flex items-center gap-2 rounded-xl bg-rose-50 p-3 text-xs text-rose-700 border border-rose-200">
               <AlertCircle className="h-4 w-4 shrink-0" />

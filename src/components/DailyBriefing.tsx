@@ -58,15 +58,17 @@ export default function DailyBriefing({
 
       <div className="relative z-10 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         {/* Sapaan Asisten */}
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 rounded-full bg-indigo-500/30 px-3 py-1 text-xs font-medium text-indigo-200 backdrop-blur-md border border-indigo-400/30">
-            <Sparkles className="h-3.5 w-3.5 text-amber-300 animate-pulse" />
-            <span>Asisten Payroll {settings.companyName}</span>
-            <span className="text-indigo-400">•</span>
-            <span>{settings.activePeriod}</span>
+        <div className="space-y-2 max-w-full">
+          <div className="inline-flex flex-wrap items-center gap-1.5 rounded-xl sm:rounded-full bg-indigo-500/30 px-3 py-1 text-[11px] sm:text-xs font-medium text-indigo-200 backdrop-blur-md border border-indigo-400/30 max-w-full">
+            <Sparkles className="h-3.5 w-3.5 text-amber-300 animate-pulse shrink-0" />
+            <span className="truncate max-w-[200px] sm:max-w-none">
+              Asisten Payroll {settings.companyName}
+            </span>
+            <span className="text-indigo-400 hidden sm:inline">•</span>
+            <span className="font-semibold text-indigo-100">{settings.activePeriod}</span>
           </div>
 
-          <h2 className="text-xl md:text-2xl font-bold tracking-tight text-white">
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight text-white leading-snug">
             {totalUnresolved === 0 ? (
               'Semua laporan payroll sudah beres! 🎉'
             ) : (
@@ -99,9 +101,9 @@ export default function DailyBriefing({
         </div>
 
         {/* Status Cutoff & Pengaturan */}
-        <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-2.5 shrink-0">
+        <div className="flex flex-col sm:flex-row md:flex-col items-stretch sm:items-start md:items-end gap-2 shrink-0 w-full sm:w-auto">
           <div
-            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold backdrop-blur-md border ${
+            className={`flex items-center justify-between sm:justify-start gap-2.5 rounded-xl px-3.5 py-2 text-xs font-semibold backdrop-blur-md border ${
               isCutoffPassed
                 ? 'bg-rose-950/70 border-rose-600 text-rose-200'
                 : isCutoffNear
@@ -109,29 +111,31 @@ export default function DailyBriefing({
                 : 'bg-white/10 border-white/20 text-white'
             }`}
           >
-            {isCutoffNear || isCutoffPassed ? (
-              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
-            ) : (
-              <Calendar className="h-4 w-4 shrink-0 text-indigo-300" />
-            )}
-            <div>
-              <div className="text-[10px] uppercase tracking-wider text-indigo-200/80">Cut-Off Payroll</div>
+            <div className="flex items-center gap-2">
+              {isCutoffNear || isCutoffPassed ? (
+                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+              ) : (
+                <Calendar className="h-4 w-4 shrink-0 text-indigo-300" />
+              )}
               <div>
-                {settings.cutoffDate}{' '}
-                <span className="text-[11px] font-normal opacity-90">
-                  {isCutoffPassed
-                    ? '(Lewat ' + Math.abs(diffDays) + ' hari)'
-                    : diffDays === 0
-                    ? '(Hari ini!)'
-                    : '(' + diffDays + ' hari lagi)'}
-                </span>
+                <div className="text-[10px] uppercase tracking-wider text-indigo-200/80">Cut-Off Payroll</div>
+                <div>
+                  {settings.cutoffDate}{' '}
+                  <span className="text-[11px] font-normal opacity-90">
+                    {isCutoffPassed
+                      ? '(Lewat ' + Math.abs(diffDays) + ' hari)'
+                      : diffDays === 0
+                      ? '(Hari ini!)'
+                      : '(' + diffDays + ' hari lagi)'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
           <button
             onClick={onOpenSettings}
-            className="flex items-center gap-1.5 rounded-lg bg-white/10 hover:bg-white/20 px-3 py-1.5 text-xs font-medium text-white transition-all cursor-pointer border border-white/10"
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-white/10 hover:bg-white/20 px-3 py-2 text-xs font-medium text-white transition-all cursor-pointer border border-white/10 w-full sm:w-auto"
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
             <span>Atur Periode & Cut-Off</span>

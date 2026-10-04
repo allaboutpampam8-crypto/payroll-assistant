@@ -159,22 +159,22 @@ function ReportDetailModalContent({
     : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="relative w-full max-w-2xl rounded-2xl bg-white shadow-2xl border border-slate-100 max-h-[92vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-          <div className="flex items-center gap-3">
-            <span className="font-mono text-xs font-semibold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-slate-50/50">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <span className="font-mono text-[11px] sm:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
               {report.ticketNumber}
             </span>
             <div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 line-clamp-1">
                 {CATEGORY_LABELS[report.category] || report.category}
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-[11px] sm:text-xs text-slate-500">
                 Dilaporkan pada {new Date(report.createdAt).toLocaleDateString('id-ID', {
                   day: 'numeric',
-                  month: 'long',
+                  month: 'short',
                   year: 'numeric',
                   hour: '2-digit',
                   minute: '2-digit',
@@ -184,14 +184,14 @@ function ReportDetailModalContent({
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+            className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Content Body */}
-        <div className="p-6 overflow-y-auto space-y-5">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5">
           {errorMsg && (
             <div className="flex items-center gap-2 rounded-xl bg-rose-50 p-3 text-xs text-rose-700 border border-rose-200">
               <AlertCircle className="h-4 w-4 shrink-0" />
@@ -373,19 +373,19 @@ function ReportDetailModalContent({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
+        <div className="p-3.5 sm:p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
           <button
             type="button"
             onClick={handleDelete}
             disabled={deleteLoading}
-            className="px-3.5 py-2 rounded-xl text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            className="px-3 py-2 rounded-xl text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
             {deleteLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Trash2 className="h-4 w-4" />
             )}
-            <span>Hapus</span>
+            <span className="hidden sm:inline">Hapus</span>
           </button>
 
           <div className="flex items-center gap-2">
@@ -393,7 +393,7 @@ function ReportDetailModalContent({
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-200/60 transition-colors cursor-pointer"
+              className="px-3 sm:px-4 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-200/60 transition-colors cursor-pointer"
             >
               Tutup
             </button>
@@ -401,14 +401,14 @@ function ReportDetailModalContent({
               type="button"
               onClick={handleSave}
               disabled={loading}
-              className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-md shadow-indigo-600/20 flex items-center gap-2 cursor-pointer disabled:opacity-70"
+              className="px-4 sm:px-5 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-md shadow-indigo-600/20 flex items-center gap-1.5 sm:gap-2 cursor-pointer disabled:opacity-70"
             >
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Save className="h-4 w-4" />
               )}
-              <span>Simpan Perubahan</span>
+              <span>Simpan<span className="hidden sm:inline"> Perubahan</span></span>
             </button>
           </div>
         </div>

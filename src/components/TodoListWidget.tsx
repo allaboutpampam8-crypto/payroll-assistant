@@ -97,9 +97,9 @@ export default function TodoListWidget({
   const todayStr = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="rounded-2xl bg-white p-5 md:p-6 border border-slate-200/80 shadow-xs space-y-5">
+    <div className="rounded-2xl bg-white p-4 sm:p-6 border border-slate-200/80 shadow-xs space-y-4 sm:space-y-5">
       {/* Header Widget */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3 sm:pb-4">
         <div>
           <div className="flex items-center gap-2">
             <h3 className="text-base md:text-lg font-bold text-slate-900">
@@ -115,20 +115,21 @@ export default function TodoListWidget({
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold self-start sm:self-auto">
+        <div className="w-full sm:w-auto overflow-x-auto flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold self-start sm:self-auto">
           <button
             onClick={() => setFilter('ACTIVE')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+            className={`shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
               filter === 'ACTIVE'
                 ? 'bg-white text-indigo-700 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Perlu Dikerjakan ({activeCount})
+            <span className="sm:hidden">Aktif ({activeCount})</span>
+            <span className="hidden sm:inline">Perlu Dikerjakan ({activeCount})</span>
           </button>
           <button
             onClick={() => setFilter('COMPLETED')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+            className={`shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
               filter === 'COMPLETED'
                 ? 'bg-white text-emerald-700 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -138,7 +139,7 @@ export default function TodoListWidget({
           </button>
           <button
             onClick={() => setFilter('ALL')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+            className={`shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
               filter === 'ALL'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
