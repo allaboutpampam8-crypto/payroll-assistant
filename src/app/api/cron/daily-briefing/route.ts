@@ -20,8 +20,9 @@ export async function GET(request: Request) {
     const reports = await getAllReports();
     const todos = await getAllTodos();
 
-    // Hitung tanggal & selisih cut-off
-    const today = new Date();
+    // Hitung tanggal & selisih cut-off menggunakan zona waktu WIB (Asia/Jakarta)
+    const nowWib = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+    const today = new Date(nowWib);
     today.setHours(0, 0, 0, 0);
 
     const cutoff = new Date(settings.cutoffDate);
@@ -39,8 +40,10 @@ export async function GET(request: Request) {
       cutoffText = `sisa ${diffDays} hari lagi`;
     }
 
+    const isUploadDay = nowWib.getDate() === 26;
+
     // Format tanggal Indonesia
-    const dateFormatted = new Date().toLocaleDateString('id-ID', {
+    const dateFormatted = nowWib.toLocaleDateString('id-ID', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
@@ -64,8 +67,16 @@ export async function GET(request: Request) {
       `🤖 <i>Daily Briefing Asisten Payroll ${settings.companyName}</i>\n\n` +
       `📅 <b>Hari:</b> ${dateFormatted}\n` +
       `🗓 <b>Periode:</b> ${settings.activePeriod}\n` +
-      `⏳ <b>Cut-Off Payroll:</b> ${settings.cutoffDate} (${cutoffText})\n\n` +
-      `━━━━━━━━━━━━━━━━━━━\n` +
+      `⏳ <b>Cut-Off Payroll:</b> ${settings.cutoffDate} (${cutoffText})\n`;
+
+    if (isUploadDay) {
+      message +=
+        `\n🔔 <b>JADWAL PENTING HARI INI (TGL 26):</b>\n` +
+        `<i>Waktunya mengunggah rekapitulasi data hasil payroll dari ERP ke dashboard web agar bot & komparasi siap digunakan!</i>\n`;
+    }
+
+    message +=
+      `\n━━━━━━━━━━━━━━━━━━━\n` +
       `📋 <b>STATUS TIKET LAPORAN:</b>\n` +
       `• 🟡 <b>Open (Baru):</b> ${openReports.length} laporan\n` +
       `• 🔵 <b>Crosscheck:</b> ${crosscheckReports.length} laporan\n` +
