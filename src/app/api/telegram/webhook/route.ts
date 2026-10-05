@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
     const rawText = message.text.trim();
     const parts = rawText.split(/\s+/);
-    const command = parts[0].toLowerCase();
+    const command = parts[0].toLowerCase().split('@')[0];
     const args = parts.slice(1);
 
     // -------------------------------------------------------------

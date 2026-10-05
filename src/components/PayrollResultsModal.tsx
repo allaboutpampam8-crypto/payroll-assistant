@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Upload,
@@ -10,6 +10,7 @@ import {
   AlertCircle,
   Loader2,
   ArrowRight,
+  ArrowLeft,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -44,6 +45,7 @@ export default function PayrollResultsModal({
   // Search & Compare States
   const [searchQuery, setSearchQuery] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [searchResults, setSearchResults] = useState<PayrollResult[]>([]);
   const [selectedResult, setSelectedResult] = useState<PayrollResult | null>(null);
   const [comparison, setComparison] = useState<PayrollComparison | null>(null);
@@ -51,8 +53,22 @@ export default function PayrollResultsModal({
 
   // Summary States
   const [summaryPeriod, setSummaryPeriod] = useState(defaultPeriod || '2026-10');
+  const [availablePeriods, setAvailablePeriods] = useState<string[]>([]);
   const [summaryData, setSummaryData] = useState<PayrollPeriodSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+
+  useEffect(() => {
+    if (defaultPeriod) {
+      setUploadPeriod(defaultPeriod);
+      setSummaryPeriod(defaultPeriod);
+    }
+  }, [defaultPeriod]);
+
+  useEffect(() => {
+    if (activeTab === 'SUMMARY' && !summaryData && !summaryLoading) {
+      handleFetchSummary(summaryPeriod);
+    }
+  }, [activeTab]);
 
   if (!isOpen) return null;
 
@@ -289,6 +305,7 @@ export default function PayrollResultsModal({
     if (!searchQuery.trim()) return;
 
     setSearchLoading(true);
+    setHasSearched(true);
     setSelectedResult(null);
     setComparison(null);
     try {
@@ -333,13 +350,18 @@ export default function PayrollResultsModal({
   // HANDLERS: SUMMARY
   // -------------------------------------------------------------
 
-  const handleFetchSummary = async () => {
+  const handleFetchSummary = async (targetPeriod?: string) => {
+    const periodToFetch = (targetPeriod || summaryPeriod).trim();
+    if (targetPeriod) setSummaryPeriod(targetPeriod);
     setSummaryLoading(true);
     try {
-      const res = await fetch(`/api/payroll-results/summary?period=${encodeURIComponent(summaryPeriod)}`);
+      const res = await fetch(`/api/payroll-results/summary?period=${encodeURIComponent(periodToFetch)}`);
       const data = await res.json();
       if (res.ok && data.success) {
         setSummaryData(data.summary);
+        if (Array.isArray(data.availablePeriods)) {
+          setAvailablePeriods(data.availablePeriods);
+        }
       } else {
         setSummaryData(null);
       }
@@ -649,6 +671,17 @@ export default function PayrollResultsModal({
                 </button>
               </form>
 
+              {/* Hasil Pencarian Kosong */}
+              {hasSearched && !searchLoading && searchResults.length === 0 && (
+                <div className="p-8 text-center rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-500 space-y-1.5 animate-in fade-in">
+                  <AlertCircle className="h-6 w-6 text-slate-400 mx-auto" />
+                  <p className="font-bold text-slate-800">Data Pegawai Tidak Ditemukan</p>
+                  <p className="max-w-md mx-auto">
+                    Tidak ditemukan data payroll untuk kata kunci <strong>&quot;{searchQuery}&quot;</strong>. Pastikan NRP atau Nama sudah tepat dan file payroll periode terkait telah diunggah.
+                  </p>
+                </div>
+              )}
+
               {/* Hasil Pencarian List */}
               {searchResults.length > 1 && !selectedResult && (
                 <div className="space-y-2">
@@ -684,6 +717,16 @@ export default function PayrollResultsModal({
               {/* Rincian Pegawai Terpilih & Komparasi Multi-Bulan */}
               {selectedResult && (
                 <div className="space-y-4 animate-in fade-in duration-200">
+                  {searchResults.length > 1 && (
+                    <button
+                      onClick={() => setSelectedResult(null)}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer transition-all"
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5" />
+                      <span>Kembali ke daftar {searchResults.length} hasil pencarian</span>
+                    </button>
+                  )}
+
                   {/* Kartu Profil Pegawai */}
                   <div className="p-4 sm:p-5 rounded-2xl bg-indigo-50/60 border border-indigo-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
@@ -940,22 +983,43 @@ export default function PayrollResultsModal({
           {/* ============================================================== */}
           {activeTab === 'SUMMARY' && (
             <div className="space-y-5">
-              <div className="flex items-center gap-3">
-                <input
-                  type="text"
-                  value={summaryPeriod}
-                  onChange={(e) => setSummaryPeriod(e.target.value)}
-                  placeholder="Ketik Periode (misal: 2026-10)..."
-                  className="rounded-xl border border-slate-200 px-3.5 py-2 text-xs sm:text-sm font-semibold outline-none focus:border-indigo-600"
-                />
-                <button
-                  onClick={handleFetchSummary}
-                  disabled={summaryLoading}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  {summaryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calendar className="h-4 w-4" />}
-                  <span>Tampilkan Rekap</span>
-                </button>
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    value={summaryPeriod}
+                    onChange={(e) => setSummaryPeriod(e.target.value)}
+                    placeholder="Ketik Periode (misal: 2026-10)..."
+                    className="rounded-xl border border-slate-200 px-3.5 py-2 text-xs sm:text-sm font-semibold outline-none focus:border-indigo-600"
+                  />
+                  <button
+                    onClick={() => handleFetchSummary()}
+                    disabled={summaryLoading}
+                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    {summaryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calendar className="h-4 w-4" />}
+                    <span>Tampilkan Rekap</span>
+                  </button>
+                </div>
+
+                {availablePeriods.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                    <span className="text-[11px] font-semibold text-slate-500">Periode Tersedia:</span>
+                    {availablePeriods.map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => handleFetchSummary(p)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                          summaryPeriod === p
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:border-indigo-200'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {summaryLoading ? (
@@ -978,21 +1042,21 @@ export default function PayrollResultsModal({
                     </h4>
                   </div>
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                    <span className="text-[10px] uppercase font-bold text-slate-500">Total Upah Lembur</span>
-                    <h4 className="text-xl font-bold text-slate-900 mt-1">
-                      {formatRupiah(summaryData.totalOvertime)}
-                    </h4>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
                     <span className="text-[10px] uppercase font-bold text-slate-500">Total Gaji Pokok</span>
                     <h4 className="text-xl font-bold text-slate-900 mt-1">
                       {formatRupiah(summaryData.totalBasicSalary)}
                     </h4>
                   </div>
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                    <span className="text-[10px] uppercase font-bold text-slate-500">Total Tunjangan</span>
+                    <span className="text-[10px] uppercase font-bold text-slate-500">Total Penerimaan (Tunjangan & Lembur)</span>
                     <h4 className="text-xl font-bold text-slate-900 mt-1">
                       {formatRupiah(summaryData.totalAllowances)}
+                    </h4>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                    <span className="text-[10px] uppercase font-bold text-slate-500">Sub-total Upah Lembur</span>
+                    <h4 className="text-xl font-bold text-slate-900 mt-1">
+                      {formatRupiah(summaryData.totalOvertime)}
                     </h4>
                   </div>
                   <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200">

@@ -13,6 +13,13 @@ export async function POST(request: Request) {
       );
     }
 
+    if (results.length > 2500) {
+      return NextResponse.json(
+        { success: false, message: 'Ukuran batch melebihi batas aman (maksimum 2.500 baris per batch request).' },
+        { status: 400 }
+      );
+    }
+
     const { count } = await savePayrollResultsBatch(results);
 
     return NextResponse.json({
