@@ -17,6 +17,7 @@ import {
   Check,
   ListTodo,
   ClipboardList,
+  Database,
 } from 'lucide-react';
 
 import {
@@ -33,6 +34,7 @@ import MetricsCards from '@/components/MetricsCards';
 import QuickEntryModal from '@/components/QuickEntryModal';
 import ReportDetailModal from '@/components/ReportDetailModal';
 import CutoffSettingsModal from '@/components/CutoffSettingsModal';
+import PayrollResultsModal from '@/components/PayrollResultsModal';
 import TodoListWidget from '@/components/TodoListWidget';
 import { exportReportsToExcel } from '@/lib/exportExcel';
 
@@ -70,6 +72,7 @@ export default function AssistantDashboard() {
   // Modals state
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isPayrollModalOpen, setIsPayrollModalOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<PayrollReport | null>(null);
 
   // Toast notice for copied link
@@ -267,6 +270,15 @@ export default function AssistantDashboard() {
             >
               <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-700" />
               <span>Rekap Excel</span>
+            </button>
+
+            <button
+              onClick={() => setIsPayrollModalOpen(true)}
+              title="Kelola & Cari Data Hasil Payroll 17k+ Pegawai"
+              className="hidden sm:flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100/80 px-3 py-2 text-xs font-semibold text-indigo-800 shadow-xs transition-colors cursor-pointer"
+            >
+              <Database className="h-3.5 w-3.5 text-indigo-700" />
+              <span>Data Payroll</span>
             </button>
 
             <button
@@ -743,6 +755,14 @@ export default function AssistantDashboard() {
         </button>
 
         <button
+          onClick={() => setIsPayrollModalOpen(true)}
+          className="flex items-center justify-center p-2.5 rounded-xl text-indigo-700 bg-indigo-50 border border-indigo-200 transition-all cursor-pointer"
+          title="Data Hasil Payroll"
+        >
+          <Database className="h-5 w-5" />
+        </button>
+
+        <button
           onClick={() => setIsQuickEntryOpen(true)}
           className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
         >
@@ -777,6 +797,12 @@ export default function AssistantDashboard() {
         settings={settings}
         onClose={() => setIsSettingsOpen(false)}
         onUpdated={fetchDashboardData}
+      />
+
+      <PayrollResultsModal
+        isOpen={isPayrollModalOpen}
+        onClose={() => setIsPayrollModalOpen(false)}
+        defaultPeriod={settings.activePeriod}
       />
     </div>
   );

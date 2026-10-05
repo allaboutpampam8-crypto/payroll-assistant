@@ -90,3 +90,46 @@ export interface DashboardMetrics {
   urgentCount: number;
   activeTodosCount?: number;
 }
+
+export interface PayrollResult {
+  id: string;
+  period: string; // YYYY-MM, contoh: "2026-10"
+  employeeNik: string; // NRP Pegawai
+  employeeName: string;
+  department?: string; // Project / Unit Kerja
+  positionTitle?: string; // Jabatan
+  basicSalary: number; // Gaji Pokok
+  allowances: number; // Total Tunjangan (Tetap & Tidak Tetap)
+  overtimeAmount: number; // Upah Lembur
+  deductionsBpjs: number; // Potongan BPJS (TK + Kes)
+  deductionsTgr: number; // Potongan TGR / Pinjaman
+  deductionsOther: number; // Potongan Lain-lain
+  totalDeductions: number; // Total Seluruh Potongan
+  takeHomePay: number; // Gaji Bersih (THP)
+  uploadedAt: string;
+}
+
+export interface PayrollComparison {
+  current: PayrollResult;
+  previous?: PayrollResult;
+  diff: {
+    basicSalary: number;
+    allowances: number;
+    overtimeAmount: number;
+    deductionsBpjs: number;
+    deductionsTgr: number;
+    deductionsOther: number;
+    totalDeductions: number;
+    takeHomePay: number;
+  };
+}
+
+export interface PayrollPeriodSummary {
+  period: string;
+  totalEmployees: number;
+  totalBasicSalary: number;
+  totalAllowances: number;
+  totalOvertime: number;
+  totalDeductions: number;
+  totalTakeHomePay: number;
+}

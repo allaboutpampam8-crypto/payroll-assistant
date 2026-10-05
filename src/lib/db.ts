@@ -5,6 +5,9 @@ import {
   PayrollTodo,
   PayrollSettings,
   DashboardMetrics,
+  PayrollResult,
+  PayrollComparison,
+  PayrollPeriodSummary,
 } from './types';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { sendTelegramNotification } from './telegram';
@@ -15,6 +18,7 @@ interface DatabaseSchema {
   settings: PayrollSettings;
   reports: PayrollReport[];
   todos: PayrollTodo[];
+  results?: PayrollResult[];
 }
 
 const DEFAULT_SETTINGS: PayrollSettings = {
@@ -499,3 +503,316 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     activeTodosCount,
   };
 }
+
+// -------------------------------------------------------------
+// PAYROLL RESULTS (DATA GAJI BULANAN & INTELIJEN KOMPARASI)
+// -------------------------------------------------------------
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapPayrollResultFromRow(row: any): PayrollResult {
+  return {
+    id: row.id,
+    period: row.period,
+    employeeNik: row.employee_nik,
+    employeeName: row.employee_name,
+    department: row.department || '',
+    positionTitle: row.position_title || '',
+    basicSalary: Number(row.basic_salary) || 0,
+    allowances: Number(row.allowances) || 0,
+    overtimeAmount: Number(row.overtime_amount) || 0,
+    deductionsBpjs: Number(row.deductions_bpjs) || 0,
+    deductionsTgr: Number(row.deductions_tgr) || 0,
+    deductionsOther: Number(row.deductions_other) || 0,
+    totalDeductions: Number(row.total_deductions) || 0,
+    takeHomePay: Number(row.take_home_pay) || 0,
+    uploadedAt: row.uploaded_at || new Date().toISOString(),
+  };
+}
+
+export async function savePayrollResultsBatch(
+  results: Omit<PayrollResult, 'id' | 'uploadedAt'>[]
+): Promise<{ count: number }> {
+  if (results.length === 0) return { count: 0 };
+
+  if (isSupabaseConfigured && supabase) {
+    const rows = results.map((r) => ({
+      period: r.period,
+      employee_nik: r.employeeNik,
+      employee_name: r.employeeName,
+      department: r.department || null,
+      position_title: r.positionTitle || null,
+      basic_salary: r.basicSalary,
+      allowances: r.allowances,
+      overtime_amount: r.overtimeAmount,
+      deductions_bpjs: r.deductionsBpjs,
+      deductions_tgr: r.deductionsTgr,
+      deductions_other: r.deductionsOther,
+      total_deductions: r.totalDeductions,
+      take_home_pay: r.takeHomePay,
+    }));
+
+    const { error, data } = await supabase
+      .from('payroll_results')
+      .upsert(rows, { onConflict: 'period,employee_nik' })
+      .select('id');
+
+    if (error) {
+      console.error('Error saving payroll_results to Supabase:', error);
+      throw new Error(`Gagal menyimpan data gaji ke Supabase: ${error.message}`);
+    }
+
+    return { count: data ? data.length : results.length };
+  }
+
+  // Fallback to local DB
+  const local = getLocalDatabase();
+  if (!local.results) local.results = [];
+
+  for (const item of results) {
+    const existingIdx = local.results.findIndex(
+      (r) => r.period === item.period && r.employeeNik === item.employeeNik
+    );
+    const newEntry: PayrollResult = {
+      ...item,
+      id:
+        existingIdx >= 0
+          ? local.results[existingIdx].id
+          : `res_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      uploadedAt: new Date().toISOString(),
+    };
+    if (existingIdx >= 0) {
+      local.results[existingIdx] = newEntry;
+    } else {
+      local.results.push(newEntry);
+    }
+  }
+
+  saveLocalDatabase(local);
+  return { count: results.length };
+}
+
+export async function getPayrollResultByNik(
+  nik: string,
+  period?: string
+): Promise<PayrollResult | null> {
+  const cleanNik = nik.trim();
+  if (!cleanNik) return null;
+
+  if (isSupabaseConfigured && supabase) {
+    let query = supabase
+      .from('payroll_results')
+      .select('*')
+      .eq('employee_nik', cleanNik);
+
+    if (period) {
+      query = query.eq('period', period);
+    } else {
+      query = query.order('period', { ascending: false }).limit(1);
+    }
+
+    const { data, error } = await query;
+    if (!error && data && data.length > 0) {
+      return mapPayrollResultFromRow(data[0]);
+    }
+    return null;
+  }
+
+  const local = getLocalDatabase();
+  const list = (local.results || []).filter((r) => r.employeeNik === cleanNik);
+  if (list.length === 0) return null;
+
+  if (period) {
+    const found = list.find((r) => r.period === period);
+    return found || null;
+  }
+
+  list.sort((a, b) => b.period.localeCompare(a.period));
+  return list[0];
+}
+
+export async function getPayrollResultsByName(
+  nameQuery: string,
+  period?: string
+): Promise<PayrollResult[]> {
+  const cleanQuery = nameQuery.trim().toLowerCase();
+  if (!cleanQuery) return [];
+
+  if (isSupabaseConfigured && supabase) {
+    let query = supabase
+      .from('payroll_results')
+      .select('*')
+      .ilike('employee_name', `%${cleanQuery}%`);
+
+    if (period) {
+      query = query.eq('period', period);
+    } else {
+      query = query.order('period', { ascending: false });
+    }
+
+    const { data, error } = await query.limit(10);
+    if (!error && data) {
+      return data.map(mapPayrollResultFromRow);
+    }
+    return [];
+  }
+
+  const local = getLocalDatabase();
+  const list = (local.results || []).filter((r) =>
+    r.employeeName.toLowerCase().includes(cleanQuery)
+  );
+  if (period) {
+    return list.filter((r) => r.period === period).slice(0, 10);
+  }
+  return list.slice(0, 10);
+}
+
+export async function comparePayrollResults(
+  nik: string,
+  period1?: string,
+  period2?: string
+): Promise<PayrollComparison | null> {
+  const cleanNik = nik.trim();
+  if (!cleanNik) return null;
+
+  let current: PayrollResult | null = null;
+  let previous: PayrollResult | null = null;
+
+  if (period1 && period2) {
+    current = await getPayrollResultByNik(cleanNik, period2);
+    previous = await getPayrollResultByNik(cleanNik, period1);
+  } else if (period1) {
+    current = await getPayrollResultByNik(cleanNik, period1);
+  } else {
+    // Ambil 2 periode terakhir
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase
+        .from('payroll_results')
+        .select('*')
+        .eq('employee_nik', cleanNik)
+        .order('period', { ascending: false })
+        .limit(2);
+
+      if (!error && data && data.length > 0) {
+        current = mapPayrollResultFromRow(data[0]);
+        if (data.length > 1) {
+          previous = mapPayrollResultFromRow(data[1]);
+        }
+      }
+    } else {
+      const local = getLocalDatabase();
+      const list = (local.results || [])
+        .filter((r) => r.employeeNik === cleanNik)
+        .sort((a, b) => b.period.localeCompare(a.period));
+
+      if (list.length > 0) {
+        current = list[0];
+        if (list.length > 1) previous = list[1];
+      }
+    }
+  }
+
+  if (!current) return null;
+
+  const prev = previous || {
+    id: '',
+    period: '',
+    employeeNik: current.employeeNik,
+    employeeName: current.employeeName,
+    basicSalary: 0,
+    allowances: 0,
+    overtimeAmount: 0,
+    deductionsBpjs: 0,
+    deductionsTgr: 0,
+    deductionsOther: 0,
+    totalDeductions: 0,
+    takeHomePay: 0,
+    uploadedAt: '',
+  };
+
+  return {
+    current,
+    previous: previous || undefined,
+    diff: {
+      basicSalary: current.basicSalary - prev.basicSalary,
+      allowances: current.allowances - prev.allowances,
+      overtimeAmount: current.overtimeAmount - prev.overtimeAmount,
+      deductionsBpjs: current.deductionsBpjs - prev.deductionsBpjs,
+      deductionsTgr: current.deductionsTgr - prev.deductionsTgr,
+      deductionsOther: current.deductionsOther - prev.deductionsOther,
+      totalDeductions: current.totalDeductions - prev.totalDeductions,
+      takeHomePay: current.takeHomePay - prev.takeHomePay,
+    },
+  };
+}
+
+export async function getPayrollPeriodSummary(
+  period: string
+): Promise<PayrollPeriodSummary | null> {
+  if (isSupabaseConfigured && supabase) {
+    const { data, error } = await supabase
+      .from('payroll_results')
+      .select('basic_salary, allowances, overtime_amount, total_deductions, take_home_pay')
+      .eq('period', period);
+
+    if (error || !data || data.length === 0) return null;
+
+    let totalBasicSalary = 0;
+    let totalAllowances = 0;
+    let totalOvertime = 0;
+    let totalDeductions = 0;
+    let totalTakeHomePay = 0;
+
+    for (const r of data) {
+      totalBasicSalary += Number(r.basic_salary) || 0;
+      totalAllowances += Number(r.allowances) || 0;
+      totalOvertime += Number(r.overtime_amount) || 0;
+      totalDeductions += Number(r.total_deductions) || 0;
+      totalTakeHomePay += Number(r.take_home_pay) || 0;
+    }
+
+    return {
+      period,
+      totalEmployees: data.length,
+      totalBasicSalary,
+      totalAllowances,
+      totalOvertime,
+      totalDeductions,
+      totalTakeHomePay,
+    };
+  }
+
+  const local = getLocalDatabase();
+  const list = (local.results || []).filter((r) => r.period === period);
+  if (list.length === 0) return null;
+
+  return {
+    period,
+    totalEmployees: list.length,
+    totalBasicSalary: list.reduce((acc, r) => acc + r.basicSalary, 0),
+    totalAllowances: list.reduce((acc, r) => acc + r.allowances, 0),
+    totalOvertime: list.reduce((acc, r) => acc + r.overtimeAmount, 0),
+    totalDeductions: list.reduce((acc, r) => acc + r.totalDeductions, 0),
+    totalTakeHomePay: list.reduce((acc, r) => acc + r.takeHomePay, 0),
+  };
+}
+
+export async function getAvailablePayrollPeriods(): Promise<string[]> {
+  if (isSupabaseConfigured && supabase) {
+    const { data, error } = await supabase
+      .from('payroll_results')
+      .select('period')
+      .order('period', { ascending: false });
+
+    if (!error && data) {
+      const set = new Set<string>();
+      data.forEach((r) => set.add(r.period));
+      return Array.from(set);
+    }
+  }
+
+  const local = getLocalDatabase();
+  const set = new Set<string>();
+  (local.results || []).forEach((r) => set.add(r.period));
+  return Array.from(set).sort().reverse();
+}
+
