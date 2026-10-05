@@ -86,15 +86,25 @@ export default function PayrollResultsModal({
           return;
         }
 
-        // Helper normalize keys
+        // Helper normalize keys & dynamic allowance/deduction extractor
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const mapped: Omit<PayrollResult, 'id' | 'uploadedAt'>[] = rawJson.map((row: any) => {
-          const keys = Object.keys(row);
+          // Clean keys from trailing/leading whitespace
+          const cleanRow: Record<string, unknown> = {};
+          for (const key of Object.keys(row)) {
+            cleanRow[key.trim()] = row[key];
+          }
+
+          const keys = Object.keys(cleanRow);
           const getVal = (possibleNames: string[]) => {
-            const foundKey = keys.find((k) =>
-              possibleNames.some((name) => k.toLowerCase().replace(/[^a-z0-9]/g, '').includes(name.toLowerCase().replace(/[^a-z0-9]/g, '')))
-            );
-            return foundKey ? row[foundKey] : '';
+            const foundKey = keys.find((k) => {
+              const normalizedK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+              return possibleNames.some((name) =>
+                normalizedK === name.toLowerCase().replace(/[^a-z0-9]/g, '') ||
+                normalizedK.includes(name.toLowerCase().replace(/[^a-z0-9]/g, ''))
+              );
+            });
+            return foundKey ? cleanRow[foundKey] : '';
           };
 
           const parseNum = (val: unknown) => {
@@ -106,41 +116,112 @@ export default function PayrollResultsModal({
           };
 
           const nik = String(getVal(['nrp', 'nik', 'nopeg', 'nip', 'pegawai_id']) || '').trim();
-          const name = String(getVal(['nama', 'name', 'nama_lengkap', 'pegawai']) || '').trim();
-          const dept = String(getVal(['project', 'departemen', 'unit', 'divisi', 'cabang']) || '').trim();
-          const pos = String(getVal(['jabatan', 'position', 'grade']) || '').trim();
+          const name = String(getVal(['employee', 'nama', 'name', 'nama_lengkap', 'pegawai']) || '').trim();
+          const status = String(getVal(['status']) || '').trim();
+          const dept = String(getVal(['cost center', 'costcenter', 'project', 'departemen', 'unit', 'divisi']) || '').trim();
+          const pos = String(getVal(['job formation', 'jobformation', 'jabatan', 'position']) || '').trim();
 
-          const basic = parseNum(getVal(['gaji_pokok', 'gapok', 'pokok', 'basic']));
-          const allow = parseNum(getVal(['tunjangan', 'total_tunjangan', 'allowance']));
-          const ot = parseNum(getVal(['lembur', 'overtime', 'upah_lembur']));
-          const bpjs = parseNum(getVal(['bpjs', 'potongan_bpjs', 'jamsostek']));
-          const tgr = parseNum(getVal(['tgr', 'potongan_tgr', 'ganti_rugi', 'pinjaman']));
-          const other = parseNum(getVal(['potongan_lain', 'potongan_lainnya', 'lain_lain', 'lain']));
+          const basic = parseNum(getVal(['upah pokok', 'upahpokok', 'gaji pokok', 'gajipokok', 'gapok', 'pokok', 'basic']));
+          const gross = parseNum(getVal(['jumlah kotor', 'jumlahkotor', 'gross', 'kotor']));
+          const totalDeductCol = parseNum(getVal(['jumlah potongan', 'jumlahpotongan', 'total potongan', 'totalpotongan']));
 
-          let totalDeduct = parseNum(getVal(['total_potongan', 'potongan']));
-          if (!totalDeduct && (bpjs || tgr || other)) {
-            totalDeduct = bpjs + tgr + other;
+          // Parse dynamic 92 allowances and deductions
+          const allowanceDetails: Record<string, number> = {};
+          const deductionDetails: Record<string, number> = {};
+          let overtimeAmount = 0;
+          let deductionsBpjs = 0;
+          let deductionsTgr = 0;
+          let deductionsOther = 0;
+
+          const nonAllowanceCols = [
+            'nrp', 'nik', 'employee', 'nama', 'status', 'job formation', 'cost center',
+            'upah pokok', 'jumlah kotor', 'jumlah potongan', 'grand total', 'biaya pengelolaan',
+            'management fee', 'total', 'thp', 'take home pay'
+          ];
+
+          for (const rawCol of keys) {
+            const valNum = parseNum(cleanRow[rawCol]);
+            const lowerCol = rawCol.toLowerCase();
+
+            // Skip standard identity and summary columns
+            if (nonAllowanceCols.some((sc) => lowerCol === sc || lowerCol.replace(/\s+/g, '') === sc.replace(/\s+/g, ''))) {
+              continue;
+            }
+
+            // Company contributions / Management Fee (Don't put into personal employee earnings)
+            if (lowerCol.includes('contribution') || lowerCol.includes('management fee') || lowerCol.includes('biaya pengelolaan')) {
+              continue;
+            }
+
+            // Lembur / Overtime columns
+            if (lowerCol.includes('lembur')) {
+              if (valNum > 0) {
+                overtimeAmount += valNum;
+                allowanceDetails[rawCol] = valNum;
+              }
+              continue;
+            }
+
+            // Potongan / Deductions columns
+            if (
+              lowerCol.includes('potongan') ||
+              lowerCol.includes('jaminan') ||
+              lowerCol.includes('bpjs') ||
+              lowerCol.includes('hutang') ||
+              lowerCol.includes('iuran') ||
+              lowerCol.includes('simpanan') ||
+              lowerCol.includes('dplk')
+            ) {
+              if (valNum > 0) {
+                deductionDetails[rawCol] = valNum;
+                if (lowerCol.includes('jaminan') || lowerCol.includes('bpjs')) {
+                  deductionsBpjs += valNum;
+                } else if (lowerCol.includes('ganti rugi') || lowerCol.includes('tgr')) {
+                  deductionsTgr += valNum;
+                } else {
+                  deductionsOther += valNum;
+                }
+              }
+              continue;
+            }
+
+            // All other earnings (Tunjangan, Bantuan, Insentif, Premi, Extra Fooding, Rapel, dll.)
+            if (valNum > 0) {
+              allowanceDetails[rawCol] = valNum;
+            }
           }
 
-          let thp = parseNum(getVal(['thp', 'take_home_pay', 'gaji_bersih', 'diterima']));
-          if (!thp) {
-            thp = basic + allow + ot - totalDeduct;
+          // Total allowances is the sum of non-overtime items
+          let totalAllowances = 0;
+          for (const [k, v] of Object.entries(allowanceDetails)) {
+            if (!k.toLowerCase().includes('lembur')) {
+              totalAllowances += v;
+            }
           }
+
+          const sumDeductions = Object.values(deductionDetails).reduce((acc, curr) => acc + curr, 0);
+          const totalDeductions = totalDeductCol > 0 ? totalDeductCol : sumDeductions;
+          const grossSalary = gross > 0 ? gross : (basic + totalAllowances + overtimeAmount);
+          const takeHomePay = grossSalary - totalDeductions;
 
           return {
             period: uploadPeriod.trim(),
             employeeNik: nik || 'NON-NRP',
             employeeName: name || 'Tanpa Nama',
+            status,
             department: dept,
             positionTitle: pos,
             basicSalary: basic,
-            allowances: allow,
-            overtimeAmount: ot,
-            deductionsBpjs: bpjs,
-            deductionsTgr: tgr,
-            deductionsOther: other,
-            totalDeductions: totalDeduct,
-            takeHomePay: thp,
+            allowances: totalAllowances,
+            overtimeAmount,
+            grossSalary,
+            deductionsBpjs,
+            deductionsTgr,
+            deductionsOther,
+            totalDeductions,
+            takeHomePay,
+            allowanceDetails,
+            deductionDetails,
           };
         });
 
@@ -773,6 +854,78 @@ export default function PayrollResultsModal({
                           </tbody>
                         </table>
                       </div>
+
+                      {/* Rincian Komponen Tunjangan Terinci (92 Jenis) */}
+                      {selectedResult.allowanceDetails && Object.keys(selectedResult.allowanceDetails).length > 0 && (
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+                          <h6 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                            🎁 Rincian Komponen Tunjangan yang Diterima ({Object.keys(selectedResult.allowanceDetails).length} jenis)
+                          </h6>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                            {Object.entries(selectedResult.allowanceDetails).map(([name, val]) => {
+                              const diffInfo = comparison?.diff?.allowanceDiffs?.[name];
+                              return (
+                                <div
+                                  key={name}
+                                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100"
+                                >
+                                  <span className="font-medium text-slate-700 truncate pr-2" title={name}>
+                                    {name}
+                                  </span>
+                                  <div className="text-right shrink-0">
+                                    <span className="font-bold text-slate-900">{formatRupiah(val)}</span>
+                                    {diffInfo && diffInfo.diff !== 0 && (
+                                      <span
+                                        className={`ml-1.5 text-[10px] font-bold ${
+                                          diffInfo.diff > 0 ? 'text-emerald-600' : 'text-rose-600'
+                                        }`}
+                                      >
+                                        {diffInfo.diff > 0 ? '+' : ''}{formatRupiah(diffInfo.diff)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Rincian Komponen Potongan Terinci */}
+                      {selectedResult.deductionDetails && Object.keys(selectedResult.deductionDetails).length > 0 && (
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+                          <h6 className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+                            ✂️ Rincian Komponen Potongan ({Object.keys(selectedResult.deductionDetails).length} jenis)
+                          </h6>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                            {Object.entries(selectedResult.deductionDetails).map(([name, val]) => {
+                              const diffInfo = comparison?.diff?.deductionDiffs?.[name];
+                              return (
+                                <div
+                                  key={name}
+                                  className="flex items-center justify-between p-2.5 rounded-xl bg-rose-50/50 border border-rose-100"
+                                >
+                                  <span className="font-medium text-slate-700 truncate pr-2" title={name}>
+                                    {name}
+                                  </span>
+                                  <div className="text-right shrink-0">
+                                    <span className="font-bold text-rose-700">-{formatRupiah(val)}</span>
+                                    {diffInfo && diffInfo.diff !== 0 && (
+                                      <span
+                                        className={`ml-1.5 text-[10px] font-bold ${
+                                          diffInfo.diff > 0 ? 'text-rose-600' : 'text-emerald-600'
+                                        }`}
+                                      >
+                                        {diffInfo.diff > 0 ? 'Naik ' : 'Turun '}{formatRupiah(Math.abs(diffInfo.diff))}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : null}
                 </div>

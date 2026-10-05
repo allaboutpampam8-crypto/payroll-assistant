@@ -4,11 +4,12 @@ import {
   getPayrollResultsByName,
   comparePayrollResults,
   getPayrollPeriodSummary,
+  comparePayrollPeriodSummaries,
   getAllReports,
   getAllTodos,
   getSettings,
 } from '@/lib/db';
-import { sendTelegramNotification } from '@/lib/telegram';
+import { sendTelegramMessage } from '@/lib/telegram';
 
 function formatRupiah(num: number): string {
   return 'Rp ' + Number(num || 0).toLocaleString('id-ID');
@@ -28,7 +29,8 @@ export async function POST(request: Request) {
 
     // Keamanan: Hanya respon jika dikirim oleh pemilik akun bot (Pak Pampam)
     if (authorizedChatId && chatId !== authorizedChatId) {
-      await sendTelegramNotification(
+      await sendTelegramMessage(
+        chatId,
         '⛔ <b>Akses Ditolak</b>\nBot ini hanya diperuntukkan bagi PIC Payroll PT Pelindo Daya Sejahtera.'
       );
       return NextResponse.json({ ok: true });
@@ -40,20 +42,25 @@ export async function POST(request: Request) {
     const args = parts.slice(1);
 
     // -------------------------------------------------------------
-    // COMMAND: /start atau /help
+    // COMMAND: /start, /help, /menu
     // -------------------------------------------------------------
     if (command === '/start' || command === '/help' || command === '/menu') {
       const helpMsg =
         `👋 <b>Halo, Pak Pampam!</b>\n` +
         `🤖 <i>Asisten Intelijen Payroll PT Pelindo Daya Sejahtera</i>\n\n` +
         `Berikut perintah yang siap Anda gunakan kapan saja:\n\n` +
-        `🔍 <b>CEK GAJI PEGAWAI:</b>\n` +
+        `🔍 <b>CEK RINCIAN GAJI PEGAWAI:</b>\n` +
         `• <code>/cek [nrp/nama]</code>\n` +
-        `  <i>Contoh: /cek 98123 atau /cek Budi</i>\n\n` +
-        `⚖️ <b>KOMPARASI GAJI MULTI-BULAN:</b>\n` +
+        `  <i>Contoh: /cek 98123 atau /cek Budi</i>\n` +
+        `  (Menampilkan rincian Gapok, Lembur, 92 Komponen Tunjangan, Potongan & THP)\n\n` +
+        `⚖️ <b>KOMPARASI GAJI PEGAWAI (MULTI-BULAN):</b>\n` +
         `• <code>/banding [nrp]</code>\n` +
         `  <i>Contoh: /banding 98123</i>\n` +
-        `  (Menganalisis selisih komponen gaji bulan ini vs bulan lalu)\n\n` +
+        `  (Menganalisis selisih THP & komponen tunjangan/lembur bulan ini vs lalu)\n\n` +
+        `🏢 <b>KOMPARASI MAKRO RAPAT ATASAN:</b>\n` +
+        `• <code>/bandingtotal [bulan1] [bulan2]</code>\n` +
+        `  <i>Contoh: /bandingtotal 2026-09 2026-10</i>\n` +
+        `  (Analisa perbandingan beban payroll perusahaan antar bulan untuk pimpinan)\n\n` +
         `📊 <b>REKAP TOTAL BULANAN:</b>\n` +
         `• <code>/total [periode]</code>\n` +
         `  <i>Contoh: /total atau /total 2026-10</i>\n\n` +
@@ -63,7 +70,7 @@ export async function POST(request: Request) {
         `━━━━━━━━━━━━━━━━━━━\n` +
         `<i>Ketik perintah langsung di chat ini untuk mencoba! 🚀</i>`;
 
-      await sendTelegramNotification(helpMsg);
+      await sendTelegramMessage(chatId, helpMsg);
       return NextResponse.json({ ok: true });
     }
 
@@ -72,7 +79,8 @@ export async function POST(request: Request) {
     // -------------------------------------------------------------
     if (command === '/cek' || command === '/gaji') {
       if (args.length === 0) {
-        await sendTelegramNotification(
+        await sendTelegramMessage(
+          chatId,
           '⚠️ <b>Format Perintah:</b>\nKetik: <code>/cek [NRP atau Nama]</code>\nContoh: <code>/cek 98123</code> atau <code>/cek Budi</code>'
         );
         return NextResponse.json({ ok: true });
@@ -90,31 +98,57 @@ export async function POST(request: Request) {
       }
 
       if (!item) {
-        await sendTelegramNotification(
+        await sendTelegramMessage(
+          chatId,
           `🔍 <b>Data Tidak Ditemukan</b>\nTidak ditemukan data payroll untuk <code>${query}</code>.\nPastikan NRP/Nama benar atau file payroll bulan terkait sudah diunggah di web.`
         );
         return NextResponse.json({ ok: true });
       }
 
-      const msg =
+      // Format Rincian Tunjangan Aktif (> 0)
+      const allowances = Object.entries(item.allowanceDetails || {})
+        .filter(([, v]) => Number(v) > 0)
+        .map(([name, val]) => `• ${name}: <b>${formatRupiah(val)}</b>`);
+
+      // Format Rincian Potongan Aktif (> 0)
+      const deductions = Object.entries(item.deductionDetails || {})
+        .filter(([, v]) => Number(v) > 0)
+        .map(([name, val]) => `• ${name}: -${formatRupiah(val)}`);
+
+      let msg =
         `👤 <b>RINCIAN GAJI PEGAWAI</b>\n` +
         `━━━━━━━━━━━━━━━━━━━\n` +
         `<b>Nama:</b> ${item.employeeName}\n` +
-        `<b>NRP:</b> <code>${item.employeeNik}</code>\n` +
-        `<b>Project:</b> ${item.department || '-'}\n` +
+        `<b>NRP:</b> <code>${item.employeeNik}</code> ${item.status ? `| ${item.status}` : ''}\n` +
+        `<b>Jabatan:</b> ${item.positionTitle || '-'}\n` +
+        `<b>Unit / Project:</b> ${item.department || '-'}\n` +
         `<b>Periode:</b> ${item.period}\n` +
         `━━━━━━━━━━━━━━━━━━━\n` +
-        `• <b>Gaji Pokok:</b> ${formatRupiah(item.basicSalary)}\n` +
-        `• <b>Tunjangan:</b> ${formatRupiah(item.allowances)}\n` +
-        `• <b>Lembur:</b> ${formatRupiah(item.overtimeAmount)}\n` +
-        `• <b>Potongan BPJS:</b> -${formatRupiah(item.deductionsBpjs)}\n` +
-        `• <b>Potongan TGR/Lain:</b> -${formatRupiah(item.deductionsTgr + item.deductionsOther)}\n` +
+        `• <b>Upah Pokok:</b> ${formatRupiah(item.basicSalary)}\n` +
+        `• <b>Total Tunjangan:</b> ${formatRupiah(item.allowances)}\n` +
+        `• <b>Upah Lembur:</b> ${formatRupiah(item.overtimeAmount)}\n` +
+        `• <b>Jumlah Kotor:</b> ${formatRupiah(item.grossSalary || (item.basicSalary + item.allowances + item.overtimeAmount))}\n` +
         `• <b>Total Potongan:</b> -${formatRupiah(item.totalDeductions)}\n` +
         `━━━━━━━━━━━━━━━━━━━\n` +
-        `💰 <b>Take Home Pay (THP):</b> <b>${formatRupiah(item.takeHomePay)}</b>\n\n` +
-        `<i>💡 Ketik <code>/banding ${item.employeeNik}</code> untuk melihat perbandingan dengan bulan lalu.</i>`;
+        `💰 <b>Take Home Pay (THP):</b> <b>${formatRupiah(item.takeHomePay)}</b>\n`;
 
-      await sendTelegramNotification(msg);
+      if (allowances.length > 0) {
+        msg +=
+          `\n🎁 <b>RINCIAN TUNJANGAN DITERIMA:</b>\n` +
+          allowances.slice(0, 15).join('\n') +
+          (allowances.length > 15 ? `\n<i>...dan ${allowances.length - 15} tunjangan lainnya (cek web)</i>` : '');
+      }
+
+      if (deductions.length > 0) {
+        msg +=
+          `\n\n✂️ <b>RINCIAN POTONGAN:</b>\n` +
+          deductions.slice(0, 10).join('\n') +
+          (deductions.length > 10 ? `\n<i>...dan ${deductions.length - 10} potongan lainnya</i>` : '');
+      }
+
+      msg += `\n\n<i>💡 Ketik <code>/banding ${item.employeeNik}</code> untuk melihat perbandingan dengan bulan lalu.</i>`;
+
+      await sendTelegramMessage(chatId, msg);
       return NextResponse.json({ ok: true });
     }
 
@@ -123,7 +157,8 @@ export async function POST(request: Request) {
     // -------------------------------------------------------------
     if (command === '/banding' || command === '/komparasi') {
       if (args.length === 0) {
-        await sendTelegramNotification(
+        await sendTelegramMessage(
+          chatId,
           '⚠️ <b>Format Perintah:</b>\nKetik: <code>/banding [NRP]</code>\nContoh: <code>/banding 98123</code>'
         );
         return NextResponse.json({ ok: true });
@@ -136,7 +171,8 @@ export async function POST(request: Request) {
       const comp = await comparePayrollResults(nik, p1, p2);
 
       if (!comp) {
-        await sendTelegramNotification(
+        await sendTelegramMessage(
+          chatId,
           `🔍 <b>Data Tidak Ditemukan</b>\nTidak ditemukan histori data payroll untuk NRP <code>${nik}</code>.`
         );
         return NextResponse.json({ ok: true });
@@ -162,19 +198,92 @@ export async function POST(request: Request) {
           `• <b>THP Periode Ini:</b> ${formatRupiah(current.takeHomePay)}`;
       } else {
         msg +=
-          `• <b>Gaji Pokok:</b> ${formatRupiah(previous.basicSalary)} ➔ ${formatRupiah(current.basicSalary)} ${formatDiff(diff.basicSalary)}\n` +
-          `• <b>Tunjangan:</b> ${formatRupiah(previous.allowances)} ➔ ${formatRupiah(current.allowances)} ${formatDiff(diff.allowances)}\n` +
+          `• <b>Upah Pokok:</b> ${formatRupiah(previous.basicSalary)} ➔ ${formatRupiah(current.basicSalary)} ${formatDiff(diff.basicSalary)}\n` +
+          `• <b>Total Tunjangan:</b> ${formatRupiah(previous.allowances)} ➔ ${formatRupiah(current.allowances)} ${formatDiff(diff.allowances)}\n` +
           `• <b>Upah Lembur:</b> ${formatRupiah(previous.overtimeAmount)} ➔ ${formatRupiah(current.overtimeAmount)} ${formatDiff(diff.overtimeAmount)}\n` +
           `• <b>Total Potongan:</b> -${formatRupiah(previous.totalDeductions)} ➔ -${formatRupiah(current.totalDeductions)} ${formatDiff(diff.totalDeductions)}\n` +
           `━━━━━━━━━━━━━━━━━━━\n` +
           `💰 <b>Take Home Pay (THP):</b>\n` +
           `• Bulan Lalu (${previous.period}): ${formatRupiah(previous.takeHomePay)}\n` +
           `• Bulan Ini (${current.period}): <b>${formatRupiah(current.takeHomePay)}</b>\n` +
-          `• <b>Selisih THP:</b> ${formatDiff(diff.takeHomePay)}\n\n` +
-          `<i>💡 Rekomendasi: Periksa pos lembur atau potongan jika terdapat penurunan THP.</i>`;
+          `• <b>Selisih THP:</b> ${formatDiff(diff.takeHomePay)}\n`;
+
+        // Drill-Down: Detail Perubahan Tunjangan Spesifik
+        const changedAllowances = Object.entries(diff.allowanceDiffs || {})
+          .filter(([, d]) => d.diff !== 0)
+          .map(([k, d]) => `• <b>${k}:</b> ${formatRupiah(d.prev)} ➔ ${formatRupiah(d.curr)} (${formatDiff(d.diff)})`);
+
+        if (changedAllowances.length > 0) {
+          msg +=
+            `\n🔍 <b>DETAIL PERUBAHAN TUNJANGAN:</b>\n` +
+            changedAllowances.slice(0, 10).join('\n') +
+            (changedAllowances.length > 10 ? `\n<i>...dan ${changedAllowances.length - 10} perubahan lainnya</i>` : '');
+        }
+
+        // Drill-Down: Detail Perubahan Potongan Spesifik
+        const changedDeductions = Object.entries(diff.deductionDiffs || {})
+          .filter(([, d]) => d.diff !== 0)
+          .map(([k, d]) => `• <b>${k}:</b> ${formatRupiah(d.prev)} ➔ ${formatRupiah(d.curr)} (${formatDiff(d.diff)})`);
+
+        if (changedDeductions.length > 0) {
+          msg +=
+            `\n\n✂️ <b>DETAIL PERUBAHAN POTONGAN:</b>\n` +
+            changedDeductions.slice(0, 5).join('\n');
+        }
       }
 
-      await sendTelegramNotification(msg);
+      await sendTelegramMessage(chatId, msg);
+      return NextResponse.json({ ok: true });
+    }
+
+    // -------------------------------------------------------------
+    // COMMAND: /bandingtotal [bln1] [bln2] (PRD Tabel 4.1)
+    // -------------------------------------------------------------
+    if (command === '/bandingtotal' || command === '/komparasitotal') {
+      if (args.length < 2) {
+        await sendTelegramMessage(
+          chatId,
+          '⚠️ <b>Format Perintah:</b>\nKetik: <code>/bandingtotal [Bulan1] [Bulan2]</code>\nContoh: <code>/bandingtotal 2026-09 2026-10</code>'
+        );
+        return NextResponse.json({ ok: true });
+      }
+
+      const p1 = args[0].trim();
+      const p2 = args[1].trim();
+
+      const comp = await comparePayrollPeriodSummaries(p1, p2);
+      if (!comp) {
+        await sendTelegramMessage(
+          chatId,
+          `📊 <b>Data Belum Lengkap</b>\nTidak dapat menemukan data rekap untuk salah satu/kedua periode: <code>${p1}</code> atau <code>${p2}</code>.\nPastikan file Excel kedua bulan tersebut sudah diunggah di web.`
+        );
+        return NextResponse.json({ ok: true });
+      }
+
+      const { p1Summary, p2Summary, diff } = comp;
+      const formatDiff = (val: number) => {
+        if (val === 0) return '<i>(Tetap)</i>';
+        if (val > 0) return `🔺 <b>+${formatRupiah(val)}</b>`;
+        return `🔻 <b>-${formatRupiah(Math.abs(val))}</b>`;
+      };
+
+      const msg =
+        `🏢 <b>KOMPARASI MAKRO PAYROLL PERUSAHAAN</b>\n` +
+        `<b>Periode:</b> ${p1Summary.period} ➔ ${p2Summary.period}\n` +
+        `━━━━━━━━━━━━━━━━━━━\n` +
+        `• 👥 <b>Jumlah Pegawai:</b> ${p1Summary.totalEmployees.toLocaleString('id-ID')} ➔ ${p2Summary.totalEmployees.toLocaleString('id-ID')} (${diff.totalEmployees >= 0 ? `+${diff.totalEmployees}` : diff.totalEmployees})\n` +
+        `• 💵 <b>Total Gaji Pokok:</b> ${formatRupiah(p1Summary.totalBasicSalary)} ➔ ${formatRupiah(p2Summary.totalBasicSalary)} ${formatDiff(diff.totalBasicSalary)}\n` +
+        `• 🎁 <b>Total Tunjangan:</b> ${formatRupiah(p1Summary.totalAllowances)} ➔ ${formatRupiah(p2Summary.totalAllowances)} ${formatDiff(diff.totalAllowances)}\n` +
+        `• ⏰ <b>Total Upah Lembur:</b> ${formatRupiah(p1Summary.totalOvertime)} ➔ ${formatRupiah(p2Summary.totalOvertime)} ${formatDiff(diff.totalOvertime)}\n` +
+        `• ✂️ <b>Total Potongan:</b> -${formatRupiah(p1Summary.totalDeductions)} ➔ -${formatRupiah(p2Summary.totalDeductions)} ${formatDiff(diff.totalDeductions)}\n` +
+        `━━━━━━━━━━━━━━━━━━━\n` +
+        `💰 <b>TOTAL PENGELUARAN THP:</b>\n` +
+        `• ${p1Summary.period}: ${formatRupiah(p1Summary.totalTakeHomePay)}\n` +
+        `• ${p2Summary.period}: <b>${formatRupiah(p2Summary.totalTakeHomePay)}</b>\n` +
+        `• <b>Selisih Beban:</b> ${formatDiff(diff.totalTakeHomePay)}\n\n` +
+        `<i>💡 Analisis siap digunakan sebagai bahan laporan dan rapat direksi/atasan.</i>`;
+
+      await sendTelegramMessage(chatId, msg);
       return NextResponse.json({ ok: true });
     }
 
@@ -191,7 +300,8 @@ export async function POST(request: Request) {
       const summary = await getPayrollPeriodSummary(period);
 
       if (!summary) {
-        await sendTelegramNotification(
+        await sendTelegramMessage(
+          chatId,
           `📊 <b>Data Belum Tersedia</b>\nBelum ada data hasil payroll yang diunggah untuk periode <code>${period}</code>.\nSilakan unggah file Excel melalui dashboard web terlebih dahulu.`
         );
         return NextResponse.json({ ok: true });
@@ -210,7 +320,7 @@ export async function POST(request: Request) {
         `💰 <b>TOTAL PENGELUARAN THP:</b>\n` +
         `<b>${formatRupiah(summary.totalTakeHomePay)}</b>`;
 
-      await sendTelegramNotification(msg);
+      await sendTelegramMessage(chatId, msg);
       return NextResponse.json({ ok: true });
     }
 
@@ -241,7 +351,7 @@ export async function POST(request: Request) {
         `━━━━━━━━━━━━━━━━━━━\n` +
         `<i>Buka dashboard untuk detail laporan lengkap.</i>`;
 
-      await sendTelegramNotification(msg);
+      await sendTelegramMessage(chatId, msg);
       return NextResponse.json({ ok: true });
     }
 
@@ -268,12 +378,13 @@ export async function POST(request: Request) {
         }
       }
 
-      await sendTelegramNotification(msg);
+      await sendTelegramMessage(chatId, msg);
       return NextResponse.json({ ok: true });
     }
 
     // Default unknown command
-    await sendTelegramNotification(
+    await sendTelegramMessage(
+      chatId,
       `❓ <b>Perintah Tidak Dikenal</b>\nKetik <code>/help</code> untuk melihat daftar perintah yang tersedia.`
     );
     return NextResponse.json({ ok: true });

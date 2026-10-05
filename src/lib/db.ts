@@ -515,16 +515,26 @@ function mapPayrollResultFromRow(row: any): PayrollResult {
     period: row.period,
     employeeNik: row.employee_nik,
     employeeName: row.employee_name,
+    status: row.status || '',
     department: row.department || '',
     positionTitle: row.position_title || '',
     basicSalary: Number(row.basic_salary) || 0,
     allowances: Number(row.allowances) || 0,
     overtimeAmount: Number(row.overtime_amount) || 0,
+    grossSalary: Number(row.gross_salary) || 0,
     deductionsBpjs: Number(row.deductions_bpjs) || 0,
     deductionsTgr: Number(row.deductions_tgr) || 0,
     deductionsOther: Number(row.deductions_other) || 0,
     totalDeductions: Number(row.total_deductions) || 0,
     takeHomePay: Number(row.take_home_pay) || 0,
+    allowanceDetails:
+      typeof row.allowance_details === 'object' && row.allowance_details !== null
+        ? row.allowance_details
+        : {},
+    deductionDetails:
+      typeof row.deduction_details === 'object' && row.deduction_details !== null
+        ? row.deduction_details
+        : {},
     uploadedAt: row.uploaded_at || new Date().toISOString(),
   };
 }
@@ -539,16 +549,20 @@ export async function savePayrollResultsBatch(
       period: r.period,
       employee_nik: r.employeeNik,
       employee_name: r.employeeName,
+      status: r.status || null,
       department: r.department || null,
       position_title: r.positionTitle || null,
       basic_salary: r.basicSalary,
       allowances: r.allowances,
       overtime_amount: r.overtimeAmount,
-      deductions_bpjs: r.deductionsBpjs,
-      deductions_tgr: r.deductionsTgr,
-      deductions_other: r.deductionsOther,
+      gross_salary: r.grossSalary || (r.basicSalary + r.allowances + r.overtimeAmount),
+      deductions_bpjs: r.deductionsBpjs || 0,
+      deductions_tgr: r.deductionsTgr || 0,
+      deductions_other: r.deductionsOther || 0,
       total_deductions: r.totalDeductions,
       take_home_pay: r.takeHomePay,
+      allowance_details: r.allowanceDetails || {},
+      deduction_details: r.deductionDetails || {},
     }));
 
     const { error, data } = await supabase
@@ -721,13 +735,44 @@ export async function comparePayrollResults(
     basicSalary: 0,
     allowances: 0,
     overtimeAmount: 0,
+    grossSalary: 0,
     deductionsBpjs: 0,
     deductionsTgr: 0,
     deductionsOther: 0,
     totalDeductions: 0,
     takeHomePay: 0,
+    allowanceDetails: {},
+    deductionDetails: {},
     uploadedAt: '',
   };
+
+  // Compare detailed allowance components
+  const allowanceDiffs: Record<string, { prev: number; curr: number; diff: number }> = {};
+  const allAllowanceKeys = new Set([
+    ...Object.keys(prev.allowanceDetails || {}),
+    ...Object.keys(current.allowanceDetails || {}),
+  ]);
+  for (const k of allAllowanceKeys) {
+    const pVal = prev.allowanceDetails?.[k] || 0;
+    const cVal = current.allowanceDetails?.[k] || 0;
+    if (pVal !== cVal) {
+      allowanceDiffs[k] = { prev: pVal, curr: cVal, diff: cVal - pVal };
+    }
+  }
+
+  // Compare detailed deduction components
+  const deductionDiffs: Record<string, { prev: number; curr: number; diff: number }> = {};
+  const allDeductionKeys = new Set([
+    ...Object.keys(prev.deductionDetails || {}),
+    ...Object.keys(current.deductionDetails || {}),
+  ]);
+  for (const k of allDeductionKeys) {
+    const pVal = prev.deductionDetails?.[k] || 0;
+    const cVal = current.deductionDetails?.[k] || 0;
+    if (pVal !== cVal) {
+      deductionDiffs[k] = { prev: pVal, curr: cVal, diff: cVal - pVal };
+    }
+  }
 
   return {
     current,
@@ -736,11 +781,14 @@ export async function comparePayrollResults(
       basicSalary: current.basicSalary - prev.basicSalary,
       allowances: current.allowances - prev.allowances,
       overtimeAmount: current.overtimeAmount - prev.overtimeAmount,
-      deductionsBpjs: current.deductionsBpjs - prev.deductionsBpjs,
-      deductionsTgr: current.deductionsTgr - prev.deductionsTgr,
-      deductionsOther: current.deductionsOther - prev.deductionsOther,
+      grossSalary: (current.grossSalary || 0) - (prev.grossSalary || 0),
+      deductionsBpjs: (current.deductionsBpjs || 0) - (prev.deductionsBpjs || 0),
+      deductionsTgr: (current.deductionsTgr || 0) - (prev.deductionsTgr || 0),
+      deductionsOther: (current.deductionsOther || 0) - (prev.deductionsOther || 0),
       totalDeductions: current.totalDeductions - prev.totalDeductions,
       takeHomePay: current.takeHomePay - prev.takeHomePay,
+      allowanceDiffs,
+      deductionDiffs,
     },
   };
 }
@@ -749,30 +797,50 @@ export async function getPayrollPeriodSummary(
   period: string
 ): Promise<PayrollPeriodSummary | null> {
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
-      .from('payroll_results')
-      .select('basic_salary, allowances, overtime_amount, total_deductions, take_home_pay')
-      .eq('period', period);
-
-    if (error || !data || data.length === 0) return null;
-
+    let totalEmployees = 0;
     let totalBasicSalary = 0;
     let totalAllowances = 0;
     let totalOvertime = 0;
     let totalDeductions = 0;
     let totalTakeHomePay = 0;
 
-    for (const r of data) {
-      totalBasicSalary += Number(r.basic_salary) || 0;
-      totalAllowances += Number(r.allowances) || 0;
-      totalOvertime += Number(r.overtime_amount) || 0;
-      totalDeductions += Number(r.total_deductions) || 0;
-      totalTakeHomePay += Number(r.take_home_pay) || 0;
+    let from = 0;
+    const batchSize = 1000;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('payroll_results')
+        .select('basic_salary, allowances, overtime_amount, total_deductions, take_home_pay')
+        .eq('period', period)
+        .range(from, from + batchSize - 1);
+
+      if (error || !data || data.length === 0) {
+        if (from === 0) return null;
+        break;
+      }
+
+      totalEmployees += data.length;
+      for (const r of data) {
+        totalBasicSalary += Number(r.basic_salary) || 0;
+        totalAllowances += Number(r.allowances) || 0;
+        totalOvertime += Number(r.overtime_amount) || 0;
+        totalDeductions += Number(r.total_deductions) || 0;
+        totalTakeHomePay += Number(r.take_home_pay) || 0;
+      }
+
+      if (data.length < batchSize) {
+        hasMore = false;
+      } else {
+        from += batchSize;
+      }
     }
+
+    if (totalEmployees === 0) return null;
 
     return {
       period,
-      totalEmployees: data.length,
+      totalEmployees,
       totalBasicSalary,
       totalAllowances,
       totalOvertime,
@@ -793,6 +861,42 @@ export async function getPayrollPeriodSummary(
     totalOvertime: list.reduce((acc, r) => acc + r.overtimeAmount, 0),
     totalDeductions: list.reduce((acc, r) => acc + r.totalDeductions, 0),
     totalTakeHomePay: list.reduce((acc, r) => acc + r.takeHomePay, 0),
+  };
+}
+
+export async function comparePayrollPeriodSummaries(
+  period1: string,
+  period2: string
+): Promise<{
+  p1Summary: PayrollPeriodSummary;
+  p2Summary: PayrollPeriodSummary;
+  diff: {
+    totalEmployees: number;
+    totalBasicSalary: number;
+    totalAllowances: number;
+    totalOvertime: number;
+    totalDeductions: number;
+    totalTakeHomePay: number;
+  };
+} | null> {
+  const [s1, s2] = await Promise.all([
+    getPayrollPeriodSummary(period1),
+    getPayrollPeriodSummary(period2),
+  ]);
+
+  if (!s1 || !s2) return null;
+
+  return {
+    p1Summary: s1,
+    p2Summary: s2,
+    diff: {
+      totalEmployees: s2.totalEmployees - s1.totalEmployees,
+      totalBasicSalary: s2.totalBasicSalary - s1.totalBasicSalary,
+      totalAllowances: s2.totalAllowances - s1.totalAllowances,
+      totalOvertime: s2.totalOvertime - s1.totalOvertime,
+      totalDeductions: s2.totalDeductions - s1.totalDeductions,
+      totalTakeHomePay: s2.totalTakeHomePay - s1.totalTakeHomePay,
+    },
   };
 }
 

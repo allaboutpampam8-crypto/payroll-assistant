@@ -96,16 +96,20 @@ export interface PayrollResult {
   period: string; // YYYY-MM, contoh: "2026-10"
   employeeNik: string; // NRP Pegawai
   employeeName: string;
-  department?: string; // Project / Unit Kerja
-  positionTitle?: string; // Jabatan
-  basicSalary: number; // Gaji Pokok
-  allowances: number; // Total Tunjangan (Tetap & Tidak Tetap)
-  overtimeAmount: number; // Upah Lembur
+  status?: string; // Status: Organik, PKWT, dll.
+  department?: string; // Cost Center / Project / Unit Kerja
+  positionTitle?: string; // Job Formation / Jabatan
+  basicSalary: number; // Upah Pokok
+  allowances: number; // Total Seluruh Tunjangan (Akumulasi 92 tunjangan)
+  overtimeAmount: number; // Total Seluruh Lembur
+  grossSalary?: number; // Jumlah Kotor
   deductionsBpjs: number; // Potongan BPJS (TK + Kes)
   deductionsTgr: number; // Potongan TGR / Pinjaman
   deductionsOther: number; // Potongan Lain-lain
-  totalDeductions: number; // Total Seluruh Potongan
+  totalDeductions: number; // Jumlah Potongan
   takeHomePay: number; // Gaji Bersih (THP)
+  allowanceDetails?: Record<string, number>; // Rincian 92 Tunjangan yang bernilai > 0
+  deductionDetails?: Record<string, number>; // Rincian Potongan yang bernilai > 0
   uploadedAt: string;
 }
 
@@ -116,11 +120,14 @@ export interface PayrollComparison {
     basicSalary: number;
     allowances: number;
     overtimeAmount: number;
+    grossSalary?: number;
     deductionsBpjs: number;
     deductionsTgr: number;
     deductionsOther: number;
     totalDeductions: number;
     takeHomePay: number;
+    allowanceDiffs?: Record<string, { prev: number; curr: number; diff: number }>;
+    deductionDiffs?: Record<string, { prev: number; curr: number; diff: number }>;
   };
 }
 

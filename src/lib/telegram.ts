@@ -1,6 +1,5 @@
-export async function sendTelegramNotification(text: string): Promise<boolean> {
+export async function sendTelegramMessage(chatId: string, text: string): Promise<boolean> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
 
   if (!token || !chatId) {
     console.warn('Telegram Bot Token or Chat ID not configured');
@@ -28,4 +27,13 @@ export async function sendTelegramNotification(text: string): Promise<boolean> {
     console.error('Failed to send Telegram notification:', err);
     return false;
   }
+}
+
+export async function sendTelegramNotification(text: string): Promise<boolean> {
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!chatId) {
+    console.warn('Telegram Chat ID not configured');
+    return false;
+  }
+  return sendTelegramMessage(chatId, text);
 }
