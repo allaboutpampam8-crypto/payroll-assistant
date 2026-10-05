@@ -125,18 +125,17 @@ export async function POST(request: Request) {
         `<b>Periode:</b> ${item.period}\n` +
         `━━━━━━━━━━━━━━━━━━━\n` +
         `• <b>Upah Pokok:</b> ${formatRupiah(item.basicSalary)}\n` +
-        `• <b>Total Tunjangan:</b> ${formatRupiah(item.allowances)}\n` +
-        `• <b>Upah Lembur:</b> ${formatRupiah(item.overtimeAmount)}\n` +
-        `• <b>Jumlah Kotor:</b> ${formatRupiah(item.grossSalary || (item.basicSalary + item.allowances + item.overtimeAmount))}\n` +
+        `• <b>Total Penerimaan (Tunjangan & Lembur):</b> ${formatRupiah(item.allowances)}\n` +
+        `• <b>Jumlah Kotor (Bruto):</b> ${formatRupiah(item.grossSalary || (item.basicSalary + item.allowances))}\n` +
         `• <b>Total Potongan:</b> -${formatRupiah(item.totalDeductions)}\n` +
         `━━━━━━━━━━━━━━━━━━━\n` +
         `💰 <b>Take Home Pay (THP):</b> <b>${formatRupiah(item.takeHomePay)}</b>\n`;
 
       if (allowances.length > 0) {
         msg +=
-          `\n🎁 <b>RINCIAN TUNJANGAN DITERIMA:</b>\n` +
+          `\n🎁 <b>RINCIAN PENERIMAAN (TUNJANGAN & LEMBUR):</b>\n` +
           allowances.slice(0, 15).join('\n') +
-          (allowances.length > 15 ? `\n<i>...dan ${allowances.length - 15} tunjangan lainnya (cek web)</i>` : '');
+          (allowances.length > 15 ? `\n<i>...dan ${allowances.length - 15} komponen penerimaan lainnya (cek web)</i>` : '');
       }
 
       if (deductions.length > 0) {
@@ -199,8 +198,8 @@ export async function POST(request: Request) {
       } else {
         msg +=
           `• <b>Upah Pokok:</b> ${formatRupiah(previous.basicSalary)} ➔ ${formatRupiah(current.basicSalary)} ${formatDiff(diff.basicSalary)}\n` +
-          `• <b>Total Tunjangan:</b> ${formatRupiah(previous.allowances)} ➔ ${formatRupiah(current.allowances)} ${formatDiff(diff.allowances)}\n` +
-          `• <b>Upah Lembur:</b> ${formatRupiah(previous.overtimeAmount)} ➔ ${formatRupiah(current.overtimeAmount)} ${formatDiff(diff.overtimeAmount)}\n` +
+          `• <b>Total Penerimaan (Tunjangan & Lembur):</b> ${formatRupiah(previous.allowances)} ➔ ${formatRupiah(current.allowances)} ${formatDiff(diff.allowances)}\n` +
+          `• <b>Jumlah Kotor (Bruto):</b> ${formatRupiah(previous.grossSalary || (previous.basicSalary + previous.allowances))} ➔ ${formatRupiah(current.grossSalary || (current.basicSalary + current.allowances))} ${formatDiff(diff.grossSalary || 0)}\n` +
           `• <b>Total Potongan:</b> -${formatRupiah(previous.totalDeductions)} ➔ -${formatRupiah(current.totalDeductions)} ${formatDiff(diff.totalDeductions)}\n` +
           `━━━━━━━━━━━━━━━━━━━\n` +
           `💰 <b>Take Home Pay (THP):</b>\n` +
@@ -208,16 +207,16 @@ export async function POST(request: Request) {
           `• Bulan Ini (${current.period}): <b>${formatRupiah(current.takeHomePay)}</b>\n` +
           `• <b>Selisih THP:</b> ${formatDiff(diff.takeHomePay)}\n`;
 
-        // Drill-Down: Detail Perubahan Tunjangan Spesifik
+        // Drill-Down: Detail Perubahan Komponen Penerimaan Spesifik
         const changedAllowances = Object.entries(diff.allowanceDiffs || {})
           .filter(([, d]) => d.diff !== 0)
           .map(([k, d]) => `• <b>${k}:</b> ${formatRupiah(d.prev)} ➔ ${formatRupiah(d.curr)} (${formatDiff(d.diff)})`);
 
         if (changedAllowances.length > 0) {
           msg +=
-            `\n🔍 <b>DETAIL PERUBAHAN TUNJANGAN:</b>\n` +
+            `\n🔍 <b>DETAIL PERUBAHAN PENERIMAAN (TUNJANGAN & LEMBUR):</b>\n` +
             changedAllowances.slice(0, 10).join('\n') +
-            (changedAllowances.length > 10 ? `\n<i>...dan ${changedAllowances.length - 10} perubahan lainnya</i>` : '');
+            (changedAllowances.length > 10 ? `\n<i>...dan ${changedAllowances.length - 10} komponen lainnya</i>` : '');
         }
 
         // Drill-Down: Detail Perubahan Potongan Spesifik

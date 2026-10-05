@@ -191,17 +191,12 @@ export default function PayrollResultsModal({
             }
           }
 
-          // Total allowances is the sum of non-overtime items
-          let totalAllowances = 0;
-          for (const [k, v] of Object.entries(allowanceDetails)) {
-            if (!k.toLowerCase().includes('lembur')) {
-              totalAllowances += v;
-            }
-          }
+          // Total allowances adalah akumulasi SELURUH penerimaan gaji selain Upah Pokok (termasuk lembur, tunjangan, insentif, premi, bantuan, dll.)
+          const totalAllowances = Object.values(allowanceDetails).reduce((acc, curr) => acc + curr, 0);
 
           const sumDeductions = Object.values(deductionDetails).reduce((acc, curr) => acc + curr, 0);
           const totalDeductions = totalDeductCol > 0 ? totalDeductCol : sumDeductions;
-          const grossSalary = gross > 0 ? gross : (basic + totalAllowances + overtimeAmount);
+          const grossSalary = gross > 0 ? gross : (basic + totalAllowances);
           const takeHomePay = grossSalary - totalDeductions;
 
           return {
@@ -779,9 +774,16 @@ export default function PayrollResultsModal({
                               </td>
                             </tr>
 
-                            {/* Tunjangan */}
+                            {/* Penerimaan: Tunjangan & Lembur */}
                             <tr>
-                              <td className="p-3 font-medium text-slate-800">Total Tunjangan</td>
+                              <td className="p-3 font-medium text-slate-800">
+                                <div>Total Penerimaan (Tunjangan & Lembur)</div>
+                                {comparison.current.overtimeAmount > 0 && (
+                                  <div className="text-[10px] text-slate-400 font-normal">
+                                    Termasuk upah lembur: {formatRupiah(comparison.current.overtimeAmount)}
+                                  </div>
+                                )}
+                              </td>
                               <td className="p-3 text-right text-slate-500">
                                 {comparison.previous ? formatRupiah(comparison.previous.allowances) : '-'}
                               </td>
@@ -797,19 +799,19 @@ export default function PayrollResultsModal({
                               </td>
                             </tr>
 
-                            {/* Upah Lembur */}
-                            <tr>
-                              <td className="p-3 font-medium text-slate-800">Upah Lembur</td>
-                              <td className="p-3 text-right text-slate-500">
-                                {comparison.previous ? formatRupiah(comparison.previous.overtimeAmount) : '-'}
+                            {/* Jumlah Kotor (Bruto) */}
+                            <tr className="bg-slate-50/40">
+                              <td className="p-3 font-semibold text-slate-800">Jumlah Kotor (Bruto)</td>
+                              <td className="p-3 text-right text-slate-500 font-medium">
+                                {comparison.previous ? formatRupiah(comparison.previous.grossSalary || (comparison.previous.basicSalary + comparison.previous.allowances)) : '-'}
                               </td>
-                              <td className="p-3 text-right font-semibold text-slate-900">
-                                {formatRupiah(comparison.current.overtimeAmount)}
+                              <td className="p-3 text-right font-bold text-slate-900">
+                                {formatRupiah(comparison.current.grossSalary || (comparison.current.basicSalary + comparison.current.allowances))}
                               </td>
                               <td className="p-3 text-right">
                                 {comparison.previous ? (
-                                  <span className={comparison.diff.overtimeAmount > 0 ? 'font-bold text-emerald-600' : comparison.diff.overtimeAmount < 0 ? 'font-bold text-rose-600' : 'text-slate-400'}>
-                                    {comparison.diff.overtimeAmount >= 0 ? '+' : ''}{formatRupiah(comparison.diff.overtimeAmount)}
+                                  <span className={comparison.diff.grossSalary && comparison.diff.grossSalary !== 0 ? 'font-bold text-indigo-700' : 'text-slate-400'}>
+                                    {(comparison.diff.grossSalary || 0) >= 0 ? '+' : ''}{formatRupiah(comparison.diff.grossSalary || 0)}
                                   </span>
                                 ) : '-'}
                               </td>

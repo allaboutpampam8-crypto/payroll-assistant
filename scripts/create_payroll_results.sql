@@ -15,17 +15,17 @@ CREATE TABLE IF NOT EXISTS payroll_results (
   
   -- Komponen Agregat Utama (B-Tree Indexed untuk performa query kilat)
   basic_salary NUMERIC(15,2) DEFAULT 0,           -- Upah Pokok
-  allowances NUMERIC(15,2) DEFAULT 0,             -- Total Akumulasi Seluruh Tunjangan
-  overtime_amount NUMERIC(15,2) DEFAULT 0,        -- Total Upah Lembur
-  gross_salary NUMERIC(15,2) DEFAULT 0,           -- Jumlah Kotor (Bruto)
+  allowances NUMERIC(15,2) DEFAULT 0,             -- Total Seluruh Penerimaan Tambahan (Tunjangan, Lembur, Insentif, Bantuan, dll)
+  overtime_amount NUMERIC(15,2) DEFAULT 0,        -- Sub-total Upah Lembur (termasuk di dalam allowances/penerimaan)
+  gross_salary NUMERIC(15,2) DEFAULT 0,           -- Jumlah Kotor / Bruto (Upah Pokok + allowances)
   deductions_bpjs NUMERIC(15,2) DEFAULT 0,        -- Potongan BPJS (JHT, JP, JKK, JK, Kes)
   deductions_tgr NUMERIC(15,2) DEFAULT 0,         -- Potongan TGR / Ganti Rugi
   deductions_other NUMERIC(15,2) DEFAULT 0,       -- Potongan Lain-lain / Koperasi / Pajak
   total_deductions NUMERIC(15,2) DEFAULT 0,       -- Jumlah Potongan
-  take_home_pay NUMERIC(15,2) NOT NULL,           -- Gaji Bersih (THP)
+  take_home_pay NUMERIC(15,2) NOT NULL,           -- Gaji Bersih (THP = Jumlah Kotor - Jumlah Potongan)
   
-  -- Kolom Dinamis JSONB (Menampung rincian 92 jenis tunjangan & potongan tanpa batas)
-  allowance_details JSONB DEFAULT '{}'::jsonb,   -- Rincian komponen tunjangan yang diterima (> 0)
+  -- Kolom Dinamis JSONB (Menampung rincian 92 jenis tunjangan & lembur serta potongan tanpa batas)
+  allowance_details JSONB DEFAULT '{}'::jsonb,   -- Rincian seluruh komponen penerimaan (tunjangan & lembur) yang diterima (> 0)
   deduction_details JSONB DEFAULT '{}'::jsonb,   -- Rincian komponen potongan yang dikenakan (> 0)
   
   uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
