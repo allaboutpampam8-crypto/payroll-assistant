@@ -56,6 +56,7 @@ export async function POST(request: Request) {
       dueDate: body.dueDate || '',
       resolutionNotes: body.resolutionNotes || '',
       source: body.source || 'MANUAL_PIC',
+      reportedBy: body.reportedBy || '',
     });
 
     return NextResponse.json(

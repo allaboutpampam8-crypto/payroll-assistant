@@ -49,6 +49,7 @@ function mapReportFromRow(row: any): PayrollReport {
     dueDate: row.due_date || '',
     resolutionNotes: row.resolution_notes || '',
     source: row.source,
+    reportedBy: row.reported_by || '',
     attachmentUrl: row.attachment_url || undefined,
     attachmentName: row.attachment_name || undefined,
   };
@@ -169,7 +170,8 @@ export async function createReport(
   };
 
   if (isSupabaseConfigured && supabase) {
-    const { error } = await supabase.from('payroll_reports').insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const insertPayload: Record<string, any> = {
       id: newReport.id,
       ticket_number: newReport.ticketNumber,
       employee_name: newReport.employeeName,
@@ -183,13 +185,24 @@ export async function createReport(
       priority: newReport.priority || 'NORMAL',
       period: newReport.period || 'Oktober 2026',
       source: newReport.source || 'MANUAL_PIC',
+      reported_by: newReport.reportedBy || null,
       resolution_notes: newReport.resolutionNotes || '',
       due_date: newReport.dueDate || '',
       attachment_url: newReport.attachmentUrl || null,
       attachment_name: newReport.attachmentName || null,
       created_at: newReport.createdAt,
       updated_at: newReport.updatedAt,
-    });
+    };
+
+    let { error } = await supabase.from('payroll_reports').insert(insertPayload);
+
+    // Fallback if column reported_by has not been created yet in Supabase
+    if (error && (error.message?.includes('reported_by') || error.code === '42703')) {
+      console.warn('Column reported_by not found in Supabase payroll_reports, retrying insert without reported_by...');
+      delete insertPayload.reported_by;
+      const retry = await supabase.from('payroll_reports').insert(insertPayload);
+      error = retry.error;
+    }
 
     if (error) {
       console.error('Failed to insert report into Supabase:', error);
@@ -206,11 +219,16 @@ export async function createReport(
     ? `Rp ${newReport.discrepancyAmount.toLocaleString('id-ID')}`
     : 'Rp 0 (Tidak ada selisih)';
 
+  const pelaporText = newReport.reportedBy
+    ? `🗣️ <b>Pelapor / Sumber:</b> ${newReport.reportedBy}\n`
+    : '';
+
   sendTelegramNotification(
     `🚨 <b>LAPORAN PAYROLL BARU DITERIMA!</b>\n\n` +
       `📋 <b>No. Tiket:</b> <code>${newReport.ticketNumber}</code>\n` +
       `👤 <b>Pegawai:</b> ${newReport.employeeName} (NRP: ${newReport.employeeNik})\n` +
       `🏢 <b>Project:</b> ${newReport.department}\n` +
+      pelaporText +
       `📂 <b>Kategori:</b> ${newReport.category}\n` +
       `💰 <b>Estimasi Nominal:</b> ${rupiahText}\n` +
       `⚡ <b>Prioritas:</b> ${newReport.priority}\n` +
@@ -239,13 +257,28 @@ export async function updateReport(
     if (updates.discrepancyAmount !== undefined) rowUpdates.discrepancy_amount = updates.discrepancyAmount;
     if (updates.dueDate !== undefined) rowUpdates.due_date = updates.dueDate;
     if (updates.period !== undefined) rowUpdates.period = updates.period;
+    if (updates.reportedBy !== undefined) rowUpdates.reported_by = updates.reportedBy;
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('payroll_reports')
       .update(rowUpdates)
       .eq('id', id)
       .select()
       .single();
+
+    // Fallback if column reported_by has not been created yet in Supabase
+    if (error && (error.message?.includes('reported_by') || error.code === '42703')) {
+      console.warn('Column reported_by not found in Supabase payroll_reports, retrying update without reported_by...');
+      delete rowUpdates.reported_by;
+      const retry = await supabase
+        .from('payroll_reports')
+        .update(rowUpdates)
+        .eq('id', id)
+        .select()
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (!error && data) {
       return mapReportFromRow(data);

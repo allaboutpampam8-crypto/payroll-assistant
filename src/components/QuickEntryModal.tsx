@@ -27,6 +27,7 @@ export default function QuickEntryModal({
   const [priority, setPriority] = useState<Priority>('NORMAL');
   const [actionStatus, setActionStatus] = useState<ActionStatus>('OPEN');
   const [dueDate, setDueDate] = useState('');
+  const [reportedBy, setReportedBy] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -62,6 +63,7 @@ export default function QuickEntryModal({
           actionStatus,
           dueDate,
           source: 'MANUAL_PIC',
+          reportedBy: reportedBy.trim(),
         }),
       });
 
@@ -75,6 +77,7 @@ export default function QuickEntryModal({
       setEmployeeNik('');
       setDepartment('');
       setPhoneNumber('');
+      setReportedBy('');
       setDiscrepancyAmount('');
       setDescription('');
       onSuccess();
@@ -178,6 +181,23 @@ export default function QuickEntryModal({
                 className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
               />
             </div>
+          </div>
+
+          {/* Baris: Pelapor / Sumber Laporan */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Pelapor / Sumber Laporan <span className="text-slate-400 font-normal">(Opsional)</span>
+            </label>
+            <input
+              type="text"
+              value={reportedBy}
+              onChange={(e) => setReportedBy(e.target.value)}
+              placeholder="Contoh: Pak Doni (Manager), HR Project, Karyawan Langsung, WhatsApp, dll."
+              className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">
+              Catat pihak yang meneruskan atau memberikan informasi laporan kendala ini.
+            </p>
           </div>
 
           {/* Baris 3: Kategori Kendala */}

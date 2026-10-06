@@ -59,6 +59,7 @@ function ReportDetailModalContent({
   const [resolutionNotes, setResolutionNotes] = useState(report.resolutionNotes || '');
   const [discrepancyAmount, setDiscrepancyAmount] = useState<number>(report.discrepancyAmount || 0);
   const [dueDate, setDueDate] = useState(report.dueDate || '');
+  const [reportedBy, setReportedBy] = useState(report.reportedBy || '');
 
   const [loading, setLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -104,6 +105,7 @@ function ReportDetailModalContent({
           resolutionNotes,
           discrepancyAmount,
           dueDate,
+          reportedBy,
         }),
       });
 
@@ -203,7 +205,7 @@ function ReportDetailModalContent({
           <div className="rounded-xl bg-slate-50 p-4 border border-slate-200/60 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
-                Pegawai / Pelapor
+                Pegawai
               </div>
               <div className="text-sm font-bold text-slate-900 mt-0.5">
                 {report.employeeName}
@@ -211,6 +213,11 @@ function ReportDetailModalContent({
               <div className="text-xs text-slate-600">
                 NRP: {report.employeeNik} • Project: {report.department}
               </div>
+              {reportedBy && (
+                <div className="mt-1.5 inline-flex items-center gap-1 text-xs text-indigo-800 bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 rounded-md font-medium">
+                  🗣️ Pelapor: <span className="font-semibold">{reportedBy}</span>
+                </div>
+              )}
               {waUrl && (
                 <a
                   href={waUrl}
@@ -353,6 +360,20 @@ function ReportDetailModalContent({
                 onChange={(e) => setDiscrepancyAmount(Number(e.target.value) || 0)}
                 placeholder="0"
                 className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm font-semibold focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
+              />
+            </div>
+
+            {/* Pelapor / Sumber Laporan */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Pelapor / Sumber Laporan <span className="text-slate-400 font-normal">(Opsional)</span>
+              </label>
+              <input
+                type="text"
+                value={reportedBy}
+                onChange={(e) => setReportedBy(e.target.value)}
+                placeholder="Contoh: Pak Doni (Manager), HR Project, WhatsApp, dll."
+                className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
               />
             </div>
 

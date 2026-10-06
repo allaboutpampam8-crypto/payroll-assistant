@@ -61,6 +61,7 @@ export interface PayrollReport {
   resolutionNotes?: string;
   resolvedAt?: string;
   source: 'MANUAL_PIC' | 'FORM_KARYAWAN';
+  reportedBy?: string; // Nama / catatan pelapor atau sumber (misal: Atasan, HR Lapangan, dsb)
 }
 
 export interface PayrollTodo {

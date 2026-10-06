@@ -184,7 +184,8 @@ export default function AssistantDashboard() {
       r.employeeName.toLowerCase().includes(q) ||
       r.employeeNik.toLowerCase().includes(q) ||
       r.ticketNumber.toLowerCase().includes(q) ||
-      r.department.toLowerCase().includes(q);
+      r.department.toLowerCase().includes(q) ||
+      (r.reportedBy && r.reportedBy.toLowerCase().includes(q));
 
     // Category
     const matchCategory =
@@ -566,6 +567,12 @@ export default function AssistantDashboard() {
                           <span className="text-[10px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-200/60">
                             {report.source === 'FORM_KARYAWAN' ? 'Form Mandiri' : 'Dicatat PIC'}
                           </span>
+
+                          {report.reportedBy && (
+                            <span className="text-[10px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/70 font-medium">
+                              🗣️ Pelapor: {report.reportedBy}
+                            </span>
+                          )}
                         </div>
 
                         {/* Nama & Project */}

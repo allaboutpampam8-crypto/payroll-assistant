@@ -23,6 +23,7 @@ export function exportReportsToExcel(reports: PayrollReport[], periodName: strin
       'Deskripsi / Keterangan': r.description,
       'Catatan Solusi / Crosscheck': r.resolutionNotes || '-',
       'Sumber Laporan': r.source === 'FORM_KARYAWAN' ? 'Form Mandiri' : 'Dicatat PIC',
+      'Pelapor / Catatan Sumber': r.reportedBy || '-',
       'Tanggal Selesai': r.resolvedAt
         ? new Date(r.resolvedAt).toLocaleDateString('id-ID', {
             day: '2-digit',
@@ -51,6 +52,7 @@ export function exportReportsToExcel(reports: PayrollReport[], periodName: strin
     { wch: 35 }, // Deskripsi
     { wch: 35 }, // Solusi
     { wch: 16 }, // Sumber
+    { wch: 24 }, // Pelapor / Catatan Sumber
     { wch: 14 }, // Tgl Selesai
   ];
   worksheet['!cols'] = colWidths;
