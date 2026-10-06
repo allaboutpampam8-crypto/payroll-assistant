@@ -1,12 +1,29 @@
 import { NextResponse } from 'next/server';
-import { getPayrollResultByNik, getPayrollResultsByName } from '@/lib/db';
+import {
+  getPayrollResultByNik,
+  getPayrollResultsByName,
+  getPayrollDepartments,
+  getPayrollResultsByDepartment,
+} from '@/lib/db';
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const nik = searchParams.get('nik');
     const name = searchParams.get('name');
+    const department = searchParams.get('department');
+    const getDepartments = searchParams.get('departments');
     const period = searchParams.get('period') || undefined;
+
+    if (getDepartments === 'true') {
+      const departments = await getPayrollDepartments(period);
+      return NextResponse.json({ success: true, data: departments });
+    }
+
+    if (department) {
+      const results = await getPayrollResultsByDepartment(department, period);
+      return NextResponse.json({ success: true, data: results });
+    }
 
     if (nik) {
       const result = await getPayrollResultByNik(nik, period);
@@ -19,7 +36,7 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json(
-      { success: false, message: 'Parameter nik atau name wajib diisi.' },
+      { success: false, message: 'Parameter query tidak valid.' },
       { status: 400 }
     );
   } catch (err: unknown) {

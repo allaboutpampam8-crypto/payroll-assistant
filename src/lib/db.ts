@@ -713,6 +713,72 @@ export async function getPayrollResultsByName(
   return list.slice(0, 10);
 }
 
+export async function getPayrollDepartments(
+  period?: string
+): Promise<{ department: string; count: number }[]> {
+  if (isSupabaseConfigured && supabase) {
+    let query = supabase.from('payroll_results').select('department');
+    if (period) {
+      query = query.eq('period', period);
+    }
+    const { data, error } = await query;
+    if (!error && data) {
+      const counts: Record<string, number> = {};
+      for (const row of data) {
+        if (row.department) {
+          counts[row.department] = (counts[row.department] || 0) + 1;
+        }
+      }
+      return Object.entries(counts)
+        .map(([department, count]) => ({ department, count }))
+        .sort((a, b) => b.count - a.count);
+    }
+  }
+
+  const local = getLocalDatabase();
+  const list = (local.results || []).filter((r) => !period || r.period === period);
+  const counts: Record<string, number> = {};
+  for (const row of list) {
+    if (row.department) {
+      counts[row.department] = (counts[row.department] || 0) + 1;
+    }
+  }
+  return Object.entries(counts)
+    .map(([department, count]) => ({ department, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+export async function getPayrollResultsByDepartment(
+  department: string,
+  period?: string
+): Promise<PayrollResult[]> {
+  const cleanDept = department.trim();
+  if (!cleanDept) return [];
+
+  if (isSupabaseConfigured && supabase) {
+    let query = supabase
+      .from('payroll_results')
+      .select('*')
+      .eq('department', cleanDept);
+
+    if (period) {
+      query = query.eq('period', period);
+    }
+
+    const { data, error } = await query.order('employee_name', { ascending: true });
+    if (!error && data) {
+      return data.map(mapPayrollResultFromRow);
+    }
+    return [];
+  }
+
+  const local = getLocalDatabase();
+  const list = (local.results || []).filter(
+    (r) => r.department === cleanDept && (!period || r.period === period)
+  );
+  return list.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+}
+
 export async function comparePayrollResults(
   nik: string,
   period1?: string,

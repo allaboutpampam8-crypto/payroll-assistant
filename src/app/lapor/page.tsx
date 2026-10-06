@@ -39,6 +39,36 @@ export default function PublicReportPage() {
   const [activePeriod, setActivePeriod] = useState('Oktober 2026');
   const [companyName, setCompanyName] = useState('PT Pelindo Daya Sejahtera');
 
+  // Master Payroll Lookup
+  const [isSearchingNrp, setIsSearchingNrp] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [matchedEmployee, setMatchedEmployee] = useState<any>(null);
+
+  const handleNrpLookup = async (nrp: string) => {
+    const clean = nrp.trim();
+    if (clean.length < 3) {
+      setMatchedEmployee(null);
+      return;
+    }
+    setIsSearchingNrp(true);
+    try {
+      const res = await fetch(`/api/payroll-results/query?nik=${encodeURIComponent(clean)}`);
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        const emp = json.data[0];
+        setMatchedEmployee(emp);
+        setEmployeeName(emp.employeeName);
+        if (emp.department) setDepartment(emp.department);
+      } else {
+        setMatchedEmployee(null);
+      }
+    } catch {
+      setMatchedEmployee(null);
+    } finally {
+      setIsSearchingNrp(false);
+    }
+  };
+
   useEffect(() => {
     fetch('/api/settings')
       .then((res) => res.json())
@@ -142,6 +172,7 @@ export default function PublicReportPage() {
     setDescription('');
     setAttachmentBase64(null);
     setAttachmentName('');
+    setMatchedEmployee(null);
     setSubmittedTicket(null);
   };
 
@@ -235,6 +266,30 @@ export default function PublicReportPage() {
               {/* Nama & NRP */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      NRP (Ketik untuk Autofill) <span className="text-rose-500">*</span>
+                    </label>
+                    {isSearchingNrp && (
+                      <span className="text-[10px] text-indigo-600 flex items-center gap-1 font-normal">
+                        <Loader2 className="h-3 w-3 animate-spin" /> Mencari...
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={employeeNik}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEmployeeNik(val);
+                      handleNrpLookup(val);
+                    }}
+                    placeholder="Contoh: 19770419494"
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm font-mono focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
+                  />
+                </div>
+                <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Nama Lengkap Pegawai <span className="text-rose-500">*</span>
                   </label>
@@ -247,20 +302,23 @@ export default function PublicReportPage() {
                     className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    NRP (Nomor Registrasi Pegawai) <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={employeeNik}
-                    onChange={(e) => setEmployeeNik(e.target.value)}
-                    placeholder="Contoh: NRP-240182"
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
-                  />
-                </div>
               </div>
+
+              {/* Matched Employee Banner Info */}
+              {matchedEmployee && (
+                <div className="flex items-start gap-2.5 rounded-xl bg-emerald-50/80 p-2.5 text-xs text-emerald-800 border border-emerald-200">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 mt-0.5" />
+                  <div>
+                    <div className="font-bold text-emerald-900">
+                      Data Terverifikasi di Master Payroll!
+                    </div>
+                    <div className="text-[11px] text-emerald-700">
+                      {matchedEmployee.positionTitle ? `${matchedEmployee.positionTitle} • ` : ''}
+                      {matchedEmployee.department} (Periode {matchedEmployee.period})
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Project & No WhatsApp */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
