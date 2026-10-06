@@ -714,14 +714,19 @@ export async function getPayrollResultsByName(
 }
 
 export async function getPayrollDepartments(
+  searchQuery?: string,
   period?: string
 ): Promise<{ department: string; count: number }[]> {
+  const cleanSearch = searchQuery?.trim();
   if (isSupabaseConfigured && supabase) {
     let query = supabase.from('payroll_results').select('department');
+    if (cleanSearch) {
+      query = query.ilike('department', `%${cleanSearch}%`);
+    }
     if (period) {
       query = query.eq('period', period);
     }
-    const { data, error } = await query;
+    const { data, error } = await query.limit(cleanSearch ? 500 : 1000);
     if (!error && data) {
       const counts: Record<string, number> = {};
       for (const row of data) {
@@ -736,7 +741,11 @@ export async function getPayrollDepartments(
   }
 
   const local = getLocalDatabase();
-  const list = (local.results || []).filter((r) => !period || r.period === period);
+  const list = (local.results || []).filter(
+    (r) =>
+      (!period || r.period === period) &&
+      (!cleanSearch || (r.department && r.department.toLowerCase().includes(cleanSearch.toLowerCase())))
+  );
   const counts: Record<string, number> = {};
   for (const row of list) {
     if (row.department) {

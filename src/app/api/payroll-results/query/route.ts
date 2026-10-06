@@ -15,8 +15,10 @@ export async function GET(request: Request) {
     const getDepartments = searchParams.get('departments');
     const period = searchParams.get('period') || undefined;
 
+    const q = searchParams.get('q') || searchParams.get('search') || undefined;
+
     if (getDepartments === 'true') {
-      const departments = await getPayrollDepartments(period);
+      const departments = await getPayrollDepartments(q, period);
       return NextResponse.json({ success: true, data: departments });
     }
 
