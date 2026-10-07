@@ -187,7 +187,7 @@ export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
             <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-sky-200 flex items-center gap-1">
               <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> Tanya AI
             </div>
-            <div className="text-xs sm:text-sm font-bold text-white leading-tight">Asisten Payroll</div>
+            <div className="text-xs sm:text-sm font-bold text-white leading-tight">Si PALI</div>
           </div>
         </button>
       )}
@@ -212,7 +212,7 @@ export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
                   <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden bg-white/10 p-0.5 border border-sky-400/40 shadow-sm flex-shrink-0">
                     <Image
                       src="/mascot/avatar.png"
-                      alt="Mascot Avatar"
+                      alt="Si PALI Avatar"
                       width={44}
                       height={44}
                       className="object-cover rounded-full"
@@ -221,9 +221,9 @@ export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
                   </div>
                   <div>
                     <h3 className="font-bold text-xs sm:text-sm text-white flex items-center gap-1.5 leading-snug">
-                      Asisten Intelijen Payroll
+                      Si PALI
                       <span className="text-[10px] bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 px-1.5 py-0.2 rounded-full font-medium">
-                        Gemini AI
+                        Asisten Payroll AI
                       </span>
                     </h3>
                     <p className="text-[10px] sm:text-[11px] text-sky-200 flex items-center gap-1.5 mt-0.5">
@@ -261,7 +261,7 @@ export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
                 <div className="w-28 h-32 sm:w-32 sm:h-36 relative mb-2 drop-shadow-md">
                   <Image
                     src="/mascot/waving.png"
-                    alt="Halo Pak Pampam"
+                    alt="Si PALI Menyapa"
                     width={128}
                     height={144}
                     priority
@@ -269,11 +269,10 @@ export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
                   />
                 </div>
                 <h4 className="font-bold text-slate-800 dark:text-slate-100 text-base">
-                  Halo Pak Pampam! 👋
+                  Halo Pak Pampam! 👋 Saya Si PALI
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mt-1 leading-relaxed">
-                  Saya maskot asisten payroll Anda. Anda bisa bertanya rincian gaji, komparasi
-                  selisih, tiket kendala, atau meminta update status langsung.
+                  Asisten pintar payroll Anda. Tanyakan rincian gaji, komparasi selisih, tiket kendala, atau minta saya update status tiket.
                 </p>
 
                 {/* Quick Prompts */}
