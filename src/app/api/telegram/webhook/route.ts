@@ -10,6 +10,7 @@ import {
   getSettings,
 } from '@/lib/db';
 import { sendTelegramMessage } from '@/lib/telegram';
+import { askPayrollAI } from '@/lib/gemini';
 
 function formatRupiah(num: number): string {
   return 'Rp ' + Number(num || 0).toLocaleString('id-ID');
@@ -67,8 +68,13 @@ export async function POST(request: Request) {
         `📋 <b>MONITORING TIKET & AGENDA:</b>\n` +
         `• <code>/rekap</code> (Ringkasan tiket kendala & cut-off)\n` +
         `• <code>/todo</code> (Daftar to-do list aktif Anda)\n\n` +
+        `✨ <b>TANYA BEBAS DENGAN AI (NATURAL LANGUAGE):</b>\n` +
+        `Ketik pertanyaan apa saja secara bebas tanpa tanda garis miring (/):\n` +
+        `• <i>"Berapa gaji mas Nuryadi operator RTGC?"</i>\n` +
+        `• <i>"Ada berapa tiket kendala yang masih open?"</i>\n` +
+        `• <i>"Berapa total take home pay project Koja?"</i>\n\n` +
         `━━━━━━━━━━━━━━━━━━━\n` +
-        `<i>Ketik perintah langsung di chat ini untuk mencoba! 🚀</i>`;
+        `<i>Ketik perintah atau chat bebas kapan saja! 🚀</i>`;
 
       await sendTelegramMessage(chatId, helpMsg);
       return NextResponse.json({ ok: true });
@@ -381,11 +387,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // Default unknown command
-    await sendTelegramMessage(
-      chatId,
-      `❓ <b>Perintah Tidak Dikenal</b>\nKetik <code>/help</code> untuk melihat daftar perintah yang tersedia.`
-    );
+    // -------------------------------------------------------------
+    // NATURAL LANGUAGE QUERY VIA GEMINI AI ASSISTANT
+    // -------------------------------------------------------------
+    const aiResponse = await askPayrollAI(rawText);
+    await sendTelegramMessage(chatId, aiResponse);
     return NextResponse.json({ ok: true });
   } catch (err: unknown) {
     console.error('Webhook error:', err);
