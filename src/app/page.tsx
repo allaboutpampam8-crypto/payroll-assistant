@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Sparkles,
   Plus,
@@ -36,6 +37,7 @@ import ReportDetailModal from '@/components/ReportDetailModal';
 import CutoffSettingsModal from '@/components/CutoffSettingsModal';
 import PayrollResultsModal from '@/components/PayrollResultsModal';
 import TodoListWidget from '@/components/TodoListWidget';
+import AiChatWidget from '@/components/AiChatWidget';
 import { exportReportsToExcel } from '@/lib/exportExcel';
 
 export default function AssistantDashboard() {
@@ -226,8 +228,14 @@ export default function AssistantDashboard() {
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
           {/* Logo & Brand */}
           <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-md shadow-indigo-600/25">
-              <Sparkles className="h-5 w-5" />
+            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 shadow-md shadow-indigo-600/25 overflow-hidden border border-indigo-400/30">
+              <Image
+                src="/mascot/avatar.png"
+                alt="Maskot Asisten"
+                width={40}
+                height={40}
+                className="object-cover"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -810,6 +818,14 @@ export default function AssistantDashboard() {
         isOpen={isPayrollModalOpen}
         onClose={() => setIsPayrollModalOpen(false)}
         defaultPeriod={settings.activePeriod}
+      />
+
+      {/* Floating AI Chat Assistant with Mascot */}
+      <AiChatWidget
+        onDataUpdated={() => {
+          fetchDashboardData();
+          fetchTodos();
+        }}
       />
     </div>
   );
