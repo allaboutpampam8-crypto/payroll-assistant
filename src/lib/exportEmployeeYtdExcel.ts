@@ -151,9 +151,18 @@ export function generateEmployeeYtdExcelBuffer(
 
   const worksheet = XLSX.utils.aoa_to_sheet(dataRows);
 
+  // Format seluruh angka dengan pemisah ribuan (#,##0) agar rapi saat dibuka di Excel
+  for (const cellKey of Object.keys(worksheet)) {
+    if (cellKey.startsWith('!')) continue;
+    const cell = worksheet[cellKey];
+    if (cell && cell.t === 'n') {
+      cell.z = '#,##0';
+    }
+  }
+
   // Atur lebar kolom
   const colWidths = [
-    { wch: 38 }, // Nama Komponen
+    { wch: 40 }, // Nama Komponen
     ...periods.map(() => ({ wch: 18 })), // Kolom tiap bulan
     { wch: 22 }, // Total Kumulatif
     { wch: 20 }, // Rata-rata per bulan

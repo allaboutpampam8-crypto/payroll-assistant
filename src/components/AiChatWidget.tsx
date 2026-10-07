@@ -49,6 +49,11 @@ const QUICK_PROMPTS = [
     prompt: 'Tolong rekap agenda to-do list saya yang belum selesai',
   },
   {
+    icon: '📊',
+    label: 'Rekap Gaji Multi-Bulan',
+    prompt: 'Rekap total pendapatan gaji Ahmad Maulana dari bulan Januari s/d Oktober',
+  },
+  {
     icon: '🏢',
     label: 'Total Project',
     prompt: 'Berapa total take home pay dan lembur untuk project Koja?',
@@ -323,7 +328,7 @@ export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
                   >
                     {msg.sender === 'assistant' ? (
                       <div
-                        className="prose prose-xs dark:prose-invert max-w-none space-y-1.5 text-xs [&>p]:leading-relaxed [&>ul]:list-disc [&>ul]:pl-4 [&>code]:bg-slate-100 dark:[&>code]:bg-slate-700 [&>code]:px-1 [&>code]:py-0.5 [&>code]:rounded"
+                        className="prose prose-xs dark:prose-invert max-w-none space-y-1.5 text-xs [&>p]:leading-relaxed [&>ul]:list-disc [&>ul]:pl-4 [&>code]:bg-slate-100 dark:[&>code]:bg-slate-700 [&>code]:px-1 [&>code]:py-0.5 [&>code]:rounded [&_a]:inline-flex [&_a]:items-center [&_a]:gap-1.5 [&_a]:bg-emerald-50 dark:[&_a]:bg-emerald-950/60 [&_a]:text-emerald-700 dark:[&_a]:text-emerald-300 [&_a]:border [&_a]:border-emerald-300 dark:[&_a]:border-emerald-700/60 [&_a]:px-3 [&_a]:py-1.5 [&_a]:rounded-lg [&_a]:font-semibold [&_a]:shadow-xs hover:[&_a]:bg-emerald-100 dark:hover:[&_a]:bg-emerald-900/80 [&_a]:transition-colors [&_a]:no-underline"
                         dangerouslySetInnerHTML={{ __html: msg.text.replace(/\n/g, '<br/>') }}
                       />
                     ) : (

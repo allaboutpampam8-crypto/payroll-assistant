@@ -1041,14 +1041,29 @@ export async function getAllPayrollResultsForEmployee(
   const isNumeric = /^\d+$/.test(clean);
 
   if (isSupabaseConfigured && supabase) {
-    let q = supabase.from('payroll_results').select('*');
-    if (isNumeric) {
-      q = q.eq('employee_nik', clean);
-    } else {
-      q = q.ilike('employee_name', `%${clean}%`);
+    let targetNik = clean;
+    if (!isNumeric) {
+      // Cari satu pegawai yang paling relevan berdasarkan nama untuk mendapatkan NIK pastinya
+      const { data: matchedEmp } = await supabase
+        .from('payroll_results')
+        .select('employee_nik, employee_name')
+        .ilike('employee_name', `%${clean}%`)
+        .order('period', { ascending: false })
+        .limit(1);
+
+      if (matchedEmp && matchedEmp.length > 0) {
+        targetNik = matchedEmp[0].employee_nik;
+      } else {
+        return [];
+      }
     }
 
-    const { data, error } = await q.order('period', { ascending: true });
+    const { data, error } = await supabase
+      .from('payroll_results')
+      .select('*')
+      .eq('employee_nik', targetNik)
+      .order('period', { ascending: true });
+
     if (!error && data && data.length > 0) {
       return data.map(mapPayrollResultFromRow);
     }
@@ -1056,11 +1071,16 @@ export async function getAllPayrollResultsForEmployee(
   }
 
   const local = getLocalDatabase();
-  const list = (local.results || []).filter((r) =>
-    isNumeric
-      ? r.employeeNik === clean
-      : r.employeeName.toLowerCase().includes(clean.toLowerCase())
-  );
+  let targetNik = clean;
+  if (!isNumeric) {
+    const matched = (local.results || []).find((r) =>
+      r.employeeName.toLowerCase().includes(clean.toLowerCase())
+    );
+    if (!matched) return [];
+    targetNik = matched.employeeNik;
+  }
+
+  const list = (local.results || []).filter((r) => r.employeeNik === targetNik);
   return list.sort((a, b) => a.period.localeCompare(b.period));
 }
 
