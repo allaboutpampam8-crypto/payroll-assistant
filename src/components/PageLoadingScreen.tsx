@@ -22,7 +22,7 @@ export default function PageLoadingScreen({
           <div className="absolute -inset-4 bg-gradient-to-r from-blue-500/20 via-indigo-500/30 to-sky-400/20 rounded-full blur-xl animate-pulse" />
 
           {/* Mascot Image Card */}
-          <div className="relative w-36 h-36 sm:w-40 sm:h-40 rounded-3xl overflow-hidden bg-white dark:bg-slate-900 border-2 border-indigo-100 dark:border-slate-800 shadow-xl shadow-indigo-500/10 p-2 flex items-center justify-center group animate-bounce [animation-duration:2.5s]">
+          <div className="relative w-36 h-36 sm:w-40 sm:h-40 rounded-3xl overflow-hidden bg-white dark:bg-slate-900 border-2 border-indigo-100 dark:border-slate-800 shadow-xl shadow-indigo-500/10 p-2 flex items-center justify-center group animate-pulse [animation-duration:2.5s]">
             <Image
               src="/mascot/loading_olah_data.png"
               alt="Maskot Mengolah Data Payroll"

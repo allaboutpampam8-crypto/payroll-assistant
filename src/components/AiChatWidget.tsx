@@ -170,10 +170,10 @@ export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-40 group flex items-center gap-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 hover:from-blue-700 hover:to-indigo-700 text-white pl-2.5 pr-4 py-2 rounded-full shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all duration-300 border-2 border-white/40 ring-4 ring-indigo-500/20"
+          className="fixed bottom-20 md:bottom-6 right-3 sm:right-6 z-40 group flex items-center gap-2.5 sm:gap-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 hover:from-blue-700 hover:to-indigo-700 text-white pl-2 sm:pl-2.5 pr-3.5 sm:pr-4 py-1.5 sm:py-2 rounded-full shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all duration-300 border-2 border-white/40 ring-4 ring-indigo-500/20"
           title="Buka Asisten AI Payroll"
         >
-          <div className="relative w-10 h-10 rounded-full overflow-hidden bg-white/20 p-0.5 shadow-inner">
+          <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-white/20 p-0.5 shadow-inner flex-shrink-0">
             <Image
               src="/mascot/avatar.png"
               alt="Mascot AI"
@@ -181,46 +181,57 @@ export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
               height={40}
               className="object-cover rounded-full"
             />
-            <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-white rounded-full"></span>
+            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-400 border-2 border-white rounded-full"></span>
           </div>
           <div className="text-left">
-            <div className="text-xs font-semibold uppercase tracking-wider text-sky-200 flex items-center gap-1">
-              <Sparkles className="w-3 h-3" /> Tanya AI
+            <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-sky-200 flex items-center gap-1">
+              <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> Tanya AI
             </div>
-            <div className="text-sm font-bold text-white leading-tight">Asisten Payroll</div>
+            <div className="text-xs sm:text-sm font-bold text-white leading-tight">Asisten Payroll</div>
           </div>
         </button>
       )}
 
-      {/* Chat Window */}
+      {/* Chat Window & Mobile Backdrop */}
       {isOpen && (
-        <div className="fixed bottom-4 right-4 z-50 w-[95vw] sm:w-[420px] h-[600px] max-h-[88vh] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-bottom-6">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white p-3.5 flex items-center justify-between shadow-md border-b border-indigo-900/50">
-            <div className="flex items-center gap-3">
-              <div className="relative w-11 h-11 rounded-full overflow-hidden bg-white/10 p-0.5 border border-sky-400/40 shadow-sm flex-shrink-0">
-                <Image
-                  src="/mascot/avatar.png"
-                  alt="Mascot Avatar"
-                  width={44}
-                  height={44}
-                  className="object-cover rounded-full"
-                />
-                <span className="absolute bottom-0.5 right-0.5 w-3 h-3 bg-emerald-400 border-2 border-slate-900 rounded-full animate-pulse"></span>
-              </div>
-              <div>
-                <h3 className="font-bold text-sm text-white flex items-center gap-1.5 leading-snug">
-                  Asisten Intelijen Payroll
-                  <span className="text-[10px] bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 px-1.5 py-0.2 rounded-full font-medium">
-                    Gemini AI
-                  </span>
-                </h3>
-                <p className="text-[11px] text-sky-200 flex items-center gap-1.5 mt-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                  Online • Siap membantu olah data
-                </p>
-              </div>
-            </div>
+        <>
+          {/* Mobile Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 md:hidden animate-in fade-in duration-200"
+            onClick={() => setIsOpen(false)}
+          />
+
+          <div className="fixed inset-x-0 bottom-0 md:inset-auto md:bottom-5 md:right-5 z-50 w-full md:w-[430px] h-[86vh] md:h-[620px] max-h-[92vh] bg-white dark:bg-slate-900 rounded-t-3xl md:rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-all duration-300 animate-in slide-in-from-bottom duration-300">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white p-3.5 pb-3 flex flex-col shadow-md border-b border-indigo-900/50">
+              {/* Mobile Drag Indicator */}
+              <div className="md:hidden w-12 h-1 bg-white/30 rounded-full mx-auto -mt-1 mb-2.5" />
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden bg-white/10 p-0.5 border border-sky-400/40 shadow-sm flex-shrink-0">
+                    <Image
+                      src="/mascot/avatar.png"
+                      alt="Mascot Avatar"
+                      width={44}
+                      height={44}
+                      className="object-cover rounded-full"
+                    />
+                    <span className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-400 border-2 border-slate-900 rounded-full animate-pulse"></span>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-xs sm:text-sm text-white flex items-center gap-1.5 leading-snug">
+                      Asisten Intelijen Payroll
+                      <span className="text-[10px] bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 px-1.5 py-0.2 rounded-full font-medium">
+                        Gemini AI
+                      </span>
+                    </h3>
+                    <p className="text-[10px] sm:text-[11px] text-sky-200 flex items-center gap-1.5 mt-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                      Online • Siap membantu olah data
+                    </p>
+                  </div>
+                </div>
 
             <div className="flex items-center gap-1 text-slate-300">
               {messages.length > 0 && (
@@ -241,8 +252,9 @@ export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
               </button>
             </div>
           </div>
+        </div>
 
-          {/* Messages Body */}
+        {/* Messages Body */}
           <div className="flex-1 p-4 overflow-y-auto space-y-3.5 bg-slate-50/80 dark:bg-slate-950/50">
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-4">
@@ -361,7 +373,7 @@ export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
           </div>
 
           {/* Input Footer */}
-          <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+          <div className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 rounded-xl px-3 py-1.5 border border-slate-200 dark:border-slate-700/70 focus-within:ring-2 focus-within:ring-indigo-500/30 focus-within:border-indigo-500 transition-all">
               <input
                 ref={inputRef}
@@ -390,7 +402,8 @@ export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
             </div>
           </div>
         </div>
-      )}
-    </>
-  );
+      </>
+    )}
+  </>
+);
 }
