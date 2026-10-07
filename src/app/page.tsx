@@ -38,6 +38,7 @@ import CutoffSettingsModal from '@/components/CutoffSettingsModal';
 import PayrollResultsModal from '@/components/PayrollResultsModal';
 import TodoListWidget from '@/components/TodoListWidget';
 import AiChatWidget from '@/components/AiChatWidget';
+import PageLoadingScreen from '@/components/PageLoadingScreen';
 import { exportReportsToExcel } from '@/lib/exportExcel';
 
 export default function AssistantDashboard() {
@@ -79,9 +80,10 @@ export default function AssistantDashboard() {
 
   // Toast notice for copied link
   const [copiedLink, setCopiedLink] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   const fetchDashboardData = useCallback(() => {
-    fetch('/api/reports')
+    return fetch('/api/reports')
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.data) {
@@ -96,7 +98,7 @@ export default function AssistantDashboard() {
   }, []);
 
   const fetchTodos = useCallback(() => {
-    fetch('/api/todos')
+    return fetch('/api/todos')
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.data) {
@@ -109,8 +111,13 @@ export default function AssistantDashboard() {
   }, []);
 
   useEffect(() => {
-    fetchDashboardData();
-    fetchTodos();
+    setIsInitialLoading(true);
+    Promise.all([fetchDashboardData(), fetchTodos()]).finally(() => {
+      // Jeda halus 400ms agar transisi animasi maskot terlihat cantik
+      setTimeout(() => {
+        setIsInitialLoading(false);
+      }, 400);
+    });
   }, [fetchDashboardData, fetchTodos]);
 
   // Unique list of periods available
@@ -223,6 +230,9 @@ export default function AssistantDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-24 md:pb-12">
+      {/* Loading Screen Animasi Maskot saat Pertama Kali Mengambil Data Database */}
+      {isInitialLoading && <PageLoadingScreen />}
+
       {/* Top Navbar */}
       <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-6 py-3.5 shadow-xs">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
