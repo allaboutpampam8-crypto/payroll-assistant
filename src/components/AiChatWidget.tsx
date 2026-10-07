@@ -260,20 +260,20 @@ export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
         </div>
 
         {/* Messages Body */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-3.5 bg-slate-50/80 dark:bg-slate-950/50">
+          <div className="flex-1 p-3.5 overflow-y-auto space-y-3.5 bg-slate-50/80 dark:bg-slate-950/50">
             {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-4">
-                <div className="w-28 h-32 sm:w-32 sm:h-36 relative mb-2 drop-shadow-md">
+              <div className="min-h-full flex flex-col items-center justify-start text-center py-2 px-1">
+                <div className="w-24 h-28 sm:w-28 sm:h-32 relative mb-2 drop-shadow-md flex-shrink-0">
                   <Image
                     src="/mascot/waving.png"
                     alt="Si PALI Menyapa"
-                    width={128}
-                    height={144}
+                    width={112}
+                    height={128}
                     priority
                     className="object-contain"
                   />
                 </div>
-                <h4 className="font-bold text-slate-800 dark:text-slate-100 text-base">
+                <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base">
                   Halo Pak Pampam! 👋 Saya Si PALI
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mt-1 leading-relaxed">
@@ -281,7 +281,7 @@ export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
                 </p>
 
                 {/* Quick Prompts */}
-                <div className="mt-4 w-full flex flex-col gap-1.5 text-left">
+                <div className="mt-3.5 w-full flex flex-col gap-1.5 text-left">
                   <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-1">
                     Pilihan Cepat:
                   </div>
