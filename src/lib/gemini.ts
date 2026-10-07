@@ -4,6 +4,7 @@ import {
   getPayrollResultsByName,
   comparePayrollResults,
   getAllReports,
+  updateReport,
   getAllTodos,
   getPayrollResultsByDepartment,
   getPayrollDepartments,
@@ -11,6 +12,7 @@ import {
   comparePayrollPeriodSummaries,
   getSettings,
 } from './db';
+import { ActionStatus } from './types';
 
 const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
@@ -120,6 +122,34 @@ const toolDeclarations: FunctionDeclaration[] = [
         },
       },
       required: ['periode1', 'periode2'],
+    },
+  },
+  {
+    name: 'update_status_tiket',
+    description:
+      'Mengubah status tiket kendala payroll (misal dari OPEN menjadi CROSSCHECK atau CLOSE). Bisa untuk tiket tertentu (sebutkan nomor tiket atau nama pegawai) atau sekaligus untuk SEMUA tiket yang saat ini OPEN.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        target: {
+          type: Type.STRING,
+          description:
+            'Nomor tiket (contoh PR-202610-001), nama pegawai, atau kata "SEMUA" jika ingin mengubah semua tiket yang statusnya OPEN.',
+        },
+        status_baru: {
+          type: Type.STRING,
+          description: 'Status tujuan baru: CROSSCHECK, CLOSE, atau OPEN (huruf besar)',
+        },
+        status_asal: {
+          type: Type.STRING,
+          description: 'Status awal tiket yang ingin diubah (default: OPEN)',
+        },
+        catatan: {
+          type: Type.STRING,
+          description: 'Catatan resolusi atau alasan perubahan status (opsional)',
+        },
+      },
+      required: ['status_baru'],
     },
   },
 ];
@@ -242,6 +272,85 @@ async function executeTool(name: string, args: Record<string, any>): Promise<any
       return comp;
     }
 
+    if (name === 'update_status_tiket') {
+      const all = await getAllReports();
+      const rawStatus = String(args.status_baru || 'CROSSCHECK').trim().toUpperCase();
+      const statusBaru: ActionStatus =
+        rawStatus === 'CLOSE' || rawStatus === 'CLOSED'
+          ? 'CLOSE'
+          : rawStatus === 'CROSSCHECK'
+          ? 'CROSSCHECK'
+          : 'OPEN';
+
+      const target = String(args.target || '').trim();
+      const statusAsal = String(args.status_asal || 'OPEN').trim().toUpperCase();
+      const catatan = args.catatan ? String(args.catatan) : undefined;
+
+      const isSemua =
+        !target ||
+        target.toUpperCase() === 'SEMUA' ||
+        target.toUpperCase() === 'ALL' ||
+        target.toUpperCase() === 'SEMUA TIKET' ||
+        target.toUpperCase() === 'SEMUANYA';
+
+      if (isSemua) {
+        const toUpdate = all.filter((r) => r.actionStatus === statusAsal);
+        if (toUpdate.length === 0) {
+          return {
+            status: 'not_found',
+            message: `Tidak ada tiket kendala dengan status '${statusAsal}' yang perlu diubah ke '${statusBaru}'.`,
+          };
+        }
+
+        const updatedList: string[] = [];
+        for (const rep of toUpdate) {
+          await updateReport(rep.id, {
+            actionStatus: statusBaru,
+            ...(catatan ? { resolutionNotes: catatan } : {}),
+          });
+          updatedList.push(`${rep.ticketNumber} (${rep.employeeName})`);
+        }
+
+        return {
+          status: 'success',
+          jumlah_diupdate: updatedList.length,
+          status_sebelumnya: statusAsal,
+          status_baru: statusBaru,
+          tiket_terupdate: updatedList,
+        };
+      }
+
+      // Cari tiket spesifik berdasarkan Nomor Tiket atau Nama Pegawai
+      const matched = all.filter((r) => {
+        const ticketMatch = r.ticketNumber.toLowerCase().includes(target.toLowerCase());
+        const nameMatch = r.employeeName.toLowerCase().includes(target.toLowerCase());
+        return ticketMatch || nameMatch;
+      });
+
+      if (matched.length === 0) {
+        return {
+          status: 'not_found',
+          message: `Tiket dengan kata kunci '${target}' tidak ditemukan di sistem.`,
+        };
+      }
+
+      const updatedList: string[] = [];
+      for (const rep of matched) {
+        await updateReport(rep.id, {
+          actionStatus: statusBaru,
+          ...(catatan ? { resolutionNotes: catatan } : {}),
+        });
+        updatedList.push(`${rep.ticketNumber} (${rep.employeeName})`);
+      }
+
+      return {
+        status: 'success',
+        jumlah_diupdate: updatedList.length,
+        status_baru: statusBaru,
+        tiket_terupdate: updatedList,
+      };
+    }
+
     return { error: `Tool ${name} tidak dikenali.` };
   } catch (err: any) {
     return { error: err.message || 'Gagal menjalankan tool database.' };
@@ -277,6 +386,7 @@ Karakter & Gaya Komunikasi:
 - Selalu format angka rupiah dengan format rapi (contoh: Rp 5.729.876).
 - Format output pesan Telegram menggunakan tag HTML seperti <b>tebal</b>, <i>miring</i>, dan <code>kode/angka</code>.
 - JANGAN PERNAH mengarang angka gaji atau data tiket. Jika ditanya soal angka gaji, jumlah orang, selisih, atau tiket kendala, ANDA HARUS memanggil tools yang disediakan untuk mengambil data faktual dari database.
+- Jika pengguna meminta mengubah status tiket (contoh: "ubah tiket ini jadi crosscheck", "jadikan close", "update semua tiket open jadi crosscheck"), PANGGIL tool update_status_tiket dan laporkan hasilnya secara jelas (tiket mana saja yang berhasil diubah dan status barunya apa).
 - Jika hasil query tidak ditemukan, sampaikan secara sopan dan sarankan cara pencarian lain (misal periksa ejaan nama atau NRP).`;
 
   try {
