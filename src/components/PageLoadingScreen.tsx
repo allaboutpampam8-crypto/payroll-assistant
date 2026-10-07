@@ -16,7 +16,7 @@ export default function PageLoadingScreen({
         {/* Animated Mascot GIF */}
         <div className="relative w-36 h-36 sm:w-44 sm:h-44 flex items-center justify-center mb-1">
           <Image
-            src="/mascot/load-animate.gif"
+            src="/mascot/load-animated-2.gif"
             alt="Sedang memuat..."
             width={180}
             height={180}
