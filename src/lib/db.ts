@@ -8,6 +8,7 @@ import {
   PayrollResult,
   PayrollComparison,
   PayrollPeriodSummary,
+  EmployeeCumulativePayrollSummary,
 } from './types';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { sendTelegramNotification } from './telegram';
@@ -1026,5 +1027,159 @@ export async function getAvailablePayrollPeriods(): Promise<string[]> {
   const set = new Set<string>();
   (local.results || []).forEach((r) => set.add(r.period));
   return Array.from(set).sort().reverse();
+}
+
+/**
+ * Mengambil seluruh riwayat data gaji perorangan di semua periode (urut kronologis)
+ */
+export async function getAllPayrollResultsForEmployee(
+  query: string
+): Promise<PayrollResult[]> {
+  const clean = query.trim();
+  if (!clean) return [];
+
+  const isNumeric = /^\d+$/.test(clean);
+
+  if (isSupabaseConfigured && supabase) {
+    let q = supabase.from('payroll_results').select('*');
+    if (isNumeric) {
+      q = q.eq('employee_nik', clean);
+    } else {
+      q = q.ilike('employee_name', `%${clean}%`);
+    }
+
+    const { data, error } = await q.order('period', { ascending: true });
+    if (!error && data && data.length > 0) {
+      return data.map(mapPayrollResultFromRow);
+    }
+    return [];
+  }
+
+  const local = getLocalDatabase();
+  const list = (local.results || []).filter((r) =>
+    isNumeric
+      ? r.employeeNik === clean
+      : r.employeeName.toLowerCase().includes(clean.toLowerCase())
+  );
+  return list.sort((a, b) => a.period.localeCompare(b.period));
+}
+
+/**
+ * Menghitung rekapitulasi pendapatan gaji kumulatif (Januari s.d. Oktober / multi-bulan)
+ * Catatan: Upah Lembur dimasukkan ke dalam kelompok TUNJANGAN
+ */
+export async function getEmployeeCumulativePayrollSummary(
+  query: string,
+  startPeriod?: string,
+  endPeriod?: string
+): Promise<EmployeeCumulativePayrollSummary | null> {
+  let records = await getAllPayrollResultsForEmployee(query);
+  if (records.length === 0) return null;
+
+  // Filter rentang periode jika diberikan
+  if (startPeriod) {
+    records = records.filter((r) => r.period >= startPeriod);
+  }
+  if (endPeriod) {
+    records = records.filter((r) => r.period <= endPeriod);
+  }
+
+  if (records.length === 0) return null;
+
+  const first = records[0];
+  const last = records[records.length - 1];
+
+  let totalBasicSalary = 0;
+  let totalOvertime = 0;
+  let totalAllowances = 0;
+  let totalDeductions = 0;
+  let totalTakeHomePay = 0;
+
+  const allowanceItemTotals: Record<string, number> = {};
+  const deductionItemTotals: Record<string, number> = {};
+  const periods: string[] = [];
+
+  const monthlyBreakdown = records.map((r) => {
+    periods.push(r.period);
+    const basic = r.basicSalary || 0;
+    const ot = r.overtimeAmount || 0;
+    // Upah lembur dimasukkan ke kategori tunjangan
+    const allowancesWithOt = (r.allowances || 0) + ot;
+    const deductions = r.totalDeductions || 0;
+    const thp = r.takeHomePay || (basic + allowancesWithOt - deductions);
+    const gross = r.grossSalary || (basic + allowancesWithOt);
+
+    totalBasicSalary += basic;
+    totalOvertime += ot;
+    totalAllowances += allowancesWithOt;
+    totalDeductions += deductions;
+    totalTakeHomePay += thp;
+
+    // Rekap rincian item tunjangan
+    if (ot > 0) {
+      allowanceItemTotals['Upah Lembur'] = (allowanceItemTotals['Upah Lembur'] || 0) + ot;
+    }
+    if (r.allowanceDetails && typeof r.allowanceDetails === 'object') {
+      for (const [k, v] of Object.entries(r.allowanceDetails)) {
+        if (!k.toLowerCase().includes('lembur')) {
+          allowanceItemTotals[k] = (allowanceItemTotals[k] || 0) + Number(v);
+        }
+      }
+    }
+
+    // Rekap rincian item potongan
+    if (r.deductionDetails && typeof r.deductionDetails === 'object') {
+      for (const [k, v] of Object.entries(r.deductionDetails)) {
+        deductionItemTotals[k] = (deductionItemTotals[k] || 0) + Number(v);
+      }
+    } else {
+      if (r.deductionsBpjs > 0) {
+        deductionItemTotals['BPJS (Kesehatan & TK)'] =
+          (deductionItemTotals['BPJS (Kesehatan & TK)'] || 0) + r.deductionsBpjs;
+      }
+      if (r.deductionsTgr > 0) {
+        deductionItemTotals['TGR / Pinjaman'] =
+          (deductionItemTotals['TGR / Pinjaman'] || 0) + r.deductionsTgr;
+      }
+      if (r.deductionsOther > 0) {
+        deductionItemTotals['Potongan Lainnya'] =
+          (deductionItemTotals['Potongan Lainnya'] || 0) + r.deductionsOther;
+      }
+    }
+
+    return {
+      period: r.period,
+      basicSalary: basic,
+      allowances: allowancesWithOt,
+      overtime: ot,
+      grossSalary: gross,
+      deductions,
+      takeHomePay: thp,
+      allowanceDetails: r.allowanceDetails,
+      deductionDetails: r.deductionDetails,
+    };
+  });
+
+  const totalGrossSalary = totalBasicSalary + totalAllowances;
+  const averageTakeHomePay = Math.round(totalTakeHomePay / records.length);
+
+  return {
+    employeeNik: last.employeeNik,
+    employeeName: last.employeeName,
+    department: last.department || first.department || '-',
+    positionTitle: last.positionTitle || first.positionTitle,
+    totalMonths: records.length,
+    periods,
+    totalBasicSalary,
+    totalAllowances,
+    totalOvertime,
+    totalGrossSalary,
+    totalDeductions,
+    totalTakeHomePay,
+    averageTakeHomePay,
+    allowanceItemTotals,
+    deductionItemTotals,
+    monthlyBreakdown,
+  };
 }
 

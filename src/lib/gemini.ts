@@ -10,6 +10,7 @@ import {
   getPayrollDepartments,
   getPayrollPeriodSummary,
   comparePayrollPeriodSummaries,
+  getEmployeeCumulativePayrollSummary,
   getSettings,
 } from './db';
 import { ActionStatus } from './types';
@@ -150,6 +151,57 @@ const toolDeclarations: FunctionDeclaration[] = [
         },
       },
       required: ['status_baru'],
+    },
+  },
+  {
+    name: 'rekap_gaji_kumulatif_pegawai',
+    description:
+      'Merekap pendapatan gaji seorang pegawai untuk beberapa bulan (misal Januari s/d Oktober atau tahun berjalan). Catatan: Upah lembur dimasukkan sebagai bagian dari kelompok Tunjangan. Defaultnya: tampilkan ringkasan TOTAL saja di chat (Total THP, Total Gaji Pokok, Total Tunjangan, Total Potongan, dan Rata-rata per bulan) agar ringkas dan cepat dibaca. Jika diminta rincian komponen, baru sertakan breakdown tunjangan dan potongannya.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        query: {
+          type: Type.STRING,
+          description: 'NRP atau Nama Pegawai (contoh: 19770419494 atau Ahmad Maulana)',
+        },
+        periode_mulai: {
+          type: Type.STRING,
+          description: 'Periode awal opsional (contoh: 2026-01)',
+        },
+        periode_selesai: {
+          type: Type.STRING,
+          description: 'Periode akhir opsional (contoh: 2026-10)',
+        },
+        minta_rincian_komponen: {
+          type: Type.BOOLEAN,
+          description:
+            'True jika pengguna secara khusus meminta rincian per komponen tunjangan/potongan, false jika hanya minta total/ringkasan (default: false)',
+        },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'export_excel_rekap_pegawai',
+    description:
+      'Membuatkan dan memberikan link download file Excel (.xlsx) rekapitulasi gaji per komponen bulanan (Januari s.d. Oktober) saat pengguna meminta dibuatkan file Excel.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        query: {
+          type: Type.STRING,
+          description: 'NRP atau Nama Pegawai (contoh: 19770419494 atau Ahmad Maulana)',
+        },
+        periode_mulai: {
+          type: Type.STRING,
+          description: 'Periode awal opsional (contoh: 2026-01)',
+        },
+        periode_selesai: {
+          type: Type.STRING,
+          description: 'Periode akhir opsional (contoh: 2026-10)',
+        },
+      },
+      required: ['query'],
     },
   },
 ];
@@ -351,6 +403,105 @@ async function executeTool(name: string, args: Record<string, any>): Promise<any
       };
     }
 
+    if (name === 'rekap_gaji_kumulatif_pegawai') {
+      const q = String(args.query || '').trim();
+      const start = args.periode_mulai ? String(args.periode_mulai).trim() : undefined;
+      const end = args.periode_selesai ? String(args.periode_selesai).trim() : undefined;
+      const mintaRincian = Boolean(args.minta_rincian_komponen);
+
+      const summary = await getEmployeeCumulativePayrollSummary(q, start, end);
+      if (!summary) {
+        return {
+          status: 'not_found',
+          message: `Data rekapitulasi gaji untuk '${q}' tidak ditemukan dalam database.`,
+        };
+      }
+
+      const startP = summary.periods[0] || '';
+      const endP = summary.periods[summary.periods.length - 1] || '';
+      const downloadExcelUrl = `/api/payroll-results/export-ytd?query=${encodeURIComponent(summary.employeeNik)}&start=${encodeURIComponent(startP)}&end=${encodeURIComponent(endP)}`;
+
+      // Sesuai permintaan Pak Pampam: Upah lembur dimasukkan ke kelompok Tunjangan.
+      // Default: Tampilkan ringkasan TOTAL saja di chat agar cepat & ringkas dibaca.
+      const ringkasan = {
+        employeeName: summary.employeeName,
+        employeeNik: summary.employeeNik,
+        department: summary.department,
+        jobTitle: summary.positionTitle || '-',
+        rentangPeriode: `${startP} s/d ${endP}`,
+        jumlahBulan: summary.totalMonths,
+        daftarBulan: summary.periods,
+        totalGross: summary.totalGrossSalary,
+        totalGajiPokok: summary.totalBasicSalary,
+        totalTunjangan: summary.totalAllowances, // sudah include upah lembur
+        totalUpahLembur: summary.totalOvertime, // info tambahan jika ingin tahu porsi lemburnya
+        totalPotongan: summary.totalDeductions,
+        totalTakeHomePay: summary.totalTakeHomePay,
+        rataRataThpBulanan: summary.averageTakeHomePay,
+        linkDownloadExcel: downloadExcelUrl,
+      };
+
+      if (mintaRincian) {
+        return {
+          status: 'success',
+          mode: 'detail_komponen',
+          ringkasan,
+          rincianTunjangan: summary.allowanceItemTotals,
+          rincianPotongan: summary.deductionItemTotals,
+          perBulan: summary.monthlyBreakdown.map((m) => ({
+            periode: m.period,
+            gajiPokok: m.basicSalary,
+            tunjangan: m.allowances, // include lembur
+            lembur: m.overtime,
+            potongan: m.deductions,
+            thp: m.takeHomePay,
+          })),
+        };
+      }
+
+      return {
+        status: 'success',
+        mode: 'ringkasan_total',
+        ringkasan,
+        catatan:
+          'Data kumulatif dihitung. Tampilkan TOTAL saja di chat (THP, Gaji Pokok, Tunjangan termasuk lembur, Potongan, & Rata-rata per bulan). Informasikan bahwa file Excel detail per komponen siap digenerate jika dibutuhkan.',
+      };
+    }
+
+    if (name === 'export_excel_rekap_pegawai') {
+      const q = String(args.query || '').trim();
+      const start = args.periode_mulai ? String(args.periode_mulai).trim() : undefined;
+      const end = args.periode_selesai ? String(args.periode_selesai).trim() : undefined;
+
+      const summary = await getEmployeeCumulativePayrollSummary(q, start, end);
+      if (!summary) {
+        return {
+          status: 'not_found',
+          message: `Data rekapitulasi gaji untuk '${q}' tidak ditemukan dalam database.`,
+        };
+      }
+
+      const startP = summary.periods[0] || '';
+      const endP = summary.periods[summary.periods.length - 1] || '';
+      const downloadUrl = `/api/payroll-results/export-ytd?query=${encodeURIComponent(summary.employeeNik)}&start=${encodeURIComponent(startP)}&end=${encodeURIComponent(endP)}`;
+
+      return {
+        status: 'success',
+        pegawai: {
+          nama: summary.employeeName,
+          nrp: summary.employeeNik,
+          departemen: summary.department,
+          jabatan: summary.positionTitle || '-',
+        },
+        rentangPeriode: `${startP} s/d ${endP}`,
+        jumlahBulan: summary.totalMonths,
+        totalTakeHomePay: summary.totalTakeHomePay,
+        downloadUrl,
+        downloadLinkHtml: `<a href="${downloadUrl}" target="_blank" rel="noopener noreferrer">📥 <b>Download Excel Rekap Gaji (${summary.employeeName})</b></a>`,
+        pesan: `File Excel rekapitulasi gaji per komponen untuk ${summary.employeeName} periode ${startP} s/d ${endP} berhasil disiapkan.`,
+      };
+    }
+
     return { error: `Tool ${name} tidak dikenali.` };
   } catch (err: any) {
     return { error: err.message || 'Gagal menjalankan tool database.' };
@@ -387,7 +538,13 @@ Karakter & Gaya Komunikasi:
 - Format output pesan Telegram menggunakan tag HTML seperti <b>tebal</b>, <i>miring</i>, dan <code>kode/angka</code>.
 - JANGAN PERNAH mengarang angka gaji atau data tiket. Jika ditanya soal angka gaji, jumlah orang, selisih, atau tiket kendala, ANDA HARUS memanggil tools yang disediakan untuk mengambil data faktual dari database.
 - Jika pengguna meminta mengubah status tiket (contoh: "ubah tiket ini jadi crosscheck", "jadikan close", "update semua tiket open jadi crosscheck"), PANGGIL tool update_status_tiket dan laporkan hasilnya secara jelas (tiket mana saja yang berhasil diubah dan status barunya apa).
-- Jika hasil query tidak ditemukan, sampaikan secara sopan dan sarankan cara pencarian lain (misal periksa ejaan nama atau NRP).`;
+- Jika hasil query tidak ditemukan, sampaikan secara sopan dan sarankan cara pencarian lain (misal periksa ejaan nama atau NRP).
+
+Aturan Khusus Rekap Pendapatan Multi-Bulan & Excel:
+1. Komponen Upah Lembur BUKAN lembur terpisah, melainkan komponen penggajian bulanan yang dikategorikan ke dalam Tunjangan.
+2. Ketika pengguna meminta rekap gaji beberapa bulan (misal Jan - Okt): Secara DEFAULT di chat, tampilkan ringkasan TOTAL saja (Total Take Home Pay, Total Gaji Pokok, Total Tunjangan [termasuk lembur], Total Potongan, serta Rata-rata THP per bulan) agar ringkas dan cepat dibaca oleh Pak Pampam.
+3. Selalu tawarkan atau sertakan link jika Pak Pampam membutuhkan file Excel detail matriks per komponen bulanan.
+4. Jika pengguna secara eksplisit meminta file Excel (misal: "buatkan excel rekap gaji pegawai X", "export excel rekap"), PANGGIL tool export_excel_rekap_pegawai dan sertakan link unduh HTML dalam jawaban Anda.`;
 
   try {
     // Primary model: gemini-3.5-flash-lite (kecepatan tinggi & kuota free tier besar)

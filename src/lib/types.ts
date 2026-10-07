@@ -141,3 +141,32 @@ export interface PayrollPeriodSummary {
   totalDeductions: number;
   totalTakeHomePay: number;
 }
+
+export interface EmployeeCumulativePayrollSummary {
+  employeeNik: string;
+  employeeName: string;
+  department: string;
+  positionTitle?: string;
+  totalMonths: number;
+  periods: string[];
+  totalBasicSalary: number;
+  totalAllowances: number; // Termasuk upah lembur sebagai salah satu komponen tunjangan
+  totalOvertime: number; // Nilai lembur yang menjadi bagian tunjangan
+  totalGrossSalary: number;
+  totalDeductions: number;
+  totalTakeHomePay: number;
+  averageTakeHomePay: number;
+  allowanceItemTotals: Record<string, number>;
+  deductionItemTotals: Record<string, number>;
+  monthlyBreakdown: {
+    period: string;
+    basicSalary: number;
+    allowances: number;
+    overtime: number;
+    grossSalary: number;
+    deductions: number;
+    takeHomePay: number;
+    allowanceDetails?: Record<string, number>;
+    deductionDetails?: Record<string, number>;
+  }[];
+}
