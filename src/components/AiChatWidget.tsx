@@ -258,13 +258,14 @@ export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
           <div className="flex-1 p-4 overflow-y-auto space-y-3.5 bg-slate-50/80 dark:bg-slate-950/50">
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-4">
-                <div className="w-28 h-28 relative mb-3 drop-shadow-md">
+                <div className="w-28 h-32 sm:w-32 sm:h-36 relative mb-2 drop-shadow-md">
                   <Image
-                    src="/mascot/ready.png"
-                    alt="Siap Membantu"
-                    width={112}
-                    height={112}
-                    className="object-contain rounded-xl"
+                    src="/mascot/waving.png"
+                    alt="Halo Pak Pampam"
+                    width={128}
+                    height={144}
+                    priority
+                    className="object-contain"
                   />
                 </div>
                 <h4 className="font-bold text-slate-800 dark:text-slate-100 text-base">
