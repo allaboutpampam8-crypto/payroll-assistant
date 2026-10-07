@@ -280,11 +280,11 @@ Karakter & Gaya Komunikasi:
 - Jika hasil query tidak ditemukan, sampaikan secara sopan dan sarankan cara pencarian lain (misal periksa ejaan nama atau NRP).`;
 
   try {
-    // Primary model: gemini-3.8-flash, fallback: gemini-2.5-flash
-    const modelName = 'gemini-3.8-flash';
+    // Primary model: gemini-3.5-flash-lite (kecepatan tinggi & kuota free tier besar)
+    const modelName = 'gemini-3.5-flash-lite';
 
     // Step 1: Panggil model dengan tools
-    let response = await ai.models.generateContent({
+    const response = await ai.models.generateContent({
       model: modelName,
       contents: userMessage,
       config: {
@@ -299,13 +299,14 @@ Karakter & Gaya Komunikasi:
       const call = functionCalls[0];
       if (call.name) {
         const toolResult = await executeTool(call.name, (call.args || {}) as Record<string, any>);
+        const modelParts = response.candidates?.[0]?.content?.parts || [{ functionCall: call }];
 
         // Step 3: Kirim balik hasil tool ke Gemini untuk diformulasikan menjadi jawaban ramah
         const secondResponse = await ai.models.generateContent({
           model: modelName,
           contents: [
             { role: 'user', parts: [{ text: userMessage }] },
-            { role: 'model', parts: [{ functionCall: call }] },
+            { role: 'model', parts: modelParts as any },
             {
               role: 'user',
               parts: [
@@ -331,12 +332,12 @@ Karakter & Gaya Komunikasi:
   } catch (error: any) {
     console.error('Gemini AI Query Error:', error);
 
-    // Fallback model jika gemini-3.8-flash belum tersedia di tier tertentu
-    if (error.message?.includes('not found') || error.status === 404) {
+    // Fallback jika model lite terkena rate-limit, coba gemini-3.5-flash
+    if (error.message?.includes('429') || error.status === 429) {
       try {
         const fallbackAi = new GoogleGenAI({ apiKey });
         const res = await fallbackAi.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3.5-flash',
           contents: userMessage,
           config: {
             systemInstruction,
@@ -344,7 +345,7 @@ Karakter & Gaya Komunikasi:
         });
         return res.text || 'Maaf Pak, terjadi kendala saat memproses jawaban.';
       } catch (fallbackErr: any) {
-        return `⚠️ Terjadi kendala saat menghubungi AI: ${fallbackErr.message}`;
+        return `⚠️ Kuota rate limit API tercapai. Silakan coba kembali beberapa saat lagi. (${fallbackErr.message})`;
       }
     }
 
