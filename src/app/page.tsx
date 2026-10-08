@@ -19,6 +19,7 @@ import {
   ListTodo,
   ClipboardList,
   Database,
+  Scissors,
 } from 'lucide-react';
 
 import {
@@ -299,6 +300,15 @@ export default function AssistantDashboard() {
               <Database className="h-3.5 w-3.5 text-indigo-700" />
               <span>Data Payroll</span>
             </button>
+
+            <Link
+              href="/tools/excel-splitter"
+              title="Pecah File Excel Payroll HRIS per 1000 Baris (Offline & Format Utuh)"
+              className="hidden sm:flex items-center gap-1.5 rounded-xl border border-sky-200 bg-sky-50 hover:bg-sky-100/80 px-3 py-2 text-xs font-semibold text-sky-800 shadow-xs transition-colors cursor-pointer"
+            >
+              <Scissors className="h-3.5 w-3.5 text-sky-700" />
+              <span>Pecah Excel</span>
+            </Link>
 
             <button
               onClick={() => setIsQuickEntryOpen(true)}
@@ -786,6 +796,14 @@ export default function AssistantDashboard() {
         >
           <Database className="h-5 w-5" />
         </button>
+
+        <Link
+          href="/tools/excel-splitter"
+          className="flex items-center justify-center p-2.5 rounded-xl text-sky-700 bg-sky-50 border border-sky-200 transition-all cursor-pointer"
+          title="Pecah File Excel HRIS (per 1000 baris)"
+        >
+          <Scissors className="h-5 w-5" />
+        </Link>
 
         <button
           onClick={() => setIsQuickEntryOpen(true)}

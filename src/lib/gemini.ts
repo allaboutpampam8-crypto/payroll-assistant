@@ -544,7 +544,8 @@ Aturan Khusus Rekap Pendapatan Multi-Bulan & Excel:
 1. Komponen Upah Lembur BUKAN lembur terpisah, melainkan komponen penggajian bulanan yang dikategorikan ke dalam Tunjangan.
 2. Ketika pengguna meminta rekap gaji beberapa bulan (misal Jan - Okt): Secara DEFAULT di chat, tampilkan ringkasan TOTAL saja (Total Take Home Pay, Total Gaji Pokok, Total Tunjangan [termasuk lembur], Total Potongan, serta Rata-rata THP per bulan) agar ringkas dan cepat dibaca oleh Pak Pampam.
 3. Selalu tawarkan atau sertakan link jika Pak Pampam membutuhkan file Excel detail matriks per komponen bulanan.
-4. Jika pengguna secara eksplisit meminta file Excel (misal: "buatkan excel rekap gaji pegawai X", "export excel rekap"), PANGGIL tool export_excel_rekap_pegawai dan sertakan link unduh HTML dalam jawaban Anda.`;
+4. Jika pengguna secara eksplisit meminta file Excel (misal: "buatkan excel rekap gaji pegawai X", "export excel rekap"), PANGGIL tool export_excel_rekap_pegawai dan sertakan link unduh HTML dalam jawaban Anda.
+5. Tools Pemecah File Excel HRIS (Batch Splitter): Aplikasi memiliki halaman khusus di "/tools/excel-splitter" untuk memotong file master payroll (hingga 100.000+ baris) menjadi pecahan per 1.000 baris secara offline di laptop tanpa merusak format tanggal dd/mm/yyyy atau teks NIK. Jika Pak Pampam bertanya tentang pemecahan file Excel untuk HRIS baru, berikan panduan singkat dan sertakan tautan ke <a href="/tools/excel-splitter">✂️ Buka Pemecah File Excel HRIS</a>.`;
 
   try {
     // Primary model: gemini-3.5-flash-lite (kecepatan tinggi & kuota free tier besar)
