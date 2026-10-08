@@ -109,7 +109,16 @@ export default function QuickEntryModal({
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data)) {
-          setDeptEmployees(json.data);
+          // Deduplikasi per NIK agar pegawai yang ada di beberapa periode tidak muncul dobel
+          const seen = new Set<string>();
+          const unique: PayrollResult[] = [];
+          for (const emp of json.data) {
+            if (!seen.has(emp.employeeNik)) {
+              seen.add(emp.employeeNik);
+              unique.push(emp);
+            }
+          }
+          setDeptEmployees(unique);
         }
       })
       .catch((err) => console.warn('Failed to load dept employees:', err))
@@ -172,8 +181,17 @@ export default function QuickEntryModal({
       const res = await fetch(`/api/payroll-results/query?name=${encodeURIComponent(clean)}`);
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
-        setNameSuggestions(json.data);
-        setShowNameDropdown(json.data.length > 0);
+        // Deduplikasi saran nama per NIK agar pegawai tidak tampil dobel
+        const seen = new Set<string>();
+        const unique: PayrollResult[] = [];
+        for (const emp of json.data) {
+          if (!seen.has(emp.employeeNik)) {
+            seen.add(emp.employeeNik);
+            unique.push(emp);
+          }
+        }
+        setNameSuggestions(unique);
+        setShowNameDropdown(unique.length > 0);
       }
     } catch (err) {
       console.warn('Name search error:', err);

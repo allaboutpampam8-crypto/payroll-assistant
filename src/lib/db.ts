@@ -697,9 +697,21 @@ export async function getPayrollResultsByName(
       query = query.order('period', { ascending: false });
     }
 
-    const { data, error } = await query.limit(10);
+    const { data, error } = await query.limit(period ? 10 : 25);
     if (!error && data) {
-      return data.map(mapPayrollResultFromRow);
+      const raw = data.map(mapPayrollResultFromRow);
+      if (!period) {
+        const seen = new Set<string>();
+        const unique: PayrollResult[] = [];
+        for (const item of raw) {
+          if (!seen.has(item.employeeNik)) {
+            seen.add(item.employeeNik);
+            unique.push(item);
+          }
+        }
+        return unique.slice(0, 10);
+      }
+      return raw.slice(0, 10);
     }
     return [];
   }
@@ -711,7 +723,15 @@ export async function getPayrollResultsByName(
   if (period) {
     return list.filter((r) => r.period === period).slice(0, 10);
   }
-  return list.slice(0, 10);
+  const seen = new Set<string>();
+  const unique: PayrollResult[] = [];
+  for (const item of list) {
+    if (!seen.has(item.employeeNik)) {
+      seen.add(item.employeeNik);
+      unique.push(item);
+    }
+  }
+  return unique.slice(0, 10);
 }
 
 export async function getPayrollDepartments(
@@ -720,23 +740,24 @@ export async function getPayrollDepartments(
 ): Promise<{ department: string; count: number }[]> {
   const cleanSearch = searchQuery?.trim();
   if (isSupabaseConfigured && supabase) {
-    let query = supabase.from('payroll_results').select('department');
+    let query = supabase.from('payroll_results').select('department, employee_nik');
     if (cleanSearch) {
       query = query.ilike('department', `%${cleanSearch}%`);
     }
     if (period) {
       query = query.eq('period', period);
     }
-    const { data, error } = await query.limit(cleanSearch ? 500 : 1000);
+    const { data, error } = await query.limit(cleanSearch ? 500 : 20000);
     if (!error && data) {
-      const counts: Record<string, number> = {};
+      const deptMap: Record<string, Set<string>> = {};
       for (const row of data) {
         if (row.department) {
-          counts[row.department] = (counts[row.department] || 0) + 1;
+          if (!deptMap[row.department]) deptMap[row.department] = new Set();
+          deptMap[row.department].add(row.employee_nik);
         }
       }
-      return Object.entries(counts)
-        .map(([department, count]) => ({ department, count }))
+      return Object.entries(deptMap)
+        .map(([department, nikSet]) => ({ department, count: nikSet.size }))
         .sort((a, b) => b.count - a.count);
     }
   }
@@ -747,14 +768,15 @@ export async function getPayrollDepartments(
       (!period || r.period === period) &&
       (!cleanSearch || (r.department && r.department.toLowerCase().includes(cleanSearch.toLowerCase())))
   );
-  const counts: Record<string, number> = {};
+  const deptMap: Record<string, Set<string>> = {};
   for (const row of list) {
     if (row.department) {
-      counts[row.department] = (counts[row.department] || 0) + 1;
+      if (!deptMap[row.department]) deptMap[row.department] = new Set();
+      deptMap[row.department].add(row.employeeNik);
     }
   }
-  return Object.entries(counts)
-    .map(([department, count]) => ({ department, count }))
+  return Object.entries(deptMap)
+    .map(([department, nikSet]) => ({ department, count: nikSet.size }))
     .sort((a, b) => b.count - a.count);
 }
 
@@ -775,9 +797,27 @@ export async function getPayrollResultsByDepartment(
       query = query.eq('period', period);
     }
 
-    const { data, error } = await query.order('employee_name', { ascending: true });
+    // Ambil dengan urutan periode terbaru lebih dulu
+    const { data, error } = await query
+      .order('period', { ascending: false })
+      .order('employee_name', { ascending: true })
+      .limit(period ? 2000 : 5000);
+
     if (!error && data) {
-      return data.map(mapPayrollResultFromRow);
+      const raw = data.map(mapPayrollResultFromRow);
+      // Jika tanpa filter periode, deduplikasi agar tiap pegawai hanya muncul 1x (data terbaru)
+      if (!period) {
+        const seen = new Set<string>();
+        const unique: PayrollResult[] = [];
+        for (const item of raw) {
+          if (!seen.has(item.employeeNik)) {
+            seen.add(item.employeeNik);
+            unique.push(item);
+          }
+        }
+        return unique.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+      }
+      return raw;
     }
     return [];
   }
@@ -786,6 +826,18 @@ export async function getPayrollResultsByDepartment(
   const list = (local.results || []).filter(
     (r) => r.department === cleanDept && (!period || r.period === period)
   );
+  if (!period) {
+    list.sort((a, b) => b.period.localeCompare(a.period));
+    const seen = new Set<string>();
+    const unique: PayrollResult[] = [];
+    for (const item of list) {
+      if (!seen.has(item.employeeNik)) {
+        seen.add(item.employeeNik);
+        unique.push(item);
+      }
+    }
+    return unique.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+  }
   return list.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
 }
 
@@ -1011,16 +1063,34 @@ export async function comparePayrollPeriodSummaries(
 
 export async function getAvailablePayrollPeriods(): Promise<string[]> {
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
+    const periods: string[] = [];
+    const { data } = await supabase
       .from('payroll_results')
       .select('period')
-      .order('period', { ascending: false });
+      .order('period', { ascending: false })
+      .limit(1);
 
-    if (!error && data) {
-      const set = new Set<string>();
-      data.forEach((r) => set.add(r.period));
-      return Array.from(set);
+    if (data && data.length > 0) {
+      let current = data[0].period;
+      periods.push(current);
+
+      while (current) {
+        const { data: prev } = await supabase
+          .from('payroll_results')
+          .select('period')
+          .lt('period', current)
+          .order('period', { ascending: false })
+          .limit(1);
+
+        if (prev && prev.length > 0) {
+          current = prev[0].period;
+          periods.push(current);
+        } else {
+          break;
+        }
+      }
     }
+    if (periods.length > 0) return periods;
   }
 
   const local = getLocalDatabase();

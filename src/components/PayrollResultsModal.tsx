@@ -361,6 +361,16 @@ export default function PayrollResultsModal({
         setSummaryData(data.summary);
         if (Array.isArray(data.availablePeriods)) {
           setAvailablePeriods(data.availablePeriods);
+          // Jika periode saat ini tidak ada data (misal Oktober 2026), otomatis tampilkan periode terbaru
+          if (!data.summary && data.availablePeriods.length > 0 && targetPeriod !== data.availablePeriods[0]) {
+            const latest = data.availablePeriods[0];
+            setSummaryPeriod(latest);
+            const latestRes = await fetch(`/api/payroll-results/summary?period=${encodeURIComponent(latest)}`);
+            const latestData = await latestRes.json();
+            if (latestRes.ok && latestData.success && latestData.summary) {
+              setSummaryData(latestData.summary);
+            }
+          }
         }
       } else {
         setSummaryData(null);
