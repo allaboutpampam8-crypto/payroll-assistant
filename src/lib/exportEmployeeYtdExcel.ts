@@ -27,13 +27,51 @@ export function generateEmployeeYtdExcelBuffer(
       periods[periods.length - 1] || ''
     })`,
   ]);
-  dataRows.push([
-    `Nama: ${summary.employeeName} | NRP: ${summary.employeeNik} | Project: ${
-      summary.department
-    } | Jabatan: ${summary.positionTitle || '-'}`,
-  ]);
+
+  const baseIdentity = `Nama: ${summary.employeeName} | NRP: ${summary.employeeNik} | Project Terakhir: ${
+    summary.department
+  } | Jabatan Terakhir: ${summary.positionTitle || '-'}`;
+  dataRows.push([baseIdentity]);
+
+  if (summary.hasMutation) {
+    dataRows.push([
+      'Catatan Mutasi: Pegawai memiliki riwayat perpindahan Cost Center / Project atau Formasi Jabatan pada periode ini (lihat rincian per bulan di bawah).'
+    ]);
+  }
+
   dataRows.push([]); // Baris kosong pemisah
   dataRows.push(headers);
+
+  // --- INFORMASI PENUGASAN BULANAN (COST CENTER & JABATAN) ---
+  const monthlyDept = periods.map((p) => {
+    const found = summary.monthlyBreakdown.find((m) => m.period === p);
+    return found?.department || '-';
+  });
+  const monthlyPosition = periods.map((p) => {
+    const found = summary.monthlyBreakdown.find((m) => m.period === p);
+    return found?.positionTitle || '-';
+  });
+
+  const deptMutationNote = summary.uniqueDepartments && summary.uniqueDepartments.length > 1
+    ? `Mutasi (${summary.uniqueDepartments.length} Project)`
+    : 'Tetap';
+  const posMutationNote = summary.uniquePositions && summary.uniquePositions.length > 1
+    ? `Rotasi (${summary.uniquePositions.length} Jabatan)`
+    : 'Tetap';
+
+  dataRows.push([
+    'Cost Center / Project Asal',
+    ...monthlyDept,
+    deptMutationNote,
+    '-',
+  ]);
+  dataRows.push([
+    'Job Formation / Jabatan',
+    ...monthlyPosition,
+    posMutationNote,
+    '-',
+  ]);
+  dataRows.push([]); // Pemisah sebelum komponen nilai rupiah
 
   const formatAvg = (total: number) => Math.round(total / (numMonths || 1));
 
@@ -162,9 +200,9 @@ export function generateEmployeeYtdExcelBuffer(
 
   // Atur lebar kolom
   const colWidths = [
-    { wch: 40 }, // Nama Komponen
-    ...periods.map(() => ({ wch: 18 })), // Kolom tiap bulan
-    { wch: 22 }, // Total Kumulatif
+    { wch: 38 }, // Nama Komponen / Penugasan
+    ...periods.map(() => ({ wch: 28 })), // Kolom tiap bulan (cukup lebar untuk project/jabatan)
+    { wch: 24 }, // Total Kumulatif / Catatan Mutasi
     { wch: 20 }, // Rata-rata per bulan
   ];
   worksheet['!cols'] = colWidths;

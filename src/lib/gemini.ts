@@ -426,8 +426,14 @@ async function executeTool(name: string, args: Record<string, any>): Promise<any
       const ringkasan = {
         employeeName: summary.employeeName,
         employeeNik: summary.employeeNik,
-        department: summary.department,
-        jobTitle: summary.positionTitle || '-',
+        departmentTerakhir: summary.department,
+        jabatanTerakhir: summary.positionTitle || '-',
+        hasMutation: summary.hasMutation || false,
+        riwayatProject: summary.uniqueDepartments || [summary.department],
+        riwayatJabatan: summary.uniquePositions || [summary.positionTitle || '-'],
+        catatanMutasi: summary.hasMutation
+          ? `Pegawai mengalami perpindahan project/jabatan: Project (${(summary.uniqueDepartments || []).join(' -> ')}), Jabatan (${(summary.uniquePositions || []).join(' -> ')})`
+          : 'Cost center dan jabatan tetap sepanjang periode',
         rentangPeriode: `${startP} s/d ${endP}`,
         jumlahBulan: summary.totalMonths,
         daftarBulan: summary.periods,
@@ -450,6 +456,8 @@ async function executeTool(name: string, args: Record<string, any>): Promise<any
           rincianPotongan: summary.deductionItemTotals,
           perBulan: summary.monthlyBreakdown.map((m) => ({
             periode: m.period,
+            department: m.department,
+            jabatan: m.positionTitle,
             gajiPokok: m.basicSalary,
             tunjangan: m.allowances, // include lembur
             lembur: m.overtime,

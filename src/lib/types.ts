@@ -147,6 +147,9 @@ export interface EmployeeCumulativePayrollSummary {
   employeeName: string;
   department: string;
   positionTitle?: string;
+  hasMutation?: boolean;
+  uniqueDepartments?: string[];
+  uniquePositions?: string[];
   totalMonths: number;
   periods: string[];
   totalBasicSalary: number;
@@ -160,6 +163,8 @@ export interface EmployeeCumulativePayrollSummary {
   deductionItemTotals: Record<string, number>;
   monthlyBreakdown: {
     period: string;
+    department?: string;
+    positionTitle?: string;
     basicSalary: number;
     allowances: number;
     overtime: number;

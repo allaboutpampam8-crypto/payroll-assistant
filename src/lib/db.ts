@@ -1239,6 +1239,8 @@ export async function getEmployeeCumulativePayrollSummary(
 
     return {
       period: r.period,
+      department: r.department || '-',
+      positionTitle: r.positionTitle || '-',
       basicSalary: basic,
       allowances: allowancesWithOt,
       overtime: ot,
@@ -1253,11 +1255,22 @@ export async function getEmployeeCumulativePayrollSummary(
   const totalGrossSalary = totalBasicSalary + totalAllowances;
   const averageTakeHomePay = Math.round(totalTakeHomePay / records.length);
 
+  const uniqueDepartments = Array.from(
+    new Set(records.map((r) => r.department).filter((d): d is string => Boolean(d && d.trim())))
+  );
+  const uniquePositions = Array.from(
+    new Set(records.map((r) => r.positionTitle).filter((p): p is string => Boolean(p && p.trim())))
+  );
+  const hasMutation = uniqueDepartments.length > 1 || uniquePositions.length > 1;
+
   return {
     employeeNik: last.employeeNik,
     employeeName: last.employeeName,
     department: last.department || first.department || '-',
     positionTitle: last.positionTitle || first.positionTitle,
+    hasMutation,
+    uniqueDepartments,
+    uniquePositions,
     totalMonths: records.length,
     periods,
     totalBasicSalary,
