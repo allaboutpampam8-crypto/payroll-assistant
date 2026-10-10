@@ -21,6 +21,7 @@ import {
   ClipboardList,
   Database,
   Scissors,
+  Calculator,
 } from 'lucide-react';
 
 import {
@@ -38,6 +39,7 @@ import QuickEntryModal from '@/components/QuickEntryModal';
 import ReportDetailModal from '@/components/ReportDetailModal';
 import CutoffSettingsModal from '@/components/CutoffSettingsModal';
 import PayrollResultsModal from '@/components/PayrollResultsModal';
+import TerbilangModal from '@/components/TerbilangModal';
 import TodoListWidget from '@/components/TodoListWidget';
 import AiChatWidget from '@/components/AiChatWidget';
 import PageLoadingScreen from '@/components/PageLoadingScreen';
@@ -79,6 +81,7 @@ export default function AssistantDashboard() {
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPayrollModalOpen, setIsPayrollModalOpen] = useState(false);
+  const [isTerbilangOpen, setIsTerbilangOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<PayrollReport | null>(null);
 
   // Toast notice for copied link
@@ -344,6 +347,22 @@ export default function AssistantDashboard() {
                         <p className="text-[11px] text-slate-500">Bagi file per 1000 baris format utuh</p>
                       </div>
                     </Link>
+
+                    <button
+                      onClick={() => {
+                        setIsToolsDropdownOpen(false);
+                        setIsTerbilangOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-amber-50/70 text-left transition-colors cursor-pointer group"
+                    >
+                      <div className="p-2 rounded-lg bg-amber-100 text-amber-700 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                        <Calculator className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">Kalkulator Terbilang ND</p>
+                        <p className="text-[11px] text-slate-500">Konversi nominal ke kalimat Nota Dinas</p>
+                      </div>
+                    </button>
 
                     <div className="my-1 border-t border-slate-100" />
 
@@ -904,6 +923,11 @@ export default function AssistantDashboard() {
         isOpen={isPayrollModalOpen}
         onClose={() => setIsPayrollModalOpen(false)}
         defaultPeriod={settings.activePeriod}
+      />
+
+      <TerbilangModal
+        isOpen={isTerbilangOpen}
+        onClose={() => setIsTerbilangOpen(false)}
       />
 
       {/* Floating AI Chat Assistant with Mascot */}

@@ -14,6 +14,7 @@ import {
   getSettings,
 } from './db';
 import { ActionStatus } from './types';
+import { angkaKeTerbilang, formatTerbilang } from './terbilang';
 
 const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
@@ -202,6 +203,21 @@ const toolDeclarations: FunctionDeclaration[] = [
         },
       },
       required: ['query'],
+    },
+  },
+  {
+    name: 'konversi_terbilang',
+    description:
+      'Mengonversi angka/nominal rupiah menjadi kalimat terbilang resmi Bahasa Indonesia untuk keperluan pembuatan Nota Dinas, Berita Acara, atau Memorandum Keuangan.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        nominal: {
+          type: Type.STRING,
+          description: 'Angka nominal yang ingin dikonversi ke kalimat terbilang (contoh: 1450750200 atau 5.750.000)',
+        },
+      },
+      required: ['nominal'],
     },
   },
 ];
@@ -510,6 +526,31 @@ async function executeTool(name: string, args: Record<string, any>): Promise<any
       };
     }
 
+    if (name === 'konversi_terbilang') {
+      const rawNominal = String(args.nominal || '').trim();
+      const clean = rawNominal.replace(/[^0-9]/g, '');
+      if (!clean) {
+        return { status: 'error', message: 'Nominal angka tidak valid atau kosong.' };
+      }
+      const terbilangTitle = formatTerbilang(angkaKeTerbilang(clean), 'TITLE');
+      const terbilangUpper = formatTerbilang(angkaKeTerbilang(clean), 'UPPER');
+      const formattedRupiah = new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        maximumFractionDigits: 0,
+      }).format(Number(clean));
+      const templateNotaDinas = `Rp ${new Intl.NumberFormat('id-ID').format(Number(clean))},- (${terbilangTitle})`;
+
+      return {
+        status: 'success',
+        nominalAngka: clean,
+        formatRupiah: formattedRupiah,
+        terbilangTitleCase: terbilangTitle,
+        terbilangUppercase: terbilangUpper,
+        templateNotaDinas,
+      };
+    }
+
     return { error: `Tool ${name} tidak dikenali.` };
   } catch (err: any) {
     return { error: err.message || 'Gagal menjalankan tool database.' };
@@ -553,7 +594,8 @@ Aturan Khusus Rekap Pendapatan Multi-Bulan & Excel:
 2. Ketika pengguna meminta rekap gaji beberapa bulan (misal Jan - Okt): Secara DEFAULT di chat, tampilkan ringkasan TOTAL saja (Total Take Home Pay, Total Gaji Pokok, Total Tunjangan [termasuk lembur], Total Potongan, serta Rata-rata THP per bulan) agar ringkas dan cepat dibaca oleh Pak Pampam.
 3. Selalu tawarkan atau sertakan link jika Pak Pampam membutuhkan file Excel detail matriks per komponen bulanan.
 4. Jika pengguna secara eksplisit meminta file Excel (misal: "buatkan excel rekap gaji pegawai X", "export excel rekap"), PANGGIL tool export_excel_rekap_pegawai dan sertakan link unduh HTML dalam jawaban Anda.
-5. Tools Pemecah File Excel HRIS (Batch Splitter): Aplikasi memiliki halaman khusus di "/tools/excel-splitter" untuk memotong file master payroll (hingga 100.000+ baris) menjadi pecahan per 1.000 baris secara offline di laptop tanpa merusak format tanggal dd/mm/yyyy atau teks NIK. Jika Pak Pampam bertanya tentang pemecahan file Excel untuk HRIS baru, berikan panduan singkat dan sertakan tautan ke <a href="/tools/excel-splitter">✂️ Buka Pemecah File Excel HRIS</a>.`;
+5. Tools Pemecah File Excel HRIS (Batch Splitter): Aplikasi memiliki halaman khusus di "/tools/excel-splitter" untuk memotong file master payroll (hingga 100.000+ baris) menjadi pecahan per 1.000 baris secara offline di laptop tanpa merusak format tanggal dd/mm/yyyy atau teks NIK. Jika Pak Pampam bertanya tentang pemecahan file Excel untuk HRIS baru, berikan panduan singkat dan sertakan tautan ke <a href="/tools/excel-splitter">✂️ Buka Pemecah File Excel HRIS</a>.
+6. Kalkulator Terbilang Nota Dinas: Jika pengguna bertanya tentang ejaan kalimat terbilang dari suatu nominal atau pembuatan kalimat nota dinas/kwitansi, PANGGIL tool konversi_terbilang dan berikan kalimat terbilang Title Case beserta format lengkap nota dinas siap pakai.`;
 
   try {
     // Primary model: gemini-3.5-flash-lite (kecepatan tinggi & kuota free tier besar)
