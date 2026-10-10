@@ -17,6 +17,16 @@ export const metadata: Metadata = {
   title: 'Asisten Payroll & Task Tracker',
   description: 'Asisten pribadi pencatat kendala gaji, rekapitulasi, dan pengingat tugas payroll',
   manifest: '/manifest.webmanifest',
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+    },
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',

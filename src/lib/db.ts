@@ -1304,3 +1304,74 @@ export async function getEmployeeCumulativePayrollSummary(
   };
 }
 
+/**
+ * Mengambil seluruh data payroll untuk periode tertentu (di-batch per 1.000 baris dari Supabase)
+ */
+export async function getPayrollResultsForPeriod(
+  period: string
+): Promise<PayrollResult[]> {
+  const cleanPeriod = period.trim();
+  if (!cleanPeriod) return [];
+
+  if (isSupabaseConfigured && supabase) {
+    const allRows: PayrollResult[] = [];
+    let from = 0;
+    const batchSize = 1000;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('payroll_results')
+        .select('*')
+        .eq('period', cleanPeriod)
+        .order('employee_name', { ascending: true })
+        .range(from, from + batchSize - 1);
+
+      if (error) {
+        console.error(`[getPayrollResultsForPeriod] Error at range ${from}-${from + batchSize - 1} for ${cleanPeriod}:`, error.message);
+        // Coba retry 1 kali bila terjadi transient network hiccup
+        const retryRes = await supabase
+          .from('payroll_results')
+          .select('*')
+          .eq('period', cleanPeriod)
+          .order('employee_name', { ascending: true })
+          .range(from, from + batchSize - 1);
+
+        if (retryRes.data && retryRes.data.length > 0) {
+          for (const row of retryRes.data) {
+            allRows.push(mapPayrollResultFromRow(row));
+          }
+          if (retryRes.data.length < batchSize) {
+            hasMore = false;
+          } else {
+            from += batchSize;
+          }
+          continue;
+        }
+        break;
+      }
+
+      if (!data || data.length === 0) {
+        break;
+      }
+
+      for (const row of data) {
+        allRows.push(mapPayrollResultFromRow(row));
+      }
+
+      if (data.length < batchSize) {
+        hasMore = false;
+      } else {
+        from += batchSize;
+      }
+    }
+
+    return allRows;
+  }
+
+  const local = getLocalDatabase();
+  const list = (local.results || []).filter((r) => r.period === cleanPeriod);
+  return list.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+}
+
+

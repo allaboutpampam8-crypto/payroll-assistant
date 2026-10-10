@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -22,8 +22,22 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { splitExcelFile, SplitResult } from '@/lib/excelSplitter';
+import PinLockScreen from '@/components/PinLockScreen';
 
 export default function ExcelSplitterPage() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('payroll_pin_authenticated');
+      if (stored === 'true') {
+        setIsAuthenticated(true);
+      }
+      setIsAuthChecking(false);
+    }
+  }, []);
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [chunkSize, setChunkSize] = useState<number>(1000);
   const [filePrefix, setFilePrefix] = useState<string>('');
@@ -143,6 +157,20 @@ export default function ExcelSplitterPage() {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
+
+  if (isAuthChecking) {
+    return <div className="min-h-screen bg-slate-900" />;
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <PinLockScreen
+        onSuccess={() => setIsAuthenticated(true)}
+        assistantName="Pemecah Excel HRIS"
+        companyName="PT Pelindo Daya Sejahtera"
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">

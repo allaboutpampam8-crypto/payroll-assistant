@@ -22,6 +22,8 @@ import {
   Database,
   Scissors,
   Calculator,
+  Lock,
+  Wrench,
 } from 'lucide-react';
 
 import {
@@ -40,6 +42,7 @@ import ReportDetailModal from '@/components/ReportDetailModal';
 import CutoffSettingsModal from '@/components/CutoffSettingsModal';
 import PayrollResultsModal from '@/components/PayrollResultsModal';
 import TerbilangModal from '@/components/TerbilangModal';
+import PinLockScreen from '@/components/PinLockScreen';
 import TodoListWidget from '@/components/TodoListWidget';
 import AiChatWidget from '@/components/AiChatWidget';
 import PageLoadingScreen from '@/components/PageLoadingScreen';
@@ -76,8 +79,13 @@ export default function AssistantDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10); // default 10 per page
 
+  // Authentication & Security State
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
+
   // Modals & Popovers state
   const [isToolsDropdownOpen, setIsToolsDropdownOpen] = useState(false);
+  const [isMobileToolsOpen, setIsMobileToolsOpen] = useState(false);
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPayrollModalOpen, setIsPayrollModalOpen] = useState(false);
@@ -116,7 +124,31 @@ export default function AssistantDashboard() {
       });
   }, []);
 
+  // Cek status otorisasi PIN saat pertama kali load
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('payroll_pin_authenticated');
+      if (stored === 'true') {
+        setIsAuthenticated(true);
+      }
+      setIsAuthChecking(false);
+    }
+  }, []);
+
+  const handleLogout = async () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('payroll_pin_authenticated');
+      try {
+        await fetch('/api/auth/pin', { method: 'DELETE' });
+      } catch {
+        // ignore
+      }
+      setIsAuthenticated(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
     setIsInitialLoading(true);
     Promise.all([fetchDashboardData(), fetchTodos()]).finally(() => {
       // Jeda halus 400ms agar transisi animasi maskot terlihat cantik
@@ -124,7 +156,7 @@ export default function AssistantDashboard() {
         setIsInitialLoading(false);
       }, 400);
     });
-  }, [fetchDashboardData, fetchTodos]);
+  }, [isAuthenticated, fetchDashboardData, fetchTodos]);
 
   // Unique list of periods available
   const availablePeriods = Array.from(
@@ -233,6 +265,20 @@ export default function AssistantDashboard() {
       maximumFractionDigits: 0,
     }).format(val);
   };
+
+  if (isAuthChecking) {
+    return <PageLoadingScreen />;
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <PinLockScreen
+        onSuccess={() => setIsAuthenticated(true)}
+        assistantName={settings.assistantName}
+        companyName={settings.companyName}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-24 md:pb-12">
@@ -386,13 +432,22 @@ export default function AssistantDashboard() {
               )}
             </div>
 
-            {/* 3. Tombol Utama: Catat Laporan */}
+            {/* 3. Tombol Utama: Catat Laporan (Desktop Only, karena di Mobile sudah ada di bilah bawah) */}
             <button
               onClick={() => setIsQuickEntryOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/25 transition-all cursor-pointer"
+              className="hidden sm:flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/25 transition-all cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               <span>Catat Laporan</span>
+            </button>
+
+            {/* 4. Tombol Kunci Layar (Lock Session) */}
+            <button
+              onClick={handleLogout}
+              title="Kunci Layar Dashboard (PIN Security)"
+              className="flex items-center justify-center p-2 rounded-xl border border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-200 text-slate-500 hover:text-rose-600 transition-colors cursor-pointer"
+            >
+              <Lock className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
@@ -838,17 +893,17 @@ export default function AssistantDashboard() {
       )}
       </main>
 
-      {/* Floating Bottom Bar Khusus Mobile */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] flex items-center justify-between gap-2.5 shadow-2xl">
+      {/* Floating Bottom Bar Khusus Mobile (Modern 3-Button & Sheet Layout) */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] flex items-center justify-between gap-2 shadow-2xl">
+        {/* 1. Toggle Laporan vs To-Do */}
         <button
           onClick={() => setActiveTab(activeTab === 'REPORTS' ? 'TODOS' : 'REPORTS')}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/60 transition-all cursor-pointer"
-          title={activeTab === 'REPORTS' ? 'Buka To-Do List' : 'Buka Laporan'}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/60 transition-all cursor-pointer"
         >
           {activeTab === 'REPORTS' ? (
             <>
               <ListTodo className="h-4 w-4 text-indigo-600" />
-              <span>To-Do List</span>
+              <span>To-Do</span>
             </>
           ) : (
             <>
@@ -858,38 +913,137 @@ export default function AssistantDashboard() {
           )}
         </button>
 
+        {/* 2. Tombol Alat Bantu Payroll (Membuka Bottom Action Sheet) */}
         <button
-          onClick={handleExport}
-          className="flex items-center justify-center p-2.5 rounded-xl text-emerald-700 bg-emerald-50 border border-emerald-200 transition-all cursor-pointer"
-          title="Rekap Excel"
+          onClick={() => setIsMobileToolsOpen(true)}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100/80 border border-indigo-200 transition-all cursor-pointer"
         >
-          <FileSpreadsheet className="h-5 w-5" />
+          <Wrench className="h-4 w-4 text-indigo-600" />
+          <span>Alat Bantu</span>
         </button>
 
-        <button
-          onClick={() => setIsPayrollModalOpen(true)}
-          className="flex items-center justify-center p-2.5 rounded-xl text-indigo-700 bg-indigo-50 border border-indigo-200 transition-all cursor-pointer"
-          title="Data Hasil Payroll"
-        >
-          <Database className="h-5 w-5" />
-        </button>
-
-        <Link
-          href="/tools/excel-splitter"
-          className="flex items-center justify-center p-2.5 rounded-xl text-sky-700 bg-sky-50 border border-sky-200 transition-all cursor-pointer"
-          title="Pecah File Excel HRIS (per 1000 baris)"
-        >
-          <Scissors className="h-5 w-5" />
-        </Link>
-
+        {/* 3. Tombol Catat Laporan */}
         <button
           onClick={() => setIsQuickEntryOpen(true)}
           className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
         >
           <Plus className="h-4 w-4" />
-          <span>Catat Laporan</span>
+          <span>Catat</span>
         </button>
       </div>
+
+      {/* Mobile Bottom Action Sheet untuk Alat Bantu Payroll */}
+      {isMobileToolsOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex flex-col justify-end bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div
+            className="flex-1"
+            onClick={() => setIsMobileToolsOpen(false)}
+          />
+          <div className="bg-white rounded-t-3xl p-5 border-t border-slate-200 shadow-2xl space-y-3 animate-in slide-in-from-bottom duration-200">
+            <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-indigo-50 text-indigo-700">
+                  <Wrench className="h-4 w-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-extrabold text-slate-900">Alat Bantu Payroll</h4>
+                  <p className="text-[11px] text-slate-500">Pilih menu utilitas yang ingin dibuka</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsMobileToolsOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 pt-1">
+              <button
+                onClick={() => {
+                  setIsMobileToolsOpen(false);
+                  setIsPayrollModalOpen(true);
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-indigo-50/60 hover:bg-indigo-100 border border-indigo-200/80 text-left transition-colors cursor-pointer"
+              >
+                <div className="p-2.5 rounded-xl bg-indigo-600 text-white shadow-xs">
+                  <Database className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-900">Data & Analisis Payroll</p>
+                  <p className="text-[11px] text-slate-500">Cari, cek slip & komparasi gaji 17k+ pegawai</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsMobileToolsOpen(false);
+                  setIsTerbilangOpen(true);
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-amber-50/60 hover:bg-amber-100 border border-amber-200/80 text-left transition-colors cursor-pointer"
+              >
+                <div className="p-2.5 rounded-xl bg-amber-600 text-white shadow-xs">
+                  <Calculator className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-900">Kalkulator Terbilang ND</p>
+                  <p className="text-[11px] text-slate-500">Konversi nominal ke kalimat resmi Nota Dinas</p>
+                </div>
+              </button>
+
+              <Link
+                href="/tools/excel-splitter"
+                onClick={() => setIsMobileToolsOpen(false)}
+                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-sky-50/60 hover:bg-sky-100 border border-sky-200/80 text-left transition-colors cursor-pointer"
+              >
+                <div className="p-2.5 rounded-xl bg-sky-600 text-white shadow-xs">
+                  <Scissors className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-900">Pemecah Excel HRIS</p>
+                  <p className="text-[11px] text-slate-500">Bagi file master payroll per 1.000 baris format utuh</p>
+                </div>
+              </Link>
+
+              <button
+                onClick={() => {
+                  setIsMobileToolsOpen(false);
+                  handleExport();
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-emerald-50/60 hover:bg-emerald-100 border border-emerald-200/80 text-left transition-colors cursor-pointer"
+              >
+                <div className="p-2.5 rounded-xl bg-emerald-600 text-white shadow-xs">
+                  <FileSpreadsheet className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-900">Unduh Rekap Tiket</p>
+                  <p className="text-[11px] text-slate-500">Ekspor seluruh tiket kendala ke file Excel</p>
+                </div>
+              </button>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+              <button
+                onClick={handleCopyPublicLink}
+                className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 p-2 cursor-pointer"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                <span>Salin Link Form Karyawan</span>
+              </button>
+              <button
+                onClick={() => {
+                  setIsMobileToolsOpen(false);
+                  handleLogout();
+                }}
+                className="flex items-center gap-1.5 text-xs font-bold text-rose-600 hover:text-rose-800 p-2 cursor-pointer"
+              >
+                <Lock className="h-3.5 w-3.5" />
+                <span>Kunci Layar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       <QuickEntryModal
