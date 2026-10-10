@@ -16,6 +16,8 @@ import {
   Minus,
   Database,
   Calendar,
+  Download,
+  RefreshCw,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { PayrollResult, PayrollComparison, PayrollPeriodSummary } from '@/lib/types';
@@ -739,23 +741,47 @@ export default function PayrollResultsModal({
 
                   {/* Kartu Profil Pegawai */}
                   <div className="p-4 sm:p-5 rounded-2xl bg-indigo-50/60 border border-indigo-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
                         <h4 className="text-sm sm:text-base font-bold text-slate-900">
                           {selectedResult.employeeName}
                         </h4>
                         <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-white text-indigo-700 border border-indigo-200">
                           NRP: {selectedResult.employeeNik}
                         </span>
+                        {comparison?.hasMutation && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                            <RefreshCw className="h-3 w-3" />
+                            <span>Ada Mutasi / Rotasi</span>
+                          </span>
+                        )}
                       </div>
-                      <p className="text-xs text-slate-600 mt-0.5">
+                      <p className="text-xs text-slate-600">
                         {selectedResult.department} {selectedResult.positionTitle ? `• ${selectedResult.positionTitle}` : ''}
                       </p>
+                      {comparison?.hasMutation && (
+                        <p className="text-[11px] font-medium text-amber-700 pt-0.5">
+                          💡 Terdeteksi perubahan dari periode sebelumnya: {comparison.previousDepartment || '-'} ({comparison.previousPosition || '-'}) ➔ {selectedResult.department} ({selectedResult.positionTitle || '-'})
+                        </p>
+                      )}
                     </div>
 
-                    <div className="text-left sm:text-right">
-                      <span className="text-[10px] uppercase font-bold text-indigo-700">Periode Aktif</span>
-                      <p className="text-xs font-bold text-slate-900">{selectedResult.period}</p>
+                    <div className="flex flex-col sm:items-end gap-2 shrink-0">
+                      <div className="text-left sm:text-right">
+                        <span className="text-[10px] uppercase font-bold text-indigo-700">Periode Terpilih</span>
+                        <p className="text-xs font-bold text-slate-900">{selectedResult.period}</p>
+                      </div>
+
+                      {/* Tombol 1-Click Download Excel Rekap Kumulatif */}
+                      <a
+                        href={`/api/payroll-results/export-ytd?nik=${encodeURIComponent(selectedResult.employeeNik)}`}
+                        download
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm shadow-emerald-600/20 transition-all cursor-pointer"
+                        title="Unduh file Excel rekap gaji multi-bulan pegawai ini lengkap dengan baris mutasi project & jabatan"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        <span>Unduh Excel Rekap</span>
+                      </a>
                     </div>
                   </div>
 

@@ -117,6 +117,9 @@ export interface PayrollResult {
 export interface PayrollComparison {
   current: PayrollResult;
   previous?: PayrollResult;
+  hasMutation?: boolean;
+  previousDepartment?: string;
+  previousPosition?: string;
   diff: {
     basicSalary: number;
     allowances: number;

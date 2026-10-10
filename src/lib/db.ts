@@ -935,9 +935,27 @@ export async function comparePayrollResults(
     }
   }
 
+  // Deteksi mutasi project atau rotasi jabatan
+  const hasDeptChange = Boolean(
+    previous &&
+    previous.department &&
+    current.department &&
+    previous.department.trim().toLowerCase() !== current.department.trim().toLowerCase()
+  );
+  const hasPosChange = Boolean(
+    previous &&
+    previous.positionTitle &&
+    current.positionTitle &&
+    previous.positionTitle.trim().toLowerCase() !== current.positionTitle.trim().toLowerCase()
+  );
+  const hasMutation = hasDeptChange || hasPosChange;
+
   return {
     current,
     previous: previous || undefined,
+    hasMutation,
+    previousDepartment: previous?.department,
+    previousPosition: previous?.positionTitle,
     diff: {
       basicSalary: current.basicSalary - prev.basicSalary,
       allowances: current.allowances - prev.allowances,

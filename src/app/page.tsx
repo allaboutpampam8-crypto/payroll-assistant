@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   AlertTriangle,
   RotateCcw,
   ExternalLink,
@@ -73,7 +74,8 @@ export default function AssistantDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10); // default 10 per page
 
-  // Modals state
+  // Modals & Popovers state
+  const [isToolsDropdownOpen, setIsToolsDropdownOpen] = useState(false);
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPayrollModalOpen, setIsPayrollModalOpen] = useState(false);
@@ -265,6 +267,7 @@ export default function AssistantDashboard() {
 
           {/* Action Buttons Navbar */}
           <div className="flex items-center gap-2">
+            {/* 1. Link Form Karyawan */}
             <button
               onClick={handleCopyPublicLink}
               title="Salin Link Form Lapor Karyawan"
@@ -283,36 +286,91 @@ export default function AssistantDashboard() {
               )}
             </button>
 
-            <button
-              onClick={handleExport}
-              title="Unduh Rekap Excel"
-              className="hidden sm:flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100/80 px-3 py-2 text-xs font-semibold text-emerald-800 shadow-xs transition-colors cursor-pointer"
-            >
-              <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-700" />
-              <span>Rekap Excel</span>
-            </button>
+            {/* 2. Dropdown Alat Bantu Payroll (Database, Pecah Excel, Rekap Excel) */}
+            <div className="relative hidden sm:block">
+              <button
+                type="button"
+                onClick={() => setIsToolsDropdownOpen((prev) => !prev)}
+                className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold shadow-xs transition-all cursor-pointer ${
+                  isToolsDropdownOpen
+                    ? 'border-indigo-400 bg-indigo-50/80 text-indigo-800'
+                    : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                }`}
+              >
+                <Database className="h-3.5 w-3.5 text-indigo-600" />
+                <span>Alat Bantu Payroll</span>
+                <ChevronDown
+                  className={`h-3 w-3 text-slate-400 transition-transform duration-200 ${
+                    isToolsDropdownOpen ? 'rotate-180 text-indigo-600' : ''
+                  }`}
+                />
+              </button>
 
-            <button
-              onClick={() => setIsPayrollModalOpen(true)}
-              title="Kelola & Cari Data Hasil Payroll 17k+ Pegawai"
-              className="hidden sm:flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100/80 px-3 py-2 text-xs font-semibold text-indigo-800 shadow-xs transition-colors cursor-pointer"
-            >
-              <Database className="h-3.5 w-3.5 text-indigo-700" />
-              <span>Data Payroll</span>
-            </button>
+              {isToolsDropdownOpen && (
+                <>
+                  {/* Backdrop click to close */}
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsToolsDropdownOpen(false)}
+                  />
+                  {/* Menu popover */}
+                  <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-white border border-slate-200 shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150 space-y-1">
+                    <button
+                      onClick={() => {
+                        setIsToolsDropdownOpen(false);
+                        setIsPayrollModalOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-indigo-50/70 text-left transition-colors cursor-pointer group"
+                    >
+                      <div className="p-2 rounded-lg bg-indigo-100 text-indigo-700 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                        <Database className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">Data & Analisis Payroll</p>
+                        <p className="text-[11px] text-slate-500">Cari & komparasi gaji 17k+ pegawai</p>
+                      </div>
+                    </button>
 
-            <Link
-              href="/tools/excel-splitter"
-              title="Pecah File Excel Payroll HRIS per 1000 Baris (Offline & Format Utuh)"
-              className="hidden sm:flex items-center gap-1.5 rounded-xl border border-sky-200 bg-sky-50 hover:bg-sky-100/80 px-3 py-2 text-xs font-semibold text-sky-800 shadow-xs transition-colors cursor-pointer"
-            >
-              <Scissors className="h-3.5 w-3.5 text-sky-700" />
-              <span>Pecah Excel</span>
-            </Link>
+                    <Link
+                      href="/tools/excel-splitter"
+                      onClick={() => setIsToolsDropdownOpen(false)}
+                      className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-sky-50/70 text-left transition-colors cursor-pointer group"
+                    >
+                      <div className="p-2 rounded-lg bg-sky-100 text-sky-700 group-hover:bg-sky-600 group-hover:text-white transition-colors">
+                        <Scissors className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">Pemecah Excel HRIS</p>
+                        <p className="text-[11px] text-slate-500">Bagi file per 1000 baris format utuh</p>
+                      </div>
+                    </Link>
 
+                    <div className="my-1 border-t border-slate-100" />
+
+                    <button
+                      onClick={() => {
+                        setIsToolsDropdownOpen(false);
+                        handleExport();
+                      }}
+                      className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-emerald-50/70 text-left transition-colors cursor-pointer group"
+                    >
+                      <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                        <FileSpreadsheet className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">Unduh Rekap Tiket</p>
+                        <p className="text-[11px] text-slate-500">Export laporan kendala ke Excel</p>
+                      </div>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* 3. Tombol Utama: Catat Laporan */}
             <button
               onClick={() => setIsQuickEntryOpen(true)}
-              className="hidden sm:flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/25 transition-all cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/25 transition-all cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               <span>Catat Laporan</span>
