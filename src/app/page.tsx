@@ -43,7 +43,7 @@ import CutoffSettingsModal from '@/components/CutoffSettingsModal';
 import PayrollResultsModal from '@/components/PayrollResultsModal';
 import TerbilangModal from '@/components/TerbilangModal';
 import PinLockScreen from '@/components/PinLockScreen';
-import TodoListWidget from '@/components/TodoListWidget';
+import TodoListWidget, { TodoFilterType } from '@/components/TodoListWidget';
 import AiChatWidget from '@/components/AiChatWidget';
 import PageLoadingScreen from '@/components/PageLoadingScreen';
 import { exportReportsToExcel } from '@/lib/exportExcel';
@@ -68,6 +68,7 @@ export default function AssistantDashboard() {
   // To-Do List state & Tab Navigation
   const [todos, setTodos] = useState<PayrollTodo[]>([]);
   const [activeTab, setActiveTab] = useState<'REPORTS' | 'TODOS'>('REPORTS');
+  const [todoFilter, setTodoFilter] = useState<TodoFilterType>('ACTIVE');
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -240,7 +241,10 @@ export default function AssistantDashboard() {
 
     // Status
     let matchStatus = true;
-    if (statusFilter !== 'ALL') {
+    if (statusFilter === 'OVERDUE') {
+      const todayStr = new Date().toISOString().split('T')[0];
+      matchStatus = Boolean(r.dueDate && r.dueDate < todayStr && r.actionStatus !== 'CLOSE');
+    } else if (statusFilter !== 'ALL') {
       matchStatus = r.actionStatus === statusFilter;
     }
 
@@ -467,13 +471,17 @@ export default function AssistantDashboard() {
         <DailyBriefing
           settings={settings}
           reports={reports}
+          todos={todos}
           activeTodosCount={todos.filter((t) => !t.isCompleted).length}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onFilterStatus={(st) => {
             handleStatusFilterChange(st);
             setActiveTab('REPORTS');
           }}
-          onOpenTodos={() => setActiveTab('TODOS')}
+          onOpenTodos={(filter) => {
+            if (filter) setTodoFilter(filter);
+            setActiveTab('TODOS');
+          }}
         />
 
         {/* 2. Interactive Metrics Cards (Open, Crosscheck, Close) */}
@@ -483,6 +491,10 @@ export default function AssistantDashboard() {
           onSelectFilter={(st) => {
             handleStatusFilterChange(st);
             setActiveTab('REPORTS');
+          }}
+          onSelectTodosOverdue={() => {
+            setTodoFilter('OVERDUE');
+            setActiveTab('TODOS');
           }}
         />
 
@@ -540,6 +552,7 @@ export default function AssistantDashboard() {
           /* Widget To-Do List Pribadi */
           <TodoListWidget
             todos={todos}
+            initialFilter={todoFilter}
             onRefresh={() => {
               fetchTodos();
               fetchDashboardData();
@@ -596,6 +609,9 @@ export default function AssistantDashboard() {
               <option value="OPEN">🟡 Open</option>
               <option value="CROSSCHECK">🔵 Crosscheck</option>
               <option value="CLOSE">🟢 Close</option>
+              {metrics.overdueCount > 0 && (
+                <option value="OVERDUE">🔴 Terlambat ({metrics.overdueCount})</option>
+              )}
             </select>
 
             {/* Filter Kategori */}

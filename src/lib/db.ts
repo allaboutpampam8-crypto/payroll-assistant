@@ -517,15 +517,34 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   const closeReports = reports.filter((r) => r.actionStatus === 'CLOSE').length;
 
   const todayStr = new Date().toISOString().split('T')[0];
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+  // Laporan terlambat & akan jatuh tempo (hari ini atau besok)
   const overdueCount = reports.filter(
     (r) => r.dueDate && r.dueDate < todayStr && r.actionStatus !== 'CLOSE'
+  ).length;
+
+  const dueSoonReportsCount = reports.filter(
+    (r) => r.dueDate && (r.dueDate === todayStr || r.dueDate === tomorrowStr) && r.actionStatus !== 'CLOSE'
   ).length;
 
   const urgentCount = reports.filter(
     (r) => r.priority === 'URGENT' && r.actionStatus !== 'CLOSE'
   ).length;
 
-  const activeTodosCount = todos.filter((t) => !t.isCompleted).length;
+  // To-do list terlambat & akan jatuh tempo
+  const activeTodos = todos.filter((t) => !t.isCompleted);
+  const activeTodosCount = activeTodos.length;
+
+  const overdueTodosCount = activeTodos.filter(
+    (t) => t.dueDate && t.dueDate < todayStr
+  ).length;
+
+  const dueSoonTodosCount = activeTodos.filter(
+    (t) => t.dueDate && (t.dueDate === todayStr || t.dueDate === tomorrowStr)
+  ).length;
 
   return {
     totalReports: reports.length,
@@ -535,6 +554,9 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     overdueCount,
     urgentCount,
     activeTodosCount,
+    overdueTodosCount,
+    dueSoonReportsCount,
+    dueSoonTodosCount,
   };
 }
 

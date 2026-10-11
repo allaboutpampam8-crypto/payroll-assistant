@@ -9,21 +9,26 @@ import {
   SearchCheck,
   CheckSquare,
   SlidersHorizontal,
+  Flame,
+  Hourglass,
+  ArrowRight,
 } from 'lucide-react';
-import { PayrollSettings, PayrollReport } from '@/lib/types';
+import { PayrollSettings, PayrollReport, PayrollTodo } from '@/lib/types';
 
 interface DailyBriefingProps {
   settings: PayrollSettings;
   reports: PayrollReport[];
+  todos?: PayrollTodo[];
   activeTodosCount?: number;
   onOpenSettings: () => void;
   onFilterStatus: (status: string) => void;
-  onOpenTodos?: () => void;
+  onOpenTodos?: (filter?: 'ALL' | 'ACTIVE' | 'COMPLETED' | 'OVERDUE' | 'TODAY') => void;
 }
 
 export default function DailyBriefing({
   settings,
   reports,
+  todos = [],
   activeTodosCount = 0,
   onOpenSettings,
   onFilterStatus,
@@ -38,6 +43,11 @@ export default function DailyBriefing({
   const diffTime = cutoff.getTime() - today.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
+  const todayStr = new Date().toISOString().split('T')[0];
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
   // Analisis laporan
   const openCount = reports.filter((r) => r.actionStatus === 'OPEN').length;
   const crosscheckCount = reports.filter((r) => r.actionStatus === 'CROSSCHECK').length;
@@ -46,6 +56,32 @@ export default function DailyBriefing({
   const urgentCount = reports.filter(
     (r) => r.priority === 'URGENT' && r.actionStatus !== 'CLOSE'
   ).length;
+
+  // Laporan Terlambat (Overdue) & Jatuh Tempo Hari Ini / Besok
+  const overdueReports = reports.filter(
+    (r) => r.dueDate && r.dueDate < todayStr && r.actionStatus !== 'CLOSE'
+  );
+  const dueSoonReports = reports.filter(
+    (r) =>
+      r.dueDate &&
+      (r.dueDate === todayStr || r.dueDate === tomorrowStr) &&
+      r.actionStatus !== 'CLOSE'
+  );
+
+  // To-Do List Terlambat & Jatuh Tempo Hari Ini / Besok
+  const activeTodoList = todos.filter((t) => !t.isCompleted);
+  const overdueTodos = activeTodoList.filter(
+    (t) => t.dueDate && t.dueDate < todayStr
+  );
+  const dueTodayTodos = activeTodoList.filter(
+    (t) => t.dueDate === todayStr
+  );
+  const dueSoonTodos = activeTodoList.filter(
+    (t) => t.dueDate && (t.dueDate === todayStr || t.dueDate === tomorrowStr)
+  );
+
+  const totalOverdueItems = overdueReports.length + overdueTodos.length;
+  const totalDueSoonItems = dueSoonReports.length + dueSoonTodos.length;
 
   const isCutoffNear = diffDays <= 4 && diffDays >= 0;
   const isCutoffPassed = diffDays < 0;
@@ -69,18 +105,46 @@ export default function DailyBriefing({
           </div>
 
           <h2 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight text-white leading-snug">
-            {totalUnresolved === 0 ? (
-              'Semua laporan payroll sudah beres! 🎉'
+            {totalOverdueItems > 0 ? (
+              <span className="flex items-center flex-wrap gap-2 text-rose-300">
+                <AlertTriangle className="h-6 w-6 text-rose-400 animate-bounce shrink-0" />
+                <span>
+                  Perhatian: Ada <span className="underline decoration-rose-400 font-extrabold text-white">{totalOverdueItems} item terlambat</span> dari target deadline!
+                </span>
+              </span>
+            ) : totalUnresolved === 0 && activeTodoList.length === 0 ? (
+              'Semua laporan & to-do list sudah beres tuntas! 🎉'
             ) : (
               <>
-                Ada <span className="text-amber-300 font-extrabold">{totalUnresolved} laporan</span> yang perlu Anda tindaklanjuti
+                Ada <span className="text-amber-300 font-extrabold">{totalUnresolved} laporan</span> dan{' '}
+                <span className="text-emerald-300 font-extrabold">{activeTodoList.length} to-do</span> dalam agenda Anda
               </>
             )}
           </h2>
 
           <p className="text-sm text-indigo-100/90 max-w-2xl leading-relaxed">
-            {totalUnresolved === 0 ? (
-              'Bagus sekali! Tidak ada laporan berstatus Open atau Crosscheck. Semua kendala telah terselesaikan.'
+            {totalOverdueItems > 0 ? (
+              <>
+                Segera tindaklanjuti:{' '}
+                {overdueTodos.length > 0 && (
+                  <span className="font-bold text-rose-200 bg-rose-950/60 px-2 py-0.5 rounded-md border border-rose-500/30 mr-1.5">
+                    🚨 {overdueTodos.length} To-Do terlewat jatuh tempo
+                  </span>
+                )}
+                {overdueReports.length > 0 && (
+                  <span className="font-bold text-rose-200 bg-rose-950/60 px-2 py-0.5 rounded-md border border-rose-500/30 mr-1.5">
+                    ⚠️ {overdueReports.length} Laporan kendala lewat target
+                  </span>
+                )}
+                {totalDueSoonItems > 0 && (
+                  <span className="text-amber-200 mt-1 inline-block">
+                    • ({dueTodayTodos.length > 0 ? `${dueTodayTodos.length} to-do jatuh tempo hari ini` : ''}
+                    {dueSoonReports.length > 0 ? `, ${dueSoonReports.length} laporan mendekati batas waktu` : ''})
+                  </span>
+                )}
+              </>
+            ) : totalUnresolved === 0 && activeTodoList.length === 0 ? (
+              'Bagus sekali! Tidak ada laporan tertunda dan agenda to-do Anda kosong atau sudah diselesaikan.'
             ) : (
               <>
                 Fokus tugas saat ini:{' '}
@@ -88,11 +152,19 @@ export default function DailyBriefing({
                   <span className="font-semibold text-amber-200">{openCount} laporan baru (Open), </span>
                 )}
                 {crosscheckCount > 0 && (
-                  <span className="font-semibold text-blue-200">{crosscheckCount} sedang tahap Crosscheck. </span>
+                  <span className="font-semibold text-blue-200">{crosscheckCount} sedang tahap Crosscheck, </span>
+                )}
+                {activeTodoList.length > 0 && (
+                  <span className="font-semibold text-emerald-200">{activeTodoList.length} agenda To-Do aktif. </span>
                 )}
                 {urgentCount > 0 && (
                   <span className="block mt-1 text-rose-300 font-semibold">
                     ⚠️ {urgentCount} laporan berprioritas TINGGI/URGENT!
+                  </span>
+                )}
+                {totalDueSoonItems > 0 && (
+                  <span className="block mt-1 text-amber-300 font-medium">
+                    ⏰ {totalDueSoonItems} item mendekati batas waktu (hari ini / besok).
                   </span>
                 )}
               </>
@@ -143,9 +215,69 @@ export default function DailyBriefing({
         </div>
       </div>
 
+      {/* BANNER KHUSUS REMINDER DEADLINE & TERLAMBAT */}
+      {(totalOverdueItems > 0 || totalDueSoonItems > 0) && (
+        <div className="mt-4 p-3 rounded-xl bg-black/30 backdrop-blur-md border border-white/15 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2 text-xs flex-wrap">
+            <span className="font-extrabold text-amber-300 flex items-center gap-1">
+              <Hourglass className="h-3.5 w-3.5" />
+              <span>Reminder Batas Waktu:</span>
+            </span>
+
+            {overdueTodos.length > 0 && (
+              <button
+                type="button"
+                onClick={() => onOpenTodos && onOpenTodos('OVERDUE')}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-600/90 hover:bg-rose-600 text-white font-bold text-[11px] shadow-sm cursor-pointer transition-all animate-pulse"
+                title="Klik untuk langsung melihat To-Do yang terlambat"
+              >
+                <Flame className="h-3 w-3 text-amber-300" />
+                <span>{overdueTodos.length} To-Do Terlambat</span>
+                <ArrowRight className="h-3 w-3 ml-0.5" />
+              </button>
+            )}
+
+            {overdueReports.length > 0 && (
+              <button
+                type="button"
+                onClick={() => onFilterStatus('OVERDUE')}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-600/90 hover:bg-rose-600 text-white font-bold text-[11px] shadow-sm cursor-pointer transition-all"
+                title="Klik untuk memfilter laporan yang lewat target tanggal"
+              >
+                <Clock className="h-3 w-3 text-amber-300" />
+                <span>{overdueReports.length} Laporan Terlambat</span>
+                <ArrowRight className="h-3 w-3 ml-0.5" />
+              </button>
+            )}
+
+            {dueTodayTodos.length > 0 && (
+              <button
+                type="button"
+                onClick={() => onOpenTodos && onOpenTodos('TODAY')}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/80 hover:bg-amber-500 text-slate-950 font-bold text-[11px] shadow-sm cursor-pointer transition-all"
+                title="Klik untuk melihat To-Do dengan deadline hari ini"
+              >
+                <Clock className="h-3 w-3" />
+                <span>{dueTodayTodos.length} To-Do Hari Ini</span>
+              </button>
+            )}
+
+            {dueSoonReports.length > 0 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-200 border border-amber-400/30 text-[11px] font-medium">
+                <span>{dueSoonReports.length} Laporan Deadline Dekat</span>
+              </span>
+            )}
+          </div>
+
+          <div className="text-[11px] text-indigo-200/70 shrink-0 italic">
+            Klik tombol untuk langsung membuka daftar tugas
+          </div>
+        </div>
+      )}
+
       {/* Quick Action Badges */}
       {(totalUnresolved > 0 || activeTodosCount > 0) && (
-        <div className="mt-4 pt-3 border-t border-white/10 flex flex-wrap items-center gap-2 text-xs">
+        <div className="mt-3.5 pt-3 border-t border-white/10 flex flex-wrap items-center gap-2 text-xs">
           <span className="text-indigo-200/70 text-[11px]">Akses Cepat:</span>
           {openCount > 0 && (
             <button
@@ -167,7 +299,7 @@ export default function DailyBriefing({
           )}
           {activeTodosCount > 0 && onOpenTodos && (
             <button
-              onClick={onOpenTodos}
+              onClick={() => onOpenTodos('ACTIVE')}
               className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 px-2.5 py-1 text-emerald-200 border border-emerald-400/30 transition-all cursor-pointer"
             >
               <CheckSquare className="h-3 w-3 text-emerald-300" />

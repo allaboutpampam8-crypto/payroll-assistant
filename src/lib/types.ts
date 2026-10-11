@@ -90,6 +90,9 @@ export interface DashboardMetrics {
   overdueCount: number;
   urgentCount: number;
   activeTodosCount?: number;
+  overdueTodosCount?: number;
+  dueSoonReportsCount?: number;
+  dueSoonTodosCount?: number;
 }
 
 export interface PayrollResult {

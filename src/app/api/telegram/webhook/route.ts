@@ -335,24 +335,42 @@ export async function POST(request: Request) {
     if (command === '/rekap' || command === '/tiket') {
       const [reports, settings] = await Promise.all([getAllReports(), getSettings()]);
 
+      const nowWib = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+      const todayStr = `${nowWib.getFullYear()}-${String(nowWib.getMonth() + 1).padStart(2, '0')}-${String(nowWib.getDate()).padStart(2, '0')}`;
+
       const openReports = reports.filter((r) => r.actionStatus === 'OPEN');
       const crosscheckReports = reports.filter((r) => r.actionStatus === 'CROSSCHECK');
       const closeReports = reports.filter((r) => r.actionStatus === 'CLOSE');
       const urgentReports = reports.filter(
         (r) => r.priority === 'URGENT' && r.actionStatus !== 'CLOSE'
       );
+      const overdueReports = reports.filter(
+        (r) => r.actionStatus !== 'CLOSE' && r.dueDate && r.dueDate < todayStr
+      );
+      const dueTodayReports = reports.filter(
+        (r) => r.actionStatus !== 'CLOSE' && r.dueDate && r.dueDate === todayStr
+      );
 
-      const msg =
+      let msg =
         `📋 <b>STATUS TIKET KENDALA PAYROLL</b>\n` +
         `<b>Periode:</b> ${settings.activePeriod}\n` +
         `<b>Cut-Off:</b> ${settings.cutoffDate}\n` +
         `━━━━━━━━━━━━━━━━━━━\n` +
-        `• 🟡 <b>Open (Perlu Ditindaklanjuti):</b> ${openReports.length} tiket\n` +
+        `• 🟡 <b>Open (Perlu Tindak Lanjut):</b> ${openReports.length} tiket\n` +
         `• 🔵 <b>Crosscheck (Sedang Konfirmasi):</b> ${crosscheckReports.length} tiket\n` +
-        `• 🟢 <b>Close (Selesai):</b> ${closeReports.length} tiket\n` +
-        (urgentReports.length > 0
-          ? `• 🚨 <b>Prioritas Urgent:</b> ${urgentReports.length} tiket!\n`
-          : '') +
+        `• 🟢 <b>Close (Selesai):</b> ${closeReports.length} tiket\n`;
+
+      if (overdueReports.length > 0) {
+        msg += `• 🔴 <b>Terlewat Target:</b> ${overdueReports.length} tiket!\n`;
+      }
+      if (dueTodayReports.length > 0) {
+        msg += `• ⚡ <b>Target Hari Ini:</b> ${dueTodayReports.length} tiket\n`;
+      }
+      if (urgentReports.length > 0) {
+        msg += `• 🚨 <b>Prioritas Urgent:</b> ${urgentReports.length} tiket!\n`;
+      }
+
+      msg +=
         `━━━━━━━━━━━━━━━━━━━\n` +
         `<i>Buka dashboard untuk detail laporan lengkap.</i>`;
 
@@ -367,6 +385,12 @@ export async function POST(request: Request) {
       const todos = await getAllTodos();
       const activeTodos = todos.filter((t) => !t.isCompleted);
 
+      const nowWib = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+      const todayStr = `${nowWib.getFullYear()}-${String(nowWib.getMonth() + 1).padStart(2, '0')}-${String(nowWib.getDate()).padStart(2, '0')}`;
+
+      const overdueTodos = activeTodos.filter((t) => t.dueDate && t.dueDate < todayStr);
+      const dueTodayTodos = activeTodos.filter((t) => t.dueDate && t.dueDate === todayStr);
+
       let msg =
         `📝 <b>AGENDA TO-DO LIST AKTIF</b>\n` +
         `━━━━━━━━━━━━━━━━━━━\n`;
@@ -374,13 +398,46 @@ export async function POST(request: Request) {
       if (activeTodos.length === 0) {
         msg += `<i>Semua agenda kerja sudah selesai! Tidak ada to-do aktif. 🎉</i>`;
       } else {
-        activeTodos.slice(0, 5).forEach((t, idx) => {
-          const priority = t.priority === 'URGENT' ? ' 🔴' : t.priority === 'TINGGI' ? ' 🟡' : '';
-          msg += `${idx + 1}. ${t.title}${priority}\n`;
-        });
-        if (activeTodos.length > 5) {
-          msg += `<i>...dan ${activeTodos.length - 5} tugas lainnya di dashboard.</i>`;
+        if (overdueTodos.length > 0) {
+          msg += `🚨 <b>PERHATIAN:</b> Ada <b>${overdueTodos.length} tugas</b> yang terlewat deadline!\n\n`;
         }
+
+        // Urutkan: Terlambat -> Hari ini -> Lainnya
+        const sortedTodos = [...activeTodos].sort((a, b) => {
+          const aOverdue = Boolean(a.dueDate && a.dueDate < todayStr);
+          const bOverdue = Boolean(b.dueDate && b.dueDate < todayStr);
+          if (aOverdue && !bOverdue) return -1;
+          if (!aOverdue && bOverdue) return 1;
+          const aToday = Boolean(a.dueDate && a.dueDate === todayStr);
+          const bToday = Boolean(b.dueDate && b.dueDate === todayStr);
+          if (aToday && !bToday) return -1;
+          if (!aToday && bToday) return 1;
+          return 0;
+        });
+
+        sortedTodos.slice(0, 7).forEach((t, idx) => {
+          let tag = '';
+          if (t.dueDate && t.dueDate < todayStr) {
+            tag = ` 🚨 <i>[TERLAMBAT: ${t.dueDate}]</i>`;
+          } else if (t.dueDate && t.dueDate === todayStr) {
+            tag = ` ⚡ <i>[HARI INI]</i>`;
+          } else if (t.priority === 'URGENT') {
+            tag = ' 🔴';
+          } else if (t.priority === 'TINGGI') {
+            tag = ' 🟡';
+          }
+          msg += `${idx + 1}. ${t.title}${tag}\n`;
+        });
+
+        if (sortedTodos.length > 7) {
+          msg += `<i>...dan ${sortedTodos.length - 7} tugas lainnya di dashboard.</i>\n`;
+        }
+        msg +=
+          `━━━━━━━━━━━━━━━━━━━\n` +
+          `<i>Total: ${activeTodos.length} tugas aktif` +
+          (overdueTodos.length > 0 ? ` (${overdueTodos.length} terlambat)` : '') +
+          (dueTodayTodos.length > 0 ? ` (${dueTodayTodos.length} hari ini)` : '') +
+          `</i>`;
       }
 
       await sendTelegramMessage(chatId, msg);

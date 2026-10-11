@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CheckSquare,
   Square,
@@ -14,19 +14,24 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
+  Flame,
 } from 'lucide-react';
 import { PayrollTodo, Priority } from '@/lib/types';
 
+export type TodoFilterType = 'ALL' | 'ACTIVE' | 'COMPLETED' | 'OVERDUE' | 'TODAY';
+
 interface TodoListWidgetProps {
   todos: PayrollTodo[];
+  initialFilter?: TodoFilterType;
   onRefresh: () => void;
 }
 
 export default function TodoListWidget({
   todos,
+  initialFilter = 'ACTIVE',
   onRefresh,
 }: TodoListWidgetProps) {
-  const [filter, setFilter] = useState<'ALL' | 'ACTIVE' | 'COMPLETED'>('ACTIVE');
+  const [filter, setFilter] = useState<TodoFilterType>(initialFilter);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [newTitle, setNewTitle] = useState('');
@@ -34,7 +39,14 @@ export default function TodoListWidget({
   const [newDueDate, setNewDueDate] = useState('');
   const [loadingAdd, setLoadingAdd] = useState(false);
 
-  const handleFilterChange = (newFilter: 'ALL' | 'ACTIVE' | 'COMPLETED') => {
+  useEffect(() => {
+    if (initialFilter) {
+      setFilter(initialFilter);
+      setCurrentPage(1);
+    }
+  }, [initialFilter]);
+
+  const handleFilterChange = (newFilter: TodoFilterType) => {
     setFilter(newFilter);
     setCurrentPage(1);
   };
@@ -59,6 +71,7 @@ export default function TodoListWidget({
           dueDate: newDueDate,
         }),
       });
+
       if (res.ok) {
         setNewTitle('');
         setNewDueDate('');
@@ -100,9 +113,13 @@ export default function TodoListWidget({
     }
   };
 
+  const todayStr = new Date().toISOString().split('T')[0];
+
   const filteredTodos = todos.filter((t) => {
     if (filter === 'ACTIVE') return !t.isCompleted;
     if (filter === 'COMPLETED') return t.isCompleted;
+    if (filter === 'OVERDUE') return !t.isCompleted && Boolean(t.dueDate && t.dueDate < todayStr);
+    if (filter === 'TODAY') return !t.isCompleted && t.dueDate === todayStr;
     return true;
   });
 
@@ -114,7 +131,8 @@ export default function TodoListWidget({
 
   const activeCount = todos.filter((t) => !t.isCompleted).length;
   const completedCount = todos.filter((t) => t.isCompleted).length;
-  const todayStr = new Date().toISOString().split('T')[0];
+  const overdueCount = todos.filter((t) => !t.isCompleted && Boolean(t.dueDate && t.dueDate < todayStr)).length;
+  const dueTodayCount = todos.filter((t) => !t.isCompleted && t.dueDate === todayStr).length;
 
   return (
     <div className="rounded-2xl bg-white p-4 sm:p-6 border border-slate-200/80 shadow-xs space-y-4 sm:space-y-5">
@@ -128,6 +146,12 @@ export default function TodoListWidget({
             <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-bold text-indigo-700">
               {activeCount} tugas aktif
             </span>
+            {overdueCount > 0 && (
+              <span className="rounded-full bg-rose-100 border border-rose-200 px-2.5 py-0.5 text-xs font-extrabold text-rose-700 animate-pulse flex items-center gap-1">
+                <Flame className="h-3 w-3 text-rose-600" />
+                <span>{overdueCount} Terlambat!</span>
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
             Catatan rencana kerja pribadi Anda: koordinasi, rekap data, dan follow-up payroll.
@@ -147,6 +171,34 @@ export default function TodoListWidget({
             <span className="sm:hidden">Aktif ({activeCount})</span>
             <span className="hidden sm:inline">Perlu Dikerjakan ({activeCount})</span>
           </button>
+
+          {overdueCount > 0 && (
+            <button
+              onClick={() => handleFilterChange('OVERDUE')}
+              className={`shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                filter === 'OVERDUE'
+                  ? 'bg-rose-600 text-white shadow-xs font-bold'
+                  : 'bg-rose-100/80 text-rose-800 hover:bg-rose-200 font-bold'
+              }`}
+            >
+              <Flame className="h-3 w-3" />
+              <span>Terlambat ({overdueCount})</span>
+            </button>
+          )}
+
+          {dueTodayCount > 0 && (
+            <button
+              onClick={() => handleFilterChange('TODAY')}
+              className={`shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                filter === 'TODAY'
+                  ? 'bg-amber-500 text-slate-950 shadow-xs font-bold'
+                  : 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+              }`}
+            >
+              Hari Ini ({dueTodayCount})
+            </button>
+          )}
+
           <button
             onClick={() => handleFilterChange('COMPLETED')}
             className={`shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
@@ -230,6 +282,10 @@ export default function TodoListWidget({
             <p className="text-xs font-semibold text-slate-600">
               {filter === 'ACTIVE'
                 ? 'Semua to-do sudah selesai dikerjakan! 🎉'
+                : filter === 'OVERDUE'
+                ? 'Hebat! Tidak ada to-do yang terlambat. 🎉'
+                : filter === 'TODAY'
+                ? 'Tidak ada to-do dengan deadline hari ini.'
                 : 'Belum ada to-do di kategori ini.'}
             </p>
           </div>
@@ -245,6 +301,10 @@ export default function TodoListWidget({
                 className={`group flex items-start justify-between gap-3 p-3 sm:px-4 rounded-xl border transition-all ${
                   todo.isCompleted
                     ? 'bg-slate-50/60 border-slate-200/60 text-slate-400'
+                    : isOverdue
+                    ? 'bg-rose-50/70 border-rose-300 shadow-xs ring-1 ring-rose-200'
+                    : isDueToday
+                    ? 'bg-amber-50/50 border-amber-300 shadow-2xs'
                     : 'bg-white border-slate-200 hover:border-indigo-300 shadow-2xs'
                 }`}
               >
@@ -267,6 +327,8 @@ export default function TodoListWidget({
                       className={`text-xs sm:text-sm font-medium leading-relaxed ${
                         todo.isCompleted
                           ? 'line-through text-slate-400'
+                          : isOverdue
+                          ? 'text-rose-950 font-bold'
                           : 'text-slate-800'
                       }`}
                     >
@@ -292,9 +354,9 @@ export default function TodoListWidget({
                         <span
                           className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-medium ${
                             isOverdue
-                              ? 'bg-rose-100 text-rose-700 font-bold'
+                              ? 'bg-rose-600 text-white font-extrabold shadow-2xs'
                               : isDueToday
-                              ? 'bg-amber-100 text-amber-800 font-bold'
+                              ? 'bg-amber-400 text-slate-950 font-bold'
                               : 'bg-slate-100 text-slate-600'
                           }`}
                         >
@@ -303,9 +365,10 @@ export default function TodoListWidget({
                             {new Date(todo.dueDate).toLocaleDateString('id-ID', {
                               day: 'numeric',
                               month: 'short',
+                              year: 'numeric',
                             })}
-                            {isOverdue && ' (Terlambat)'}
-                            {isDueToday && ' (Hari Ini)'}
+                            {isOverdue && ' (TERLAMBAT)'}
+                            {isDueToday && ' (HARI INI)'}
                           </span>
                         </span>
                       )}
@@ -320,7 +383,7 @@ export default function TodoListWidget({
                       {/* Waktu Selesai jika completed */}
                       {todo.isCompleted && todo.completedAt && (
                         <span className="text-slate-400">
-                          Selesai pada{' '}
+                          Selesai:{' '}
                           {new Date(todo.completedAt).toLocaleDateString('id-ID', {
                             day: 'numeric',
                             month: 'short',
@@ -334,8 +397,8 @@ export default function TodoListWidget({
                 {/* Tombol Hapus */}
                 <button
                   onClick={() => handleDelete(todo.id)}
-                  className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
-                  title="Hapus Tugas"
+                  className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 p-1 transition-all cursor-pointer"
+                  title="Hapus To-Do"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -345,34 +408,27 @@ export default function TodoListWidget({
         )}
       </div>
 
-      {/* Pagination Controls */}
+      {/* Pagination & Footer Counter */}
       {filteredTodos.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50/70 p-3 sm:px-4 rounded-xl border border-slate-200/60 text-xs text-slate-500 mt-2">
-          {/* Informasi Rentang Data & Pilihan Jumlah Baris */}
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs text-slate-500">
+          <div className="flex items-center gap-2">
             <span>
-              Menampilkan <strong className="text-slate-700">{startIndex + 1}</strong> -{' '}
-              <strong className="text-slate-700">{endIndex}</strong> dari{' '}
-              <strong className="text-slate-700">{filteredTodos.length}</strong> tugas
+              Menampilkan {startIndex + 1} - {endIndex} dari {filteredTodos.length} to-do
             </span>
 
-            <div className="flex items-center gap-1.5">
-              <span className="hidden sm:inline">Baris:</span>
-              <select
-                value={pageSize}
-                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-                className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold bg-white text-slate-700 outline-none focus:border-indigo-600"
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-            </div>
+            {/* Pilihan jumlah baris */}
+            <select
+              value={pageSize}
+              onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-600 outline-none focus:border-indigo-600"
+            >
+              <option value={5}>5 baris</option>
+              <option value={10}>10 baris</option>
+              <option value={20}>20 baris</option>
+            </select>
           </div>
 
-          {/* Tombol Navigasi Halaman */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 self-center sm:self-auto">
             <button
               onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
               disabled={safeCurrentPage === 1}
