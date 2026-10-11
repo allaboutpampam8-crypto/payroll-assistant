@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     const authorizedChatId = process.env.TELEGRAM_CHAT_ID;
 
     // Keamanan: Hanya respon jika dikirim oleh pemilik akun bot (Pak Pampam)
-    if (authorizedChatId && chatId !== authorizedChatId) {
+    if (!authorizedChatId || chatId !== authorizedChatId) {
       await sendTelegramMessage(
         chatId,
         '⛔ <b>Akses Ditolak</b>\nBot ini hanya diperuntukkan bagi PIC Payroll PT Pelindo Daya Sejahtera.'
