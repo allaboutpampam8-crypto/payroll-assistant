@@ -28,23 +28,23 @@ export async function GET(request: Request) {
     });
 
     const message =
-      `🔔 <b>PENGINGAT UPLOAD DATA PAYROLL BULANAN</b>\n` +
+      `🔔 <b>PENGINGAT HARI PEMBAYARAN & UPLOAD DATA PAYROLL (TGL 25)</b>\n` +
       `🤖 <i>Asisten Intelijen Payroll ${settings.companyName}</i>\n` +
       `━━━━━━━━━━━━━━━━━━━\n\n` +
       `👋 <b>Halo, Pak Pampam!</b>\n` +
-      `Hari ini adalah <b>${dateFormatted} (Tanggal 26)</b>.\n\n` +
-      `Proses cut-off payroll periode <b>${settings.activePeriod}</b> telah selesai. ` +
-      `Silakan ekspor file rekapitulasi gaji 17.000+ pegawai dari ERP kantor dan unggah ke dashboard web:\n\n` +
+      `Hari ini adalah <b>${dateFormatted} (Tanggal 25 - Hari Pembayaran Gaji)</b>.\n\n` +
+      `Proses cut-off pengerjaan payroll tanggal 23 telah selesai. ` +
+      `Silakan ekspor file rekapitulasi hasil penggajian periode <b>${settings.activePeriod}</b> dari ERP kantor dan unggah ke dashboard web:\n\n` +
       `📥 <b>Langkah yang Perlu Dilakukan:</b>\n` +
       `1. Buka dashboard web asisten Anda.\n` +
       `2. Klik menu <b>"Data Payroll"</b>.\n` +
       `3. Unggah file spreadsheet (Excel / CSV).\n\n` +
       `✨ <b>Manfaat Setelah Diunggah:</b>\n` +
-      `• Asisten Telegram siap menjawab pertanyaan rincian gaji (<code>/cek [NRP]</code>).\n` +
-      `• Analisis otomatis selisih gaji antar bulan langsung aktif (<code>/banding [NRP]</code>).\n` +
-      `• Data makro siap untuk laporan rapat direksi (<code>/total</code> & <code>/bandingtotal</code>).\n\n` +
+      `• Asisten Telegram siap menjawab pertanyaan rincian gaji pegawai (<code>/cek [NRP]</code>).\n` +
+      `• Analisis otomatis komparasi selisih gaji antar-bulan langsung aktif (<code>/banding [NRP]</code>).\n` +
+      `• Data makro siap untuk laporan rapat evaluasi manajemen (<code>/total</code> & <code>/bandingtotal</code>).\n\n` +
       `━━━━━━━━━━━━━━━━━━━\n` +
-      `<i>Semoga proses payroll bulan ini berjalan lancar dan tuntas! Semangat bekerja, Pak Pampam! 💪💼</i>`;
+      `<i>Semoga proses penggajian bulan ini berjalan lancar dan tuntas! Semangat bekerja, Pak Pampam! 💪💼</i>`;
 
     const sent = await sendTelegramNotification(message);
 
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
       success: sent,
       timestamp: nowWib.toISOString(),
       message: sent
-        ? 'Notifikasi pengingat upload tanggal 26 berhasil dikirim ke Telegram.'
+        ? 'Notifikasi pengingat pembayaran & upload tanggal 25 berhasil dikirim ke Telegram.'
         : 'Gagal mengirim notifikasi Telegram. Periksa token dan chat ID.',
     });
   } catch (err: unknown) {

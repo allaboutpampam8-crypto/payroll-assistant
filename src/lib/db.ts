@@ -24,7 +24,7 @@ interface DatabaseSchema {
 
 const DEFAULT_SETTINGS: PayrollSettings = {
   activePeriod: 'Oktober 2026',
-  cutoffDate: '2026-10-25',
+  cutoffDate: '2026-10-23',
   assistantName: 'Asisten Payroll',
   companyName: 'PT Pelindo Daya Sejahtera',
 };

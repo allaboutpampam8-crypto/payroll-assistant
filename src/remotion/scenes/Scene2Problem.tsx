@@ -89,7 +89,7 @@ export const Scene2Problem: React.FC<SceneProps> = ({ aspectRatio }) => {
             </div>
             <div>
               <h4 className="text-sm font-bold text-white">Pertanyaan Slip Gaji Berulang</h4>
-              <p className="text-xs text-slate-400">Pegawai menanyakan rincian lembur & selisih THP setiap tgl 26.</p>
+              <p className="text-xs text-slate-400">Pegawai menanyakan rincian lembur & selisih THP setiap tgl 25.</p>
             </div>
           </div>
 

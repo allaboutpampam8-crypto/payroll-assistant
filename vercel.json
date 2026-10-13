@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/payroll-reminder",
-      "schedule": "0 1 26 * *"
+      "schedule": "0 1 25 * *"
     }
   ]
 }

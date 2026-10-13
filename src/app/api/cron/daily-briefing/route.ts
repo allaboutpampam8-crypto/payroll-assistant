@@ -40,7 +40,7 @@ export async function GET(request: Request) {
       cutoffText = `sisa ${diffDays} hari lagi`;
     }
 
-    const isUploadDay = nowWib.getDate() === 26;
+    const isPaymentDay = nowWib.getDate() === 25;
 
     // Format tanggal Indonesia & tanggal YYYY-MM-DD zona waktu WIB
     const year = nowWib.getFullYear();
@@ -100,10 +100,10 @@ export async function GET(request: Request) {
       }
     }
 
-    if (isUploadDay) {
+    if (isPaymentDay) {
       message +=
-        `\n🔔 <b>JADWAL PENTING HARI INI (TGL 26):</b>\n` +
-        `<i>Waktunya mengunggah rekapitulasi data hasil payroll dari ERP ke dashboard web agar bot & komparasi siap digunakan!</i>\n`;
+        `\n🔔 <b>JADWAL PENTING HARI INI (TGL 25 - PEMBAYARAN GAJI):</b>\n` +
+        `<i>Hari pembayaran gaji pegawai! Waktunya mengunggah rekapitulasi data hasil payroll dari ERP ke dashboard web agar bot & komparasi siap digunakan!</i>\n`;
     }
 
     message +=
