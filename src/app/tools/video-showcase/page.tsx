@@ -12,7 +12,6 @@ import {
   Sparkles,
   Layers,
   Clock,
-  Download,
   Info,
 } from 'lucide-react';
 import { ShowcaseComposition } from '@/remotion/ShowcaseComposition';

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
- * Middleware Keamanan Next.js
+ * Proxy Keamanan Next.js (Next.js 16+ convention)
  * Memproteksi rute API internal agar tidak bisa diakses tanpa sesi PIN yang valid.
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const method = request.method;
 

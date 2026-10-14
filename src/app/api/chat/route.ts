@@ -19,12 +19,13 @@ export async function POST(req: NextRequest) {
       success: true,
       reply,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('API /api/chat error:', error);
+    const errMsg = error instanceof Error ? error.message : 'Terjadi kendala saat memproses pertanyaan ke Asisten AI.';
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Terjadi kendala saat memproses pertanyaan ke Asisten AI.',
+        error: errMsg,
       },
       { status: 500 }
     );

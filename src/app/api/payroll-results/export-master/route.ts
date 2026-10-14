@@ -74,10 +74,11 @@ export async function GET(req: NextRequest) {
         'Content-Disposition': `attachment; filename="${filename}"`,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Export Multi-Period Excel Error:', error);
+    const msg = error instanceof Error ? error.message : 'Gagal membuat file Excel multi-sheet.';
     return NextResponse.json(
-      { success: false, message: error.message || 'Gagal membuat file Excel multi-sheet.' },
+      { success: false, message: msg },
       { status: 500 }
     );
   }

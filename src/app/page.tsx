@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
-  Sparkles,
   Plus,
   FileSpreadsheet,
   Search,
@@ -14,7 +13,6 @@ import {
   ChevronDown,
   AlertTriangle,
   RotateCcw,
-  ExternalLink,
   Copy,
   Check,
   ListTodo,

@@ -7,13 +7,6 @@ import {
   X,
   RotateCcw,
   Sparkles,
-  Bot,
-  Minimize2,
-  Maximize2,
-  ChevronDown,
-  CheckCircle2,
-  AlertCircle,
-  HelpCircle,
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -21,6 +14,12 @@ interface ChatMessage {
   sender: 'user' | 'assistant';
   text: string;
   timestamp: string;
+}
+
+let chatMsgCounter = 0;
+function createChatMessageId(prefix: string): string {
+  chatMsgCounter += 1;
+  return `${prefix}-${Date.now()}-${chatMsgCounter}`;
 }
 
 interface AiChatWidgetProps {
@@ -87,7 +86,7 @@ export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
     if (!text || isLoading) return;
 
     const userMsg: ChatMessage = {
-      id: `usr-${Date.now()}`,
+      id: createChatMessageId('usr'),
       sender: 'user',
       text,
       timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
@@ -108,7 +107,7 @@ export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
 
       if (data.success && data.reply) {
         const assistantMsg: ChatMessage = {
-          id: `ai-${Date.now()}`,
+          id: createChatMessageId('ai'),
           sender: 'assistant',
           text: data.reply,
           timestamp: new Date().toLocaleTimeString('id-ID', {
@@ -130,7 +129,7 @@ export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
         }
       } else {
         const errMsg: ChatMessage = {
-          id: `err-${Date.now()}`,
+          id: createChatMessageId('err'),
           sender: 'assistant',
           text: `⚠️ ${data.error || 'Maaf, terjadi kendala saat menghubungi asisten AI.'}`,
           timestamp: new Date().toLocaleTimeString('id-ID', {
@@ -140,11 +139,12 @@ export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
         };
         setMessages((prev) => [...prev, errMsg]);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errMsgStr = err instanceof Error ? err.message : 'Gagal terhubung.';
       const netErrMsg: ChatMessage = {
-        id: `net-err-${Date.now()}`,
+        id: createChatMessageId('net-err'),
         sender: 'assistant',
-        text: `⚠️ Terjadi gangguan jaringan: ${err.message || 'Gagal terhubung.'}`,
+        text: `⚠️ Terjadi gangguan jaringan: ${errMsgStr}`,
         timestamp: new Date().toLocaleTimeString('id-ID', {
           hour: '2-digit',
           minute: '2-digit',

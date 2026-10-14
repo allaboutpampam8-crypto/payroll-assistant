@@ -55,14 +55,13 @@ export async function GET(req: NextRequest) {
         'Content-Disposition': `attachment; filename="${filename}"`,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Export Unique Employees Excel Error:', error);
+    const msg = error instanceof Error ? error.message : 'Gagal mengekstrak dan mengekspor daftar master pegawai unik.';
     return NextResponse.json(
       {
         success: false,
-        message:
-          error.message ||
-          'Gagal mengekstrak dan mengekspor daftar master pegawai unik.',
+        message: msg,
       },
       { status: 500 }
     );

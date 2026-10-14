@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { Lock, KeyRound, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
+import { Lock, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 
 interface PinLockScreenProps {
   onSuccess: () => void;

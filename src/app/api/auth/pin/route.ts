@@ -66,9 +66,10 @@ export async function POST(req: NextRequest) {
     });
 
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Terjadi kesalahan server.';
     return NextResponse.json(
-      { success: false, message: error.message || 'Terjadi kesalahan server.' },
+      { success: false, message: msg },
       { status: 500 }
     );
   }

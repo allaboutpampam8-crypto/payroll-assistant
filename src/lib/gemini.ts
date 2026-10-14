@@ -8,7 +8,6 @@ import {
   getAllTodos,
   getPayrollResultsByDepartment,
   getPayrollDepartments,
-  getPayrollPeriodSummary,
   comparePayrollPeriodSummaries,
   getEmployeeCumulativePayrollSummary,
   getSettings,
@@ -223,6 +222,7 @@ const toolDeclarations: FunctionDeclaration[] = [
 ];
 
 // Eksekutor fungsi faktual dari database
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function executeTool(name: string, args: Record<string, any>): Promise<any> {
   try {
     if (name === 'cek_gaji_pegawai') {
@@ -552,8 +552,9 @@ async function executeTool(name: string, args: Record<string, any>): Promise<any
     }
 
     return { error: `Tool ${name} tidak dikenali.` };
-  } catch (err: any) {
-    return { error: err.message || 'Gagal menjalankan tool database.' };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Gagal menjalankan tool database.';
+    return { error: msg };
   }
 }
 
@@ -616,6 +617,7 @@ Aturan Khusus Rekap Pendapatan Multi-Bulan & Excel:
     if (functionCalls && functionCalls.length > 0) {
       const call = functionCalls[0];
       if (call.name) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const toolResult = await executeTool(call.name, (call.args || {}) as Record<string, any>);
         const modelParts = response.candidates?.[0]?.content?.parts || [{ functionCall: call }];
 
@@ -624,6 +626,7 @@ Aturan Khusus Rekap Pendapatan Multi-Bulan & Excel:
           model: modelName,
           contents: [
             { role: 'user', parts: [{ text: userMessage }] },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             { role: 'model', parts: modelParts as any },
             {
               role: 'user',
@@ -647,11 +650,12 @@ Aturan Khusus Rekap Pendapatan Multi-Bulan & Excel:
     }
 
     return response.text || 'Maaf Pak, saya belum memahami pertanyaan tersebut.';
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Gemini AI Query Error:', error);
+    const err = error as { message?: string; status?: number };
 
     // Fallback jika model lite terkena rate-limit, coba gemini-3.5-flash
-    if (error.message?.includes('429') || error.status === 429) {
+    if (err.message?.includes('429') || err.status === 429) {
       try {
         const fallbackAi = new GoogleGenAI({ apiKey });
         const res = await fallbackAi.models.generateContent({
@@ -662,11 +666,12 @@ Aturan Khusus Rekap Pendapatan Multi-Bulan & Excel:
           },
         });
         return res.text || 'Maaf Pak, terjadi kendala saat memproses jawaban.';
-      } catch (fallbackErr: any) {
-        return `⚠️ Kuota rate limit API tercapai. Silakan coba kembali beberapa saat lagi. (${fallbackErr.message})`;
+      } catch (fallbackErr: unknown) {
+        const fbMsg = fallbackErr instanceof Error ? fallbackErr.message : 'Error';
+        return `⚠️ Kuota rate limit API tercapai. Silakan coba kembali beberapa saat lagi. (${fbMsg})`;
       }
     }
 
-    return `⚠️ Maaf Pak, terjadi kesalahan saat menghubungi asisten AI: ${error.message}`;
+    return `⚠️ Maaf Pak, terjadi kesalahan saat menghubungi asisten AI: ${err.message || 'Terjadi kesalahan sistem'}`;
   }
 }

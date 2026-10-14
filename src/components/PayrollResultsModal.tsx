@@ -169,9 +169,9 @@ export default function PayrollResultsModal({
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Download error:', error);
-      alert(error.message || 'Terjadi kendala saat mengunduh file Excel.');
+      alert(error instanceof Error ? error.message : 'Terjadi kendala saat mengunduh file Excel.');
     } finally {
       setIsExporting(false);
       setExportingLabel('');
@@ -224,12 +224,45 @@ export default function PayrollResultsModal({
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Download unique employees error:', error);
-      alert(error.message || 'Terjadi kendala saat mengunduh data pegawai unik.');
+      alert(error instanceof Error ? error.message : 'Terjadi kendala saat mengunduh data pegawai unik.');
     } finally {
       setIsExportingUnique(false);
       setExportingLabel('');
+    }
+  };
+
+  const handleFetchSummary = async (targetPeriod?: string) => {
+    const periodToFetch = (targetPeriod || summaryPeriod).trim();
+    if (targetPeriod) setSummaryPeriod(targetPeriod);
+    setSummaryLoading(true);
+    try {
+      const res = await fetch(`/api/payroll-results/summary?period=${encodeURIComponent(periodToFetch)}`);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSummaryData(data.summary);
+        if (Array.isArray(data.availablePeriods)) {
+          setAvailablePeriods(data.availablePeriods);
+          setSelectedExportPeriods((prev) => (prev.length === 0 ? data.availablePeriods : prev));
+          // Jika periode saat ini tidak ada data (misal Oktober 2026), otomatis tampilkan periode terbaru
+          if (!data.summary && data.availablePeriods.length > 0 && targetPeriod !== data.availablePeriods[0]) {
+            const latest = data.availablePeriods[0];
+            setSummaryPeriod(latest);
+            const latestRes = await fetch(`/api/payroll-results/summary?period=${encodeURIComponent(latest)}`);
+            const latestData = await latestRes.json();
+            if (latestRes.ok && latestData.success && latestData.summary) {
+              setSummaryData(latestData.summary);
+            }
+          }
+        }
+      } else {
+        setSummaryData(null);
+      }
+    } catch (err) {
+      console.error('Summary error:', err);
+    } finally {
+      setSummaryLoading(false);
     }
   };
 
@@ -522,43 +555,6 @@ export default function PayrollResultsModal({
     }
   };
 
-  // -------------------------------------------------------------
-  // HANDLERS: SUMMARY
-  // -------------------------------------------------------------
-
-  const handleFetchSummary = async (targetPeriod?: string) => {
-    const periodToFetch = (targetPeriod || summaryPeriod).trim();
-    if (targetPeriod) setSummaryPeriod(targetPeriod);
-    setSummaryLoading(true);
-    try {
-      const res = await fetch(`/api/payroll-results/summary?period=${encodeURIComponent(periodToFetch)}`);
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setSummaryData(data.summary);
-        if (Array.isArray(data.availablePeriods)) {
-          setAvailablePeriods(data.availablePeriods);
-          setSelectedExportPeriods((prev) => (prev.length === 0 ? data.availablePeriods : prev));
-          // Jika periode saat ini tidak ada data (misal Oktober 2026), otomatis tampilkan periode terbaru
-          if (!data.summary && data.availablePeriods.length > 0 && targetPeriod !== data.availablePeriods[0]) {
-            const latest = data.availablePeriods[0];
-            setSummaryPeriod(latest);
-            const latestRes = await fetch(`/api/payroll-results/summary?period=${encodeURIComponent(latest)}`);
-            const latestData = await latestRes.json();
-            if (latestRes.ok && latestData.success && latestData.summary) {
-              setSummaryData(latestData.summary);
-            }
-          }
-        }
-      } else {
-        setSummaryData(null);
-      }
-    } catch (err) {
-      console.error('Summary error:', err);
-    } finally {
-      setSummaryLoading(false);
-    }
-  };
-
   const formatRupiah = (num: number) => {
     return 'Rp ' + Number(num || 0).toLocaleString('id-ID');
   };
@@ -624,8 +620,8 @@ export default function PayrollResultsModal({
                 : 'border-transparent text-slate-500 hover:text-slate-900'
             }`}
           >
-            <FileSpreadsheet className="h-4 w-4" />
-            <span>Rekapitulasi Makro</span>
+            <Database className="h-4 w-4" />
+            <span>Rekap & Unduh Master Data</span>
           </button>
         </div>
 

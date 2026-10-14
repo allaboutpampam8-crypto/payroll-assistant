@@ -12,12 +12,10 @@ import {
   CheckCircle2,
   AlertCircle,
   ShieldCheck,
-  Clock,
   Layers,
   Sparkles,
   RefreshCw,
   FileArchive,
-  ChevronDown,
   Check,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -43,7 +41,7 @@ export default function ExcelSplitterPage() {
   const [filePrefix, setFilePrefix] = useState<string>('');
 
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [progressStage, setProgressStage] = useState<string>('');
+  const [_progressStage, setProgressStage] = useState<string>('');
   const [progressPercent, setProgressPercent] = useState<number>(0);
   const [progressMessage, setProgressMessage] = useState<string>('');
 
@@ -111,9 +109,9 @@ export default function ExcelSplitterPage() {
         spread: 70,
         origin: { y: 0.6 },
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Gagal memecah file Excel:', err);
-      setErrorMsg(err.message || 'Terjadi kesalahan saat memproses file Excel.');
+      setErrorMsg(err instanceof Error ? err.message : 'Terjadi kesalahan saat memproses file Excel.');
     } finally {
       setIsProcessing(false);
     }

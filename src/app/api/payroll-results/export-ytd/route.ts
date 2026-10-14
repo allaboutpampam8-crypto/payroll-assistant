@@ -46,10 +46,11 @@ export async function GET(req: NextRequest) {
         'Content-Disposition': `attachment; filename="${filename}"`,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Export YTD Excel Error:', error);
+    const msg = error instanceof Error ? error.message : 'Gagal membuat file Excel.';
     return NextResponse.json(
-      { success: false, message: error.message || 'Gagal membuat file Excel.' },
+      { success: false, message: msg },
       { status: 500 }
     );
   }
