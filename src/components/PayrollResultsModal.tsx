@@ -18,6 +18,7 @@ import {
   Calendar,
   Download,
   RefreshCw,
+  Users,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { PayrollResult, PayrollComparison, PayrollPeriodSummary } from '@/lib/types';
@@ -75,6 +76,29 @@ export default function PayrollResultsModal({
     return p;
   };
 
+  // Filter Tahun & Periode untuk Ekspor
+  const [selectedExportYear, setSelectedExportYear] = useState<string>('ALL');
+
+  const availableYears = React.useMemo(() => {
+    const set = new Set<string>();
+    availablePeriods.forEach((p) => {
+      const yr = p.split('-')[0];
+      if (yr && yr.length === 4) set.add(yr);
+    });
+    return Array.from(set).sort().reverse();
+  }, [availablePeriods]);
+
+  const visibleExportPeriods = React.useMemo(() => {
+    if (selectedExportYear === 'ALL') {
+      return availablePeriods;
+    }
+    return availablePeriods.filter((p) => p.startsWith(`${selectedExportYear}-`));
+  }, [availablePeriods, selectedExportYear]);
+
+  const isAllVisibleSelected =
+    visibleExportPeriods.length > 0 &&
+    visibleExportPeriods.every((p) => selectedExportPeriods.includes(p));
+
   const toggleExportPeriod = (p: string) => {
     setSelectedExportPeriods((prev) =>
       prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p].sort()
@@ -82,10 +106,14 @@ export default function PayrollResultsModal({
   };
 
   const toggleSelectAllExportPeriods = () => {
-    if (selectedExportPeriods.length === availablePeriods.length) {
-      setSelectedExportPeriods([]);
+    if (isAllVisibleSelected) {
+      setSelectedExportPeriods((prev) =>
+        prev.filter((p) => !visibleExportPeriods.includes(p))
+      );
     } else {
-      setSelectedExportPeriods([...availablePeriods].sort());
+      setSelectedExportPeriods((prev) =>
+        Array.from(new Set([...prev, ...visibleExportPeriods])).sort()
+      );
     }
   };
 
@@ -146,6 +174,61 @@ export default function PayrollResultsModal({
       alert(error.message || 'Terjadi kendala saat mengunduh file Excel.');
     } finally {
       setIsExporting(false);
+      setExportingLabel('');
+    }
+  };
+
+  const [isExportingUnique, setIsExportingUnique] = useState(false);
+
+  const handleDownloadUniqueEmployees = async (periods: string[]) => {
+    if (periods.length === 0 || isExportingUnique) return;
+
+    const label =
+      periods.length === 1
+        ? `Periode ${periods[0]}`
+        : `${periods.length} Bulan (${periods.slice().sort().join(', ')})`;
+
+    setIsExportingUnique(true);
+    setExportingLabel(`Menyiapkan & Mengunduh Master Pegawai ${label}...`);
+
+    try {
+      const url = `/api/payroll-results/export-unique-employees?periods=${encodeURIComponent(
+        periods.slice().sort().join(',')
+      )}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(
+          errJson.message || 'Gagal mengunduh daftar pegawai unik dari server.'
+        );
+      }
+
+      const blob = await response.blob();
+      let filename = `Master_Pegawai_PDS_Terupdate_${new Date()
+        .toISOString()
+        .slice(0, 10)
+        .replace(/-/g, '')}.xlsx`;
+
+      const disposition = response.headers.get('content-disposition');
+      if (disposition && disposition.includes('filename=')) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) filename = match[1];
+      }
+
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error: any) {
+      console.error('Download unique employees error:', error);
+      alert(error.message || 'Terjadi kendala saat mengunduh data pegawai unik.');
+    } finally {
+      setIsExportingUnique(false);
       setExportingLabel('');
     }
   };
@@ -1197,91 +1280,134 @@ export default function PayrollResultsModal({
                     </div>
                   </div>
 
-                  {/* KARTU UNDUH MASTER EXCEL CLOUD (DENGAN PILIHAN BULAN & DETAIL KOMPONEN) */}
-                  <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-50/90 via-white to-teal-50/70 border border-emerald-200 shadow-xs space-y-4">
+                  {/* PUSAT UNDUH MASTER DATA CLOUD (DENGAN FILTER TAHUN & CHECKLIST BULAN) */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-slate-50/90 via-white to-indigo-50/40 border border-slate-200 shadow-xs space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                       <div>
-                        <h5 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
-                          <FileSpreadsheet className="h-4 w-4 text-emerald-700" />
-                          <span>Unduh Master Data Excel dari Cloud Database</span>
+                        <h5 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                          <Database className="h-4 w-4 text-indigo-600" />
+                          <span>Pusat Unduh Master Data Cloud (Gaji & Pegawai)</span>
                         </h5>
                         <p className="text-xs text-slate-500 mt-0.5">
-                          Ambil data payroll tersimpan lengkap dengan seluruh komponen tunjangan & potongan detail (seperti file upload asli), dipisah per sheet untuk setiap bulan.
+                          Gunakan filter tahun dan checklist bulan di bawah untuk mengekspor Master Data Gaji (multi-sheet lengkap) atau Master Data Pegawai Terupdate (unik per NRP).
                         </p>
                       </div>
 
-                      {/* Tombol Unduh Periode Aktif Saja */}
+                      {/* Tombol Cepat: Unduh Master Gaji Periode Aktif Saja */}
                       <button
                         type="button"
-                        disabled={isExporting}
+                        disabled={isExporting || isExportingUnique}
                         onClick={() => handleDownloadExcel([summaryPeriod])}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-emerald-300 hover:bg-emerald-50 disabled:opacity-60 text-emerald-800 text-xs font-bold shadow-2xs transition-all cursor-pointer shrink-0"
-                        title={`Unduh master data khusus periode ${summaryPeriod}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-60 text-slate-700 text-xs font-bold shadow-2xs transition-all cursor-pointer shrink-0"
+                        title={`Unduh master data gaji khusus periode ${summaryPeriod}`}
                       >
                         {isExporting ? (
-                          <Loader2 className="h-3.5 w-3.5 text-emerald-700 animate-spin" />
+                          <Loader2 className="h-3.5 w-3.5 text-slate-500 animate-spin" />
                         ) : (
-                          <Download className="h-3.5 w-3.5 text-emerald-700" />
+                          <Download className="h-3.5 w-3.5 text-slate-500" />
                         )}
-                        <span>Unduh Hanya Periode {summaryPeriod}</span>
+                        <span>Unduh Gaji Periode {summaryPeriod} Saja</span>
                       </button>
                     </div>
 
                     {/* STATUS BANNER KETIKA SEDANG PROSES UNDUH */}
-                    {isExporting && (
-                      <div className="flex items-center gap-3 p-3.5 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-950 text-xs shadow-xs animate-in fade-in duration-200">
-                        <Loader2 className="h-5 w-5 text-emerald-700 animate-spin shrink-0" />
+                    {(isExporting || isExportingUnique) && (
+                      <div className="flex items-center gap-3 p-3.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-950 text-xs shadow-xs animate-in fade-in duration-200">
+                        <Loader2 className="h-5 w-5 text-indigo-600 animate-spin shrink-0" />
                         <div className="flex-1">
                           <p className="font-extrabold text-slate-900">
                             {exportingLabel || 'Sedang Menyiapkan & Mengunduh File Excel...'}
                           </p>
-                          <p className="text-[11px] text-emerald-800 mt-0.5">
-                            Sistem sedang mengambil seluruh data payroll dari cloud database dan menyusun sheet komponen lengkap. Mohon tunggu sejenak, unduhan akan otomatis dimulai.
+                          <p className="text-[11px] text-indigo-800 mt-0.5">
+                            Sistem sedang memproses data dari cloud database. Mohon tunggu sejenak, unduhan akan otomatis dimulai.
                           </p>
                         </div>
                       </div>
                     )}
 
-                    {/* PEMILIH BULAN (MULTI-SELECT CHECKBOX) */}
-                    <div className="p-3.5 rounded-xl bg-white border border-emerald-200/80 space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                          <span>Pilih Bulan yang Ingin Diunduh:</span>
-                          <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full">
-                            {selectedExportPeriods.length} dari {availablePeriods.length} Bulan Terpilih
+                    {/* SECTION: FILTER TAHUN & CHECKLIST BULAN */}
+                    <div className="p-3.5 rounded-xl bg-white border border-slate-200/90 space-y-3">
+                      {/* Baris Filter Tahun & Quick Select */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-slate-100">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                            <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                            <span>Filter Tahun:</span>
                           </span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={toggleSelectAllExportPeriods}
-                          disabled={isExporting}
-                          className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 disabled:opacity-50 cursor-pointer underline"
-                        >
-                          {selectedExportPeriods.length === availablePeriods.length
-                            ? 'Batal Pilih Semua'
-                            : 'Pilih Semua Bulan'}
-                        </button>
+                          <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200/80">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedExportYear('ALL')}
+                              disabled={isExporting || isExportingUnique}
+                              className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                                selectedExportYear === 'ALL'
+                                  ? 'bg-white text-indigo-700 shadow-2xs font-extrabold'
+                                  : 'text-slate-600 hover:text-slate-900'
+                              }`}
+                            >
+                              Semua Tahun ({availablePeriods.length})
+                            </button>
+                            {availableYears.map((yr) => {
+                              const countInYr = availablePeriods.filter((p) => p.startsWith(`${yr}-`)).length;
+                              return (
+                                <button
+                                  key={yr}
+                                  type="button"
+                                  onClick={() => setSelectedExportYear(yr)}
+                                  disabled={isExporting || isExportingUnique}
+                                  className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                                    selectedExportYear === yr
+                                      ? 'bg-white text-indigo-700 shadow-2xs font-extrabold'
+                                      : 'text-slate-600 hover:text-slate-900'
+                                  }`}
+                                >
+                                  {yr} ({countInYr})
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 justify-between sm:justify-end">
+                          <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2.5 py-1 rounded-lg">
+                            {selectedExportPeriods.length} dari {availablePeriods.length} Bulan Tercentang
+                          </span>
+                          <button
+                            type="button"
+                            onClick={toggleSelectAllExportPeriods}
+                            disabled={isExporting || isExportingUnique}
+                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 disabled:opacity-50 cursor-pointer underline"
+                          >
+                            {isAllVisibleSelected
+                              ? selectedExportYear === 'ALL'
+                                ? 'Batal Pilih Semua'
+                                : `Batal Pilih Tahun ${selectedExportYear}`
+                              : selectedExportYear === 'ALL'
+                              ? 'Pilih Semua Bulan'
+                              : `Pilih Semua di Tahun ${selectedExportYear}`}
+                          </button>
+                        </div>
                       </div>
 
-                      {/* Grid Checkbox Periode */}
+                      {/* Grid Checkbox Bulan */}
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
-                        {availablePeriods.map((p) => {
+                        {visibleExportPeriods.map((p) => {
                           const isSelected = selectedExportPeriods.includes(p);
                           return (
                             <label
                               key={p}
                               className={`flex items-center gap-2 p-2 rounded-xl border text-xs font-semibold cursor-pointer transition-all select-none ${
                                 isSelected
-                                  ? 'bg-emerald-50 border-emerald-400 text-emerald-950 font-bold shadow-2xs'
+                                  ? 'bg-indigo-50 border-indigo-400 text-indigo-950 font-bold shadow-2xs'
                                   : 'bg-slate-50/70 border-slate-200 text-slate-600 hover:bg-slate-100'
-                              } ${isExporting ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''}`}
+                              } ${isExporting || isExportingUnique ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''}`}
                             >
                               <input
                                 type="checkbox"
                                 checked={isSelected}
-                                disabled={isExporting}
+                                disabled={isExporting || isExportingUnique}
                                 onChange={() => toggleExportPeriod(p)}
-                                className="h-3.5 w-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
+                                className="h-3.5 w-3.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
                               />
                               <div className="flex flex-col leading-tight">
                                 <span className="text-[11px]">{formatPeriodLabel(p)}</span>
@@ -1292,50 +1418,114 @@ export default function PayrollResultsModal({
                         })}
                       </div>
 
-                      {/* Tombol Eksekusi Unduh Multi-Sheet */}
-                      <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-slate-100">
-                        <span className="text-[11px] text-slate-500">
-                          {selectedExportPeriods.length === 0 ? (
-                            <span className="text-rose-500 font-semibold">⚠️ Centang minimal 1 bulan di atas untuk mengunduh.</span>
-                          ) : (
-                            <span>
-                              File Excel akan berisi sheet <strong>RINGKASAN</strong> + {selectedExportPeriods.length} sheet bulanan ({selectedExportPeriods.slice().sort().join(', ')}).
+                      {selectedExportPeriods.length === 0 && (
+                        <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5 flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                          <span>Centang minimal 1 bulan di atas untuk mengaktifkan tombol unduhan data gaji atau master pegawai.</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* DUA KARTU AKSI UNDUH */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                      {/* KARTU 1: MASTER DATA GAJI (MULTI-SHEET) */}
+                      <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-50/70 via-white to-teal-50/40 border border-emerald-200 shadow-2xs flex flex-col justify-between space-y-3">
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                              <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                              <span>Master Data Payroll</span>
                             </span>
-                          )}
-                        </span>
+                            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                              Multi-Sheet Detail
+                            </span>
+                          </div>
+                          <h6 className="text-xs font-bold text-slate-900">
+                            File Gaji Lengkap Seluruh Komponen
+                          </h6>
+                          <p className="text-[11px] text-slate-500 leading-relaxed">
+                            Berisi sheet RINGKASAN + sheet per bulan ({selectedExportPeriods.length} bulan terpilih). Memuat gaji pokok, seluruh tunjangan & potongan detail lengkap.
+                          </p>
+                        </div>
 
                         <button
                           type="button"
-                          disabled={isExporting || selectedExportPeriods.length === 0}
+                          disabled={isExporting || isExportingUnique || selectedExportPeriods.length === 0}
                           onClick={() => handleDownloadExcel(selectedExportPeriods)}
-                          className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md ${
-                            isExporting || selectedExportPeriods.length === 0
-                              ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                          className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md ${
+                            isExporting || isExportingUnique || selectedExportPeriods.length === 0
+                              ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
                               : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20 cursor-pointer'
                           }`}
                         >
                           {isExporting ? (
                             <>
-                              <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                              <Loader2 className="h-4 w-4 animate-spin text-white" />
                               <span>Sedang Menyiapkan Excel...</span>
                             </>
                           ) : (
                             <>
                               <Download className="h-4 w-4" />
                               <span>
-                                Unduh Excel ({selectedExportPeriods.length} Bulan Terpilih - Multi-Sheet)
+                                Unduh Master Gaji ({selectedExportPeriods.length} Bulan - Multi-Sheet)
                               </span>
                             </>
                           )}
                         </button>
                       </div>
-                    </div>
 
-                    <div className="p-2.5 rounded-xl bg-emerald-100/40 border border-emerald-200/60 text-[11px] text-emerald-900 flex items-center gap-2">
-                      <span className="font-bold shrink-0">💡 Komponen Lengkap:</span>
-                      <span>
-                        Seluruh rincian tunjangan (Tunjangan Transport, Makan, Jabatan, dll) dan potongan (BPJS, PPh21, DPLK, dll) akan otomatis diekspor ke kolom masing-masing sesuai file upload asli.
-                      </span>
+                      {/* KARTU 2: MASTER PEGAWAI TERUPDATE (DEDUPLIKASI 1 BARIS PER NRP) */}
+                      <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50/70 via-white to-indigo-50/40 border border-blue-200 shadow-2xs flex flex-col justify-between space-y-3">
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase tracking-wider text-blue-800 flex items-center gap-1.5">
+                              <Users className="h-4 w-4 text-blue-600" />
+                              <span>Master Data Pegawai</span>
+                            </span>
+                            <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
+                              Deduplikasi Unik
+                            </span>
+                          </div>
+                          <h6 className="text-xs font-bold text-slate-900">
+                            Daftar Seluruh Pegawai Unik Terupdate
+                          </h6>
+                          <p className="text-[11px] text-slate-500 leading-relaxed">
+                            Ekspor seluruh pegawai unik dari {selectedExportPeriods.length} bulan terpilih lengkap dengan periode awal aktif/masuk dan periode terakhir aktifnya. NRP duplikat otomatis hanya dicatat 1 baris.
+                          </p>
+                          <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                            {['No', 'NRP/NIK', 'Nama', 'Jabatan Terakhir', 'Cost Center Terakhir', 'Periode Awal', 'Periode Terakhir'].map((c) => (
+                              <span key={c} className="text-[9px] bg-blue-100/70 text-blue-800 px-1.5 py-0.5 rounded font-mono font-medium">
+                                {c}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={isExporting || isExportingUnique || selectedExportPeriods.length === 0}
+                          onClick={() => handleDownloadUniqueEmployees(selectedExportPeriods)}
+                          className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md ${
+                            isExporting || isExportingUnique || selectedExportPeriods.length === 0
+                              ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                              : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/20 cursor-pointer'
+                          }`}
+                        >
+                          {isExportingUnique ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin text-white" />
+                              <span>Mengekstrak Data Unik...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Download className="h-4 w-4" />
+                              <span>
+                                Unduh Master Pegawai ({selectedExportPeriods.length} Bulan - Unik)
+                              </span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

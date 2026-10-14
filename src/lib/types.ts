@@ -181,3 +181,13 @@ export interface EmployeeCumulativePayrollSummary {
     deductionDetails?: Record<string, number>;
   }[];
 }
+
+export interface UniqueEmployeeRecord {
+  nik: string;
+  name: string;
+  position: string;
+  department: string;
+  period: string; // Periode terakhir aktif
+  firstPeriod?: string; // Periode awal masuk / awal aktif
+}
+

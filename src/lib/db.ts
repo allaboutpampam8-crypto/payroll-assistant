@@ -9,6 +9,7 @@ import {
   PayrollComparison,
   PayrollPeriodSummary,
   EmployeeCumulativePayrollSummary,
+  UniqueEmployeeRecord,
 } from './types';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { sendTelegramNotification } from './telegram';
@@ -1395,5 +1396,125 @@ export async function getPayrollResultsForPeriod(
   const list = (local.results || []).filter((r) => r.period === cleanPeriod);
   return list.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
 }
+
+/**
+ * Mengambil daftar seluruh pegawai unik dari seluruh periode di database.
+ * Jika satu NRP muncul di banyak bulan, hanya baris dari periode paling mutakhir/terbaru yang dicatat.
+ */
+export async function getUniqueLatestEmployees(
+  customPeriods?: string[]
+): Promise<UniqueEmployeeRecord[]> {
+  if (isSupabaseConfigured && supabase) {
+    // 1. Dapatkan daftar periode yang tersedia / ditentukan, urutkan descending (terbaru ke terlama)
+    const basePeriods =
+      customPeriods && customPeriods.length > 0
+        ? customPeriods
+        : await getAvailablePayrollPeriods();
+    const sortedPeriods = [...basePeriods].sort().reverse();
+
+    const uniqueMap = new Map<string, UniqueEmployeeRecord>();
+
+    for (const period of sortedPeriods) {
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        let attempts = 0;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let data: any = null;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let error: any = null;
+
+        while (attempts < 3) {
+          const res = await supabase
+            .from('payroll_results')
+            .select('employee_nik, employee_name, position_title, department, period')
+            .eq('period', period)
+            .range(from, from + batchSize - 1);
+
+          data = res.data;
+          error = res.error;
+
+          if (!error) break;
+          attempts++;
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+
+        if (error || !data || data.length === 0) {
+          break;
+        }
+
+        for (const row of data) {
+          const nik = String(row.employee_nik || '').trim();
+          if (!nik) continue;
+
+          const currentPeriod = String(row.period || period).trim();
+          const existing = uniqueMap.get(nik);
+
+          // Jika belum ada di Map (karena looping dari periode terbaru ke terlama):
+          // Catat data terbaru (nama, jabatan, department, period terakhir aktif, dan inisialisasi firstPeriod)
+          if (!existing) {
+            uniqueMap.set(nik, {
+              nik,
+              name: String(row.employee_name || '-').trim(),
+              position: String(row.position_title || '-').trim(),
+              department: String(row.department || '-').trim(),
+              period: currentPeriod,
+              firstPeriod: currentPeriod,
+            });
+          } else {
+            // Karena iterasi berjalan mundur menuju periode terlama,
+            // setiap kali pegawai ditemukan di periode yang lebih lama, perbarui firstPeriod
+            existing.firstPeriod = currentPeriod;
+          }
+        }
+
+        if (data.length < batchSize) {
+          hasMore = false;
+        } else {
+          from += batchSize;
+        }
+      }
+    }
+
+    return Array.from(uniqueMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+  }
+
+  // Fallback lokal JSON
+  const local = getLocalDatabase();
+  const baseLocal =
+    customPeriods && customPeriods.length > 0
+      ? (local.results || []).filter((r) => customPeriods.includes(r.period))
+      : local.results || [];
+
+  const sortedLocal = [...baseLocal].sort((a, b) =>
+    b.period.localeCompare(a.period)
+  );
+
+  const localMap = new Map<string, UniqueEmployeeRecord>();
+  for (const r of sortedLocal) {
+    const existing = localMap.get(r.employeeNik);
+    if (!existing) {
+      localMap.set(r.employeeNik, {
+        nik: r.employeeNik,
+        name: r.employeeName,
+        position: r.positionTitle || '-',
+        department: r.department || '-',
+        period: r.period,
+        firstPeriod: r.period,
+      });
+    } else {
+      existing.firstPeriod = r.period;
+    }
+  }
+
+  return Array.from(localMap.values()).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+}
+
 
 
