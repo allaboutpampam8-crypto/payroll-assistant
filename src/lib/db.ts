@@ -54,6 +54,7 @@ function mapReportFromRow(row: any): PayrollReport {
     reportedBy: row.reported_by || '',
     attachmentUrl: row.attachment_url || undefined,
     attachmentName: row.attachment_name || undefined,
+    resolvedAt: row.resolved_at || undefined,
   };
 }
 
@@ -167,6 +168,7 @@ export async function createReport(
     id,
     ticketNumber,
     discrepancyAmount: Number(payload.discrepancyAmount) || 0,
+    resolvedAt: payload.actionStatus === 'CLOSE' ? (payload.resolvedAt || date.toISOString()) : undefined,
     createdAt: date.toISOString(),
     updatedAt: date.toISOString(),
   };
@@ -192,16 +194,18 @@ export async function createReport(
       due_date: newReport.dueDate || '',
       attachment_url: newReport.attachmentUrl || null,
       attachment_name: newReport.attachmentName || null,
+      resolved_at: newReport.resolvedAt || null,
       created_at: newReport.createdAt,
       updated_at: newReport.updatedAt,
     };
 
     let { error } = await supabase.from('payroll_reports').insert(insertPayload);
 
-    // Fallback if column reported_by has not been created yet in Supabase
-    if (error && (error.message?.includes('reported_by') || error.code === '42703')) {
-      console.warn('Column reported_by not found in Supabase payroll_reports, retrying insert without reported_by...');
-      delete insertPayload.reported_by;
+    // Fallback if column reported_by or resolved_at has not been created yet in Supabase
+    if (error && (error.message?.includes('reported_by') || error.message?.includes('resolved_at') || error.code === '42703')) {
+      console.warn('Column missing in Supabase payroll_reports, retrying insert without missing columns...');
+      if (error.message?.includes('reported_by') || error.code === '42703') delete insertPayload.reported_by;
+      if (error.message?.includes('resolved_at') || error.code === '42703') delete insertPayload.resolved_at;
       const retry = await supabase.from('payroll_reports').insert(insertPayload);
       error = retry.error;
     }
@@ -253,7 +257,17 @@ export async function updateReport(
   if (isSupabaseConfigured && supabase) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rowUpdates: Record<string, any> = { updated_at: now };
-    if (updates.actionStatus !== undefined) rowUpdates.action_status = updates.actionStatus;
+    if (updates.actionStatus !== undefined) {
+      rowUpdates.action_status = updates.actionStatus;
+      if (updates.actionStatus === 'CLOSE') {
+        rowUpdates.resolved_at = updates.resolvedAt || now;
+      } else {
+        rowUpdates.resolved_at = null;
+      }
+    } else if (updates.resolvedAt !== undefined) {
+      rowUpdates.resolved_at = updates.resolvedAt;
+    }
+
     if (updates.priority !== undefined) rowUpdates.priority = updates.priority;
     if (updates.resolutionNotes !== undefined) rowUpdates.resolution_notes = updates.resolutionNotes;
     if (updates.discrepancyAmount !== undefined) rowUpdates.discrepancy_amount = updates.discrepancyAmount;
@@ -268,10 +282,11 @@ export async function updateReport(
       .select()
       .single();
 
-    // Fallback if column reported_by has not been created yet in Supabase
-    if (error && (error.message?.includes('reported_by') || error.code === '42703')) {
-      console.warn('Column reported_by not found in Supabase payroll_reports, retrying update without reported_by...');
-      delete rowUpdates.reported_by;
+    // Fallback if column reported_by or resolved_at has not been created yet in Supabase
+    if (error && (error.message?.includes('reported_by') || error.message?.includes('resolved_at') || error.code === '42703')) {
+      console.warn('Column missing in Supabase payroll_reports, retrying update without missing columns...');
+      if (error.message?.includes('reported_by') || error.code === '42703') delete rowUpdates.reported_by;
+      if (error.message?.includes('resolved_at') || error.code === '42703') delete rowUpdates.resolved_at;
       const retry = await supabase
         .from('payroll_reports')
         .update(rowUpdates)
@@ -292,9 +307,20 @@ export async function updateReport(
   const idx = local.reports.findIndex((r) => r.id === id);
   if (idx === -1) return null;
 
+  const existing = local.reports[idx];
+  let resolvedAt = existing.resolvedAt;
+  if (updates.actionStatus === 'CLOSE') {
+    resolvedAt = updates.resolvedAt || existing.resolvedAt || now;
+  } else if (updates.actionStatus) {
+    resolvedAt = undefined;
+  } else if (updates.resolvedAt !== undefined) {
+    resolvedAt = updates.resolvedAt;
+  }
+
   const updated: PayrollReport = {
-    ...local.reports[idx],
+    ...existing,
     ...updates,
+    resolvedAt,
     updatedAt: now,
   };
   local.reports[idx] = updated;

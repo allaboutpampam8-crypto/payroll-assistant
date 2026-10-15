@@ -12,6 +12,7 @@ import {
   ExternalLink,
   CheckSquare,
   Check,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   PayrollReport,
@@ -182,6 +183,20 @@ function ReportDetailModalContent({
                   minute: '2-digit',
                 })}
               </p>
+              {report.actionStatus === 'CLOSE' && report.resolvedAt && (
+                <p className="text-[11px] sm:text-xs text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                  <span>
+                    Selesai pada {new Date(report.resolvedAt).toLocaleDateString('id-ID', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </p>
+              )}
             </div>
           </div>
           <button
@@ -317,6 +332,12 @@ function ReportDetailModalContent({
                   <option value="CROSSCHECK">🔵 Crosscheck</option>
                   <option value="CLOSE">🟢 Close</option>
                 </select>
+                {actionStatus === 'CLOSE' && (
+                  <p className="text-[10px] text-emerald-700 font-medium mt-1 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+                    <span>Tanggal & jam selesai otomatis dicatat</span>
+                  </p>
+                )}
               </div>
 
               {/* Ubah Prioritas */}
