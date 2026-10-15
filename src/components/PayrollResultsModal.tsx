@@ -19,6 +19,8 @@ import {
   Download,
   RefreshCw,
   Users,
+  Filter,
+  ChevronDown,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { PayrollResult, PayrollComparison, PayrollPeriodSummary } from '@/lib/types';
@@ -76,6 +78,9 @@ export default function PayrollResultsModal({
     return p;
   };
 
+  // Filter Tahun & Periode untuk Rekap
+  const [selectedSummaryYear, setSelectedSummaryYear] = useState<string>('ALL');
+
   // Filter Tahun & Periode untuk Ekspor
   const [selectedExportYear, setSelectedExportYear] = useState<string>('ALL');
 
@@ -87,6 +92,13 @@ export default function PayrollResultsModal({
     });
     return Array.from(set).sort().reverse();
   }, [availablePeriods]);
+
+  const filteredSummaryPeriods = React.useMemo(() => {
+    if (selectedSummaryYear === 'ALL') {
+      return availablePeriods;
+    }
+    return availablePeriods.filter((p) => p.startsWith(`${selectedSummaryYear}-`));
+  }, [availablePeriods, selectedSummaryYear]);
 
   const visibleExportPeriods = React.useMemo(() => {
     if (selectedExportYear === 'ALL') {
@@ -303,51 +315,170 @@ export default function PayrollResultsModal({
         const firstSheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[firstSheetName];
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const rawJson: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        const aoa: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-        if (rawJson.length === 0) {
+        if (aoa.length === 0) {
           setUploadErrorMessage('File spreadsheet kosong atau tidak berisi data.');
           setIsProcessingFile(false);
           return;
         }
 
-        // Helper normalize keys & dynamic allowance/deduction extractor
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const mapped: Omit<PayrollResult, 'id' | 'uploadedAt'>[] = rawJson.map((row: any) => {
-          // Clean keys from trailing/leading whitespace
-          const cleanRow: Record<string, unknown> = {};
-          for (const key of Object.keys(row)) {
-            cleanRow[key.trim()] = row[key];
+        // Cari baris header utama (bisa row 0, 1, 2) berdasarkan bobot identitas pegawai & upah
+        let headerRowIdx = 0;
+        let maxScore = -1;
+        for (let r = 0; r < Math.min(10, aoa.length); r++) {
+          const row = aoa[r] || [];
+          let score = 0;
+          const hasId = row.some((c) => {
+            const s = String(c || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+            return s === 'nrp' || s === 'nik' || s === 'employeenumber' || s === 'nopeg' || s === 'nip' || s === 'pegawaiid';
+          });
+          const hasName = row.some((c) => {
+            const s = String(c || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+            return s === 'employee' || s === 'nama' || s === 'namalengkap' || s === 'employeename';
+          });
+          const hasSalary = row.some((c) => {
+            const s = String(c || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+            return s.includes('upahpokok') || s.includes('gajipokok') || s.includes('jumlahkotor');
+          });
+
+          if (hasId) score += 10;
+          if (hasName) score += 5;
+          if (hasSalary) score += 5;
+
+          if (score > maxScore) {
+            maxScore = score;
+            headerRowIdx = r;
           }
+        }
+
+        // Susun header kolom yang bersih. Jika multi-row header (misal row 0 group kategori, row 2 nama kolom),
+        // ambil nama kolom dari baris yang paling informatif
+        const headerRowsToInspect = aoa.slice(0, headerRowIdx + 1);
+        const maxCols = Math.max(...headerRowsToInspect.map((r) => r.length), 0);
+        const resolvedHeaders: string[] = [];
+
+        for (let c = 0; c < maxCols; c++) {
+          let chosen = '';
+          for (let r = headerRowIdx; r >= 0; r--) {
+            const cellVal = String(aoa[r]?.[c] || '').trim();
+            if (
+              cellVal &&
+              !cellVal.toLowerCase().startsWith('allowance') &&
+              !cellVal.toLowerCase().startsWith('deduction') &&
+              !cellVal.toLowerCase().startsWith('contribution')
+            ) {
+              chosen = cellVal;
+              break;
+            }
+          }
+          if (!chosen) {
+            for (let r = headerRowIdx; r >= 0; r--) {
+              const cellVal = String(aoa[r]?.[c] || '').trim();
+              if (cellVal) {
+                chosen = cellVal;
+                break;
+              }
+            }
+          }
+          resolvedHeaders.push(chosen || `COL_${c}`);
+        }
+
+        const parseNum = (val: unknown) => {
+          if (typeof val === 'number') return val;
+          if (!val) return 0;
+          const cleaned = String(val).replace(/[^0-9.-]+/g, '');
+          const parsed = parseFloat(cleaned);
+          return isNaN(parsed) ? 0 : parsed;
+        };
+
+        const nonAllowanceCols = [
+          'nrp', 'nik', 'employee', 'nama', 'status', 'job formation', 'cost center',
+          'upah pokok', 'jumlah kotor', 'jumlah potongan', 'grand total', 'biaya pengelolaan',
+          'management fee', 'total', 'thp', 'take home pay', 'employee number', 'unit', 'regional',
+          'job class', 'doc no', 'ext no', 'account no', 'account name', 'bank', 'payroll result id',
+          'payroll doc no', 'payroll pay date', 'payroll period id', 'payroll type'
+        ];
+
+        const dataRows = aoa.slice(headerRowIdx + 1);
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mapped: Omit<PayrollResult, 'id' | 'uploadedAt'>[] = dataRows.map((row: any[]) => {
+          if (!row || row.length === 0) {
+            return {
+              period: uploadPeriod.trim(),
+              employeeNik: 'NON-NRP',
+              employeeName: 'Tanpa Nama',
+              status: '',
+              department: '',
+              positionTitle: '',
+              basicSalary: 0,
+              allowances: 0,
+              overtimeAmount: 0,
+              grossSalary: 0,
+              deductionsBpjs: 0,
+              deductionsTgr: 0,
+              deductionsOther: 0,
+              totalDeductions: 0,
+              takeHomePay: 0,
+              allowanceDetails: {},
+              deductionDetails: {},
+            };
+          }
+
+          // Gabungkan kolom dengan perlakuan aman terhadap duplikasi nama (cth: "Bantuan Transport " vs "Bantuan Transport")
+          // JANGAN pernah membiarkan kolom kosong menimpa nilai angka yang sudah ada
+          const cleanRow: Record<string, unknown> = {};
+          resolvedHeaders.forEach((header, colIdx) => {
+            const rawVal = row[colIdx];
+            const trimmedHeader = header.trim();
+            if (!trimmedHeader) return;
+
+            const numVal = parseNum(rawVal);
+            const existing = cleanRow[trimmedHeader];
+
+            if (existing !== undefined) {
+              const existingNum = parseNum(existing);
+              if (numVal > 0 && existingNum > 0) {
+                cleanRow[trimmedHeader] = existingNum + numVal;
+              } else if (numVal > 0 && existingNum === 0) {
+                cleanRow[trimmedHeader] = rawVal;
+              }
+            } else {
+              cleanRow[trimmedHeader] = rawVal;
+            }
+          });
 
           const keys = Object.keys(cleanRow);
           const getVal = (possibleNames: string[]) => {
-            const foundKey = keys.find((k) => {
-              const normalizedK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-              return possibleNames.some((name) =>
-                normalizedK === name.toLowerCase().replace(/[^a-z0-9]/g, '') ||
-                normalizedK.includes(name.toLowerCase().replace(/[^a-z0-9]/g, ''))
+            // 1. Exact match (case & non-alphanumeric insensitive)
+            const exactKey = keys.find((k) => {
+              const normK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+              return possibleNames.some(
+                (name) => normK === name.toLowerCase().replace(/[^a-z0-9]/g, '')
               );
             });
-            return foundKey ? cleanRow[foundKey] : '';
+            if (exactKey) return cleanRow[exactKey];
+
+            // 2. Word boundary match (tidak pakai arbitrary substring agar 'gross' tidak cocok 'gross up')
+            const boundaryKey = keys.find((k) => {
+              const normK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+              return possibleNames.some((name) => {
+                const normN = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                return normK.startsWith(normN) || normK.endsWith(normN);
+              });
+            });
+            return boundaryKey ? cleanRow[boundaryKey] : '';
           };
 
-          const parseNum = (val: unknown) => {
-            if (typeof val === 'number') return val;
-            if (!val) return 0;
-            const cleaned = String(val).replace(/[^0-9.-]+/g, '');
-            const parsed = parseFloat(cleaned);
-            return isNaN(parsed) ? 0 : parsed;
-          };
-
-          const nik = String(getVal(['nrp', 'nik', 'nopeg', 'nip', 'pegawai_id']) || '').trim();
+          const nik = String(getVal(['nrp', 'nik', 'nopeg', 'nip', 'pegawai_id', 'employee number', 'employeenumber']) || '').trim();
           const name = String(getVal(['employee', 'nama', 'name', 'nama_lengkap', 'pegawai']) || '').trim();
           const status = String(getVal(['status']) || '').trim();
           const dept = String(getVal(['cost center', 'costcenter', 'project', 'departemen', 'unit', 'divisi']) || '').trim();
           const pos = String(getVal(['job formation', 'jobformation', 'jabatan', 'position']) || '').trim();
 
           const basic = parseNum(getVal(['upah pokok', 'upahpokok', 'gaji pokok', 'gajipokok', 'gapok', 'pokok', 'basic']));
-          const gross = parseNum(getVal(['jumlah kotor', 'jumlahkotor', 'gross', 'kotor']));
+          const gross = parseNum(getVal(['jumlah kotor', 'jumlahkotor', 'total kotor', 'gross salary']));
           const totalDeductCol = parseNum(getVal(['jumlah potongan', 'jumlahpotongan', 'total potongan', 'totalpotongan']));
 
           // Parse dynamic 92 allowances and deductions
@@ -358,18 +489,28 @@ export default function PayrollResultsModal({
           let deductionsTgr = 0;
           let deductionsOther = 0;
 
-          const nonAllowanceCols = [
-            'nrp', 'nik', 'employee', 'nama', 'status', 'job formation', 'cost center',
-            'upah pokok', 'jumlah kotor', 'jumlah potongan', 'grand total', 'biaya pengelolaan',
-            'management fee', 'total', 'thp', 'take home pay'
-          ];
-
           for (const rawCol of keys) {
             const valNum = parseNum(cleanRow[rawCol]);
             const lowerCol = rawCol.toLowerCase();
 
+            // Skip unlabeled columns (e.g. COL_0, COL_100, __EMPTY)
+            if (lowerCol.startsWith('col_') || lowerCol.startsWith('__empty')) {
+              continue;
+            }
+
             // Skip standard identity and summary columns
-            if (nonAllowanceCols.some((sc) => lowerCol === sc || lowerCol.replace(/\s+/g, '') === sc.replace(/\s+/g, ''))) {
+            if (
+              nonAllowanceCols.some((sc) => lowerCol === sc || lowerCol.replace(/\s+/g, '') === sc.replace(/\s+/g, '')) ||
+              lowerCol.includes('jumlah kotor') ||
+              lowerCol.includes('jumlah diterima') ||
+              lowerCol.includes('jumlah potongan') ||
+              lowerCol.includes('total potongan') ||
+              lowerCol.includes('grand total') ||
+              lowerCol.includes('take home pay') ||
+              lowerCol.includes('humanis') ||
+              lowerCol.includes('cek') ||
+              lowerCol.includes('check')
+            ) {
               continue;
             }
 
@@ -1190,41 +1331,138 @@ export default function PayrollResultsModal({
           {/* ============================================================== */}
           {activeTab === 'SUMMARY' && (
             <div className="space-y-5">
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    type="text"
-                    value={summaryPeriod}
-                    onChange={(e) => setSummaryPeriod(e.target.value)}
-                    placeholder="Ketik Periode (misal: 2026-10)..."
-                    className="rounded-xl border border-slate-200 px-3.5 py-2 text-xs sm:text-sm font-semibold outline-none focus:border-indigo-600"
-                  />
-                  <button
-                    onClick={() => handleFetchSummary()}
-                    disabled={summaryLoading}
-                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-                  >
-                    {summaryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calendar className="h-4 w-4" />}
-                    <span>Tampilkan Rekap</span>
-                  </button>
+              {/* FILTER BAR PERIODE REKAPITULASI (DROPDOWN + FILTER TAHUN) */}
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-slate-50 via-white to-indigo-50/30 border border-slate-200 shadow-2xs space-y-3">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="text-xs font-extrabold text-slate-700 flex items-center gap-1.5 shrink-0">
+                      <Filter className="h-3.5 w-3.5 text-indigo-600" />
+                      <span>Filter Periode:</span>
+                    </span>
+
+                    {/* Filter Tahun jika ada lebih dari 1 tahun */}
+                    {availableYears.length > 1 && (
+                      <div className="inline-flex p-0.5 rounded-xl bg-slate-100 border border-slate-200/90 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSummaryYear('ALL')}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            selectedSummaryYear === 'ALL'
+                              ? 'bg-white text-indigo-700 shadow-2xs font-extrabold'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          Semua ({availablePeriods.length})
+                        </button>
+                        {availableYears.map((yr) => {
+                          const count = availablePeriods.filter((p) => p.startsWith(`${yr}-`)).length;
+                          return (
+                            <button
+                              key={yr}
+                              type="button"
+                              onClick={() => {
+                                setSelectedSummaryYear(yr);
+                                const firstInYr = availablePeriods.find((p) => p.startsWith(`${yr}-`));
+                                if (firstInYr && !summaryPeriod.startsWith(`${yr}-`)) {
+                                  handleFetchSummary(firstInYr);
+                                }
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                selectedSummaryYear === yr
+                                  ? 'bg-white text-indigo-700 shadow-2xs font-extrabold'
+                                  : 'text-slate-600 hover:text-slate-900'
+                              }`}
+                            >
+                              {yr} ({count})
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Dropdown Select Periode (Utama) */}
+                    <div className="relative shrink-0">
+                      <select
+                        value={summaryPeriod}
+                        onChange={(e) => handleFetchSummary(e.target.value)}
+                        disabled={summaryLoading}
+                        className="appearance-none bg-white border border-slate-300 hover:border-indigo-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 rounded-xl pl-9 pr-9 py-2 text-xs sm:text-sm font-bold text-slate-800 shadow-2xs outline-none cursor-pointer transition-all disabled:opacity-50"
+                      >
+                        {availableYears.length > 1 && selectedSummaryYear === 'ALL' ? (
+                          availableYears.map((yr) => (
+                            <optgroup key={yr} label={`Tahun ${yr}`}>
+                              {availablePeriods
+                                .filter((p) => p.startsWith(`${yr}-`))
+                                .map((p) => (
+                                  <option key={p} value={p}>
+                                    {formatPeriodLabel(p)} ({p})
+                                  </option>
+                                ))}
+                            </optgroup>
+                          ))
+                        ) : (
+                          filteredSummaryPeriods.map((p) => (
+                            <option key={p} value={p}>
+                              {formatPeriodLabel(p)} ({p})
+                            </option>
+                          ))
+                        )}
+                      </select>
+                      <Calendar className="h-4 w-4 text-indigo-600 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <ChevronDown className="h-4 w-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Input Manual & Tombol Muat Ulang */}
+                  <div className="flex items-center gap-2 self-start md:self-auto">
+                    <input
+                      type="text"
+                      value={summaryPeriod}
+                      onChange={(e) => setSummaryPeriod(e.target.value)}
+                      placeholder="YYYY-MM"
+                      className="w-28 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-mono font-semibold text-slate-700 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-200"
+                    />
+                    <button
+                      onClick={() => handleFetchSummary()}
+                      disabled={summaryLoading}
+                      className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                      title="Muat ulang rekapitulasi data periode ini"
+                    >
+                      {summaryLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                      <span>Muat</span>
+                    </button>
+                  </div>
                 </div>
 
-                {availablePeriods.length > 0 && (
-                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                    <span className="text-[11px] font-semibold text-slate-500">Periode Tersedia:</span>
-                    {availablePeriods.map((p) => (
-                      <button
-                        key={p}
-                        onClick={() => handleFetchSummary(p)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
-                          summaryPeriod === p
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:border-indigo-200'
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    ))}
+                {/* Quick Select Buttons per Bulan (Berdasarkan Tahun yang difilter) */}
+                {filteredSummaryPeriods.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-slate-200/70">
+                    <span className="text-[11px] font-semibold text-slate-500 shrink-0">Bulan:</span>
+                    {filteredSummaryPeriods.map((p) => {
+                      const isActive = summaryPeriod === p;
+                      const monthName = formatPeriodLabel(p).split(' ')[0];
+                      return (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => handleFetchSummary(p)}
+                          disabled={summaryLoading}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                            isActive
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs font-extrabold'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700'
+                          }`}
+                          title={`Tampilkan rekap ${formatPeriodLabel(p)}`}
+                        >
+                          <span>{monthName}</span>
+                          {selectedSummaryYear === 'ALL' && (
+                            <span className={`ml-1 text-[10px] ${isActive ? 'text-indigo-200' : 'text-slate-400 font-mono'}`}>
+                              &apos;{p.slice(2, 4)}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
