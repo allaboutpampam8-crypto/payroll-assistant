@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createSessionToken } from '@/lib/auth';
 
 // In-memory brute-force protection map: IP -> { attempts, lockoutUntil }
 const rateLimitMap = new Map<string, { attempts: number; lockoutUntil: number }>();
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
       message: 'Autentikasi PIN berhasil.',
     });
 
-    response.cookies.set('payroll_auth_session', 'authenticated', {
+    response.cookies.set('payroll_auth_session', createSessionToken(), {
       httpOnly: true, // Mencegah pencurian cookie via XSS
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',

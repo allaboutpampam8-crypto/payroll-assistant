@@ -4,14 +4,12 @@ import { sendTelegramNotification } from '@/lib/telegram';
 
 export async function GET(request: Request) {
   try {
-    // Verifikasi CRON_SECRET jika dikonfigurasi
+    // Otorisasi CRON_SECRET wajib (Fail-Closed)
+    const cronSecret = process.env.CRON_SECRET || process.env.DASHBOARD_PIN;
     const authHeader = request.headers.get('authorization');
-    if (
-      process.env.CRON_SECRET &&
-      authHeader !== `Bearer ${process.env.CRON_SECRET}`
-    ) {
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
+        { success: false, message: 'Unauthorized. Token otorisasi CRON tidak valid.' },
         { status: 401 }
       );
     }

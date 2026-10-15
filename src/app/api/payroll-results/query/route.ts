@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifySessionToken } from '@/lib/auth';
 import {
   getPayrollResultByNik,
   getPayrollResultsByName,
@@ -32,9 +33,9 @@ export async function GET(request: NextRequest) {
     const period = searchParams.get('period') || undefined;
     const q = searchParams.get('q') || searchParams.get('search') || undefined;
 
-    // Cek apakah request berasal dari sesi admin internal yang terotorisasi
+    // Cek apakah request berasal dari sesi admin internal yang terotorisasi secara kriptografis
     const authCookie = request.cookies.get('payroll_auth_session')?.value;
-    const isAuthenticated = authCookie === 'authenticated';
+    const isAuthenticated = verifySessionToken(authCookie);
 
     if (getDepartments === 'true') {
       const departments = await getPayrollDepartments(q, period);
