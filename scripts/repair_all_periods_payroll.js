@@ -139,22 +139,31 @@ function parsePayrollFile(filePath, period) {
 
     const keys = Object.keys(cleanRow);
     const getVal = (possibleNames) => {
-      const exactKey = keys.find((k) => {
-        const normK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-        return possibleNames.some(
-          (name) => normK === name.toLowerCase().replace(/[^a-z0-9]/g, '')
-        );
-      });
-      if (exactKey) return cleanRow[exactKey];
+      // 1. Prioritaskan exact match sesuai urutan preferensi possibleNames
+      for (const name of possibleNames) {
+        const normN = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const exactKey = keys.find((k) => {
+          const normK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+          return normK === normN;
+        });
+        if (exactKey && cleanRow[exactKey] !== undefined && String(cleanRow[exactKey]).trim() !== '') {
+          return cleanRow[exactKey];
+        }
+      }
 
-      const boundaryKey = keys.find((k) => {
-        const normK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-        return possibleNames.some((name) => {
-          const normN = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+      // 2. Word boundary match sesuai urutan preferensi possibleNames
+      for (const name of possibleNames) {
+        const normN = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const boundaryKey = keys.find((k) => {
+          const normK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
           return normK.startsWith(normN) || normK.endsWith(normN);
         });
-      });
-      return boundaryKey ? cleanRow[boundaryKey] : '';
+        if (boundaryKey && cleanRow[boundaryKey] !== undefined && String(cleanRow[boundaryKey]).trim() !== '') {
+          return cleanRow[boundaryKey];
+        }
+      }
+
+      return '';
     };
 
     const nik = String(getVal(['nrp', 'nik', 'nopeg', 'nip', 'pegawai_id', 'employee number', 'employeenumber']) || '').trim();
@@ -365,6 +374,20 @@ async function main() {
   );
   const verifyData = await verifyRes.json();
   console.log(JSON.stringify(verifyData, null, 2));
+
+  // Verifikasi cost center pegawai 19900901877 (MUHAMMAD SYAPRI)
+  console.log(`\nMemverifikasi Cost Center Pegawai NRP 19900901877 (MUHAMMAD SYAPRI)...`);
+  const verifySyapriRes = await fetch(
+    `${supabaseUrl}/rest/v1/payroll_results?employee_nik=eq.19900901877&select=period,employee_nik,employee_name,department,position_title&order=period.asc`,
+    {
+      headers: {
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+      },
+    }
+  );
+  const verifySyapriData = await verifySyapriRes.json();
+  console.log(JSON.stringify(verifySyapriData, null, 2));
 }
 
 main().catch((err) => {

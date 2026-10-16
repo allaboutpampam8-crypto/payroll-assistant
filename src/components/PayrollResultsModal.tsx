@@ -451,24 +451,31 @@ export default function PayrollResultsModal({
 
           const keys = Object.keys(cleanRow);
           const getVal = (possibleNames: string[]) => {
-            // 1. Exact match (case & non-alphanumeric insensitive)
-            const exactKey = keys.find((k) => {
-              const normK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-              return possibleNames.some(
-                (name) => normK === name.toLowerCase().replace(/[^a-z0-9]/g, '')
-              );
-            });
-            if (exactKey) return cleanRow[exactKey];
+            // 1. Prioritaskan exact match sesuai urutan preferensi possibleNames
+            for (const name of possibleNames) {
+              const normN = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+              const exactKey = keys.find((k) => {
+                const normK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+                return normK === normN;
+              });
+              if (exactKey && cleanRow[exactKey] !== undefined && String(cleanRow[exactKey]).trim() !== '') {
+                return cleanRow[exactKey];
+              }
+            }
 
-            // 2. Word boundary match (tidak pakai arbitrary substring agar 'gross' tidak cocok 'gross up')
-            const boundaryKey = keys.find((k) => {
-              const normK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-              return possibleNames.some((name) => {
-                const normN = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            // 2. Word boundary match sesuai urutan preferensi possibleNames
+            for (const name of possibleNames) {
+              const normN = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+              const boundaryKey = keys.find((k) => {
+                const normK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
                 return normK.startsWith(normN) || normK.endsWith(normN);
               });
-            });
-            return boundaryKey ? cleanRow[boundaryKey] : '';
+              if (boundaryKey && cleanRow[boundaryKey] !== undefined && String(cleanRow[boundaryKey]).trim() !== '') {
+                return cleanRow[boundaryKey];
+              }
+            }
+
+            return '';
           };
 
           const nik = String(getVal(['nrp', 'nik', 'nopeg', 'nip', 'pegawai_id', 'employee number', 'employeenumber']) || '').trim();
