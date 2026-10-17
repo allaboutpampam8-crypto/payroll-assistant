@@ -35,6 +35,7 @@ export default function TodoListWidget({
   const [newPriority, setNewPriority] = useState<Priority>('NORMAL');
   const [newDueDate, setNewDueDate] = useState('');
   const [loadingAdd, setLoadingAdd] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialFilter) {
@@ -391,14 +392,37 @@ export default function TodoListWidget({
                   </div>
                 </div>
 
-                {/* Tombol Hapus */}
-                <button
-                  onClick={() => handleDelete(todo.id)}
-                  className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 p-1 transition-all cursor-pointer"
-                  title="Hapus To-Do"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                {/* Tombol Hapus dengan Konfirmasi Aman */}
+                {deletingId === todo.id ? (
+                  <div className="flex items-center gap-1.5 animate-in fade-in shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleDelete(todo.id);
+                        setDeletingId(null);
+                      }}
+                      className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer shadow-xs"
+                    >
+                      Hapus?
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeletingId(null)}
+                      className="px-1.5 py-0.5 rounded-md text-[11px] text-slate-500 hover:bg-slate-200 transition-colors cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setDeletingId(todo.id)}
+                    className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition-all cursor-pointer"
+                    title="Hapus To-Do"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             );
           })

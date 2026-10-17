@@ -13,6 +13,7 @@ import {
   CheckSquare,
   Check,
   CheckCircle2,
+  MessageCircle,
 } from 'lucide-react';
 import {
   PayrollReport,
@@ -61,12 +62,25 @@ function ReportDetailModalContent({
   const [discrepancyAmount, setDiscrepancyAmount] = useState<number>(report.discrepancyAmount || 0);
   const [dueDate, setDueDate] = useState(report.dueDate || '');
   const [reportedBy, setReportedBy] = useState(report.reportedBy || '');
+  const [phoneNumber, setPhoneNumber] = useState(report.phoneNumber || '');
 
   const [loading, setLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [todoLoading, setTodoLoading] = useState(false);
   const [todoAdded, setTodoAdded] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Keyboard shortcut Esc untuk menutup modal
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !loading && !deleteLoading) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, loading, deleteLoading]);
 
   const handleCreateTodoFromReport = async () => {
     setTodoLoading(true);
@@ -107,6 +121,7 @@ function ReportDetailModalContent({
           discrepancyAmount,
           dueDate,
           reportedBy,
+          phoneNumber: phoneNumber.trim(),
         }),
       });
 
@@ -124,9 +139,7 @@ function ReportDetailModalContent({
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm('Yakin ingin menghapus laporan ini?')) return;
-
+  const confirmDelete = async () => {
     setDeleteLoading(true);
     try {
       const res = await fetch(`/api/reports/${report.id}`, {
@@ -140,6 +153,7 @@ function ReportDetailModalContent({
       onClose();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Gagal menghapus laporan.');
+      setShowDeleteConfirm(false);
     } finally {
       setDeleteLoading(false);
     }
@@ -154,10 +168,10 @@ function ReportDetailModalContent({
     }).format(val);
   };
 
-  const cleanPhone = report.phoneNumber?.replace(/[^0-9]/g, '') || '';
+  const cleanPhone = phoneNumber?.replace(/[^0-9]/g, '') || '';
   const waUrl = cleanPhone
     ? `https://wa.me/${cleanPhone.startsWith('0') ? '62' + cleanPhone.slice(1) : cleanPhone}?text=${encodeURIComponent(
-        `Halo ${report.employeeName}, terkait laporan kendala payroll Anda di PT Pelindo Daya Sejahtera (${report.ticketNumber} - ${CATEGORY_LABELS[report.category]})...`
+        `Halo Rekan ${report.employeeName}, saya dari Tim PIC Payroll PT Pelindo Daya Sejahtera menindaklanjuti tiket #${report.ticketNumber} mengenai ${CATEGORY_LABELS[report.category] || report.category}. Status saat ini: ${actionStatus}.`
       )}`
     : null;
 
@@ -233,18 +247,33 @@ function ReportDetailModalContent({
                   🗣️ Pelapor: <span className="font-semibold">{reportedBy}</span>
                 </div>
               )}
-              {waUrl && (
-                <a
-                  href={waUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 mt-2 text-xs font-medium text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 transition-colors"
-                >
-                  <Phone className="h-3.5 w-3.5" />
-                  <span>Kirim Chat WhatsApp</span>
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              )}
+
+              {/* No. WhatsApp & Direct Chat */}
+              <div className="mt-2.5 pt-2 border-t border-slate-200/60 flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
+                  <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                  <input
+                    type="text"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="No. WhatsApp..."
+                    className="text-xs text-slate-800 outline-none w-32 placeholder:text-slate-400 font-medium"
+                    title="Nomor WhatsApp pegawai (dapat diubah/disimpan)"
+                  />
+                </div>
+                {waUrl && (
+                  <a
+                    href={waUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300 transition-all shadow-xs cursor-pointer"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5 text-emerald-600" />
+                    <span>Chat WA Pegawai</span>
+                    <ExternalLink className="h-3 w-3 text-emerald-500" />
+                  </a>
+                )}
+              </div>
             </div>
 
             <div>
@@ -317,8 +346,81 @@ function ReportDetailModalContent({
               </button>
             </div>
 
+            {/* Interactive Status Stepper */}
+            <div className="rounded-xl bg-slate-50 p-3 border border-slate-200/80 space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-indigo-600" />
+                  Alur Status Pengerjaan (Klik untuk Ubah Cepat):
+                </span>
+                <span className="text-[11px] text-slate-400 font-normal hidden sm:inline">Pilih status aktif</span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {/* Step 1: OPEN */}
+                <button
+                  type="button"
+                  onClick={() => setActionStatus('OPEN')}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                    actionStatus === 'OPEN'
+                      ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-400/30 shadow-xs'
+                      : 'bg-white border-slate-200 hover:border-slate-300 text-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${actionStatus === 'OPEN' ? 'text-amber-700' : 'text-slate-400'}`}>
+                      Tahap 1
+                    </span>
+                    <span className={`h-2.5 w-2.5 rounded-full ${actionStatus === 'OPEN' ? 'bg-amber-500 animate-pulse' : 'bg-slate-300'}`} />
+                  </div>
+                  <div className="text-xs font-extrabold text-slate-900 mt-1">🟡 Open</div>
+                  <div className="text-[10px] text-slate-500">Laporan Baru</div>
+                </button>
+
+                {/* Step 2: CROSSCHECK */}
+                <button
+                  type="button"
+                  onClick={() => setActionStatus('CROSSCHECK')}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                    actionStatus === 'CROSSCHECK'
+                      ? 'bg-sky-50 border-sky-300 ring-2 ring-sky-400/30 shadow-xs'
+                      : 'bg-white border-slate-200 hover:border-slate-300 text-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${actionStatus === 'CROSSCHECK' ? 'text-sky-700' : 'text-slate-400'}`}>
+                      Tahap 2
+                    </span>
+                    <span className={`h-2.5 w-2.5 rounded-full ${actionStatus === 'CROSSCHECK' ? 'bg-sky-500 animate-pulse' : 'bg-slate-300'}`} />
+                  </div>
+                  <div className="text-xs font-extrabold text-slate-900 mt-1">🔵 Crosscheck</div>
+                  <div className="text-[10px] text-slate-500">Sedang Investigasi</div>
+                </button>
+
+                {/* Step 3: CLOSE */}
+                <button
+                  type="button"
+                  onClick={() => setActionStatus('CLOSE')}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                    actionStatus === 'CLOSE'
+                      ? 'bg-emerald-50 border-emerald-300 ring-2 ring-emerald-400/30 shadow-xs'
+                      : 'bg-white border-slate-200 hover:border-slate-300 text-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${actionStatus === 'CLOSE' ? 'text-emerald-700' : 'text-slate-400'}`}>
+                      Tahap 3
+                    </span>
+                    <span className={`h-2.5 w-2.5 rounded-full ${actionStatus === 'CLOSE' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                  </div>
+                  <div className="text-xs font-extrabold text-slate-900 mt-1">🟢 Close</div>
+                  <div className="text-[10px] text-slate-500">Selesai / Tuntas</div>
+                </button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {/* Status */}
+              {/* Status Dropdown */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Status
@@ -416,19 +518,36 @@ function ReportDetailModalContent({
 
         {/* Footer Actions */}
         <div className="p-3.5 sm:p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={deleteLoading}
-            className="px-3 py-2 rounded-xl text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-          >
-            {deleteLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
+          {showDeleteConfirm ? (
+            <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-xl animate-in fade-in">
+              <span className="text-xs text-rose-800 font-semibold">Hapus permanen?</span>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={deleteLoading}
+                className="px-2.5 py-1 rounded-lg text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-colors shadow-xs cursor-pointer"
+              >
+                {deleteLoading ? 'Menghapus...' : 'Ya, Hapus'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-2 py-1 rounded-lg text-xs text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={deleteLoading}
+              className="px-3 py-2 rounded-xl text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
               <Trash2 className="h-4 w-4" />
-            )}
-            <span className="hidden sm:inline">Hapus</span>
-          </button>
+              <span className="hidden sm:inline">Hapus</span>
+            </button>
+          )}
 
           <div className="flex items-center gap-2">
             <button

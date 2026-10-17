@@ -274,6 +274,7 @@ export async function updateReport(
     if (updates.dueDate !== undefined) rowUpdates.due_date = updates.dueDate;
     if (updates.period !== undefined) rowUpdates.period = updates.period;
     if (updates.reportedBy !== undefined) rowUpdates.reported_by = updates.reportedBy;
+    if (updates.phoneNumber !== undefined) rowUpdates.phone_number = updates.phoneNumber;
 
     let { data, error } = await supabase
       .from('payroll_reports')

@@ -22,6 +22,10 @@ import {
   Calculator,
   Lock,
   Wrench,
+  LayoutGrid,
+  Table,
+  Building2,
+  MessageCircle,
 } from 'lucide-react';
 
 import {
@@ -73,6 +77,9 @@ export default function AssistantDashboard() {
   const [statusFilter, setStatusFilter] = useState('ALL'); // ALL, OPEN, CROSSCHECK, CLOSE
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [periodFilter, setPeriodFilter] = useState('ALL'); // ALL or specific period
+  const [projectFilter, setProjectFilter] = useState('ALL'); // ALL or specific project / cost center
+  const [viewMode, setViewMode] = useState<'CARD' | 'TABLE'>('TABLE');
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -157,10 +164,80 @@ export default function AssistantDashboard() {
     });
   }, [isAuthenticated, fetchDashboardData, fetchTodos]);
 
+  // Inisialisasi preferensi viewMode dari localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedMode = localStorage.getItem('payroll_dashboard_view_mode');
+      if (savedMode === 'TABLE' || savedMode === 'CARD') {
+        setViewMode(savedMode);
+      }
+    }
+  }, []);
+
+  const handleViewModeChange = (mode: 'CARD' | 'TABLE') => {
+    setViewMode(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('payroll_dashboard_view_mode', mode);
+    }
+  };
+
+  // Keyboard Shortcuts untuk PIC (Power-User Experience)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isTyping =
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable;
+
+      // Ctrl + K atau Cmd + K untuk fokus pencarian
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+
+      if (!isTyping) {
+        if (e.key === '/') {
+          e.preventDefault();
+          searchInputRef.current?.focus();
+        } else if (e.key.toLowerCase() === 'n') {
+          e.preventDefault();
+          setIsQuickEntryOpen(true);
+        } else if (e.key.toLowerCase() === 'p') {
+          e.preventDefault();
+          setIsPayrollModalOpen(true);
+        } else if (e.key.toLowerCase() === 't') {
+          e.preventDefault();
+          setActiveTab((prev) => (prev === 'REPORTS' ? 'TODOS' : 'REPORTS'));
+        } else if (e.key.toLowerCase() === 'v') {
+          e.preventDefault();
+          handleViewModeChange(viewMode === 'CARD' ? 'TABLE' : 'CARD');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isAuthenticated, viewMode]);
+
   // Unique list of periods available
   const availablePeriods = Array.from(
     new Set([settings.activePeriod, ...reports.map((r) => r.period).filter(Boolean)])
   );
+
+  // Unique list of projects / cost centers available
+  const availableProjects = React.useMemo(() => {
+    const set = new Set<string>();
+    reports.forEach((r) => {
+      if (r.department && r.department.trim()) {
+        set.add(r.department.trim());
+      }
+    });
+    return Array.from(set).sort();
+  }, [reports]);
 
   const handleSearchChange = (q: string) => {
     setSearchQuery(q);
@@ -179,6 +256,11 @@ export default function AssistantDashboard() {
 
   const handlePeriodFilterChange = (per: string) => {
     setPeriodFilter(per);
+    setCurrentPage(1);
+  };
+
+  const handleProjectFilterChange = (proj: string) => {
+    setProjectFilter(proj);
     setCurrentPage(1);
   };
 
@@ -237,6 +319,10 @@ export default function AssistantDashboard() {
     const matchCategory =
       categoryFilter === 'ALL' || r.category === categoryFilter;
 
+    // Project / Cost Center
+    const matchProject =
+      projectFilter === 'ALL' || r.department === projectFilter;
+
     // Status
     let matchStatus = true;
     if (statusFilter === 'OVERDUE') {
@@ -250,7 +336,7 @@ export default function AssistantDashboard() {
     const matchPeriod =
       periodFilter === 'ALL' || r.period === periodFilter;
 
-    return matchSearch && matchCategory && matchStatus && matchPeriod;
+    return matchSearch && matchCategory && matchProject && matchStatus && matchPeriod;
   });
 
   // Pagination calculation
@@ -561,23 +647,28 @@ export default function AssistantDashboard() {
           <>
             {/* 3. Search & Filter Bar */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
-          {/* Search Box */}
+          {/* Search Box with Shortcut Badge */}
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
+              ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Cari nama pegawai, NRP, No. Tiket, atau Project..."
-              className="w-full rounded-xl border border-slate-200 pl-10 pr-3.5 py-2 text-xs sm:text-sm focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
+              className="w-full rounded-xl border border-slate-200 pl-10 pr-16 py-2 text-xs sm:text-sm focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
             />
-            {searchQuery && (
+            {searchQuery ? (
               <button
                 onClick={() => handleSearchChange('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 Reset
               </button>
+            ) : (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 hidden md:inline-flex items-center text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 pointer-events-none font-mono">
+                Ctrl+K
+              </span>
             )}
           </div>
 
@@ -593,6 +684,21 @@ export default function AssistantDashboard() {
               {availablePeriods.map((p) => (
                 <option key={p} value={p}>
                   {p} {p === settings.activePeriod ? '(Aktif)' : ''}
+                </option>
+              ))}
+            </select>
+
+            {/* Filter Project / Cost Center */}
+            <select
+              value={projectFilter}
+              onChange={(e) => handleProjectFilterChange(e.target.value)}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium bg-slate-50 text-slate-700 outline-none focus:border-indigo-600 shrink-0 max-w-[170px] truncate"
+              title="Filter Project / Unit Kerja"
+            >
+              <option value="ALL">🏢 Semua Project</option>
+              {availableProjects.map((p) => (
+                <option key={p} value={p}>
+                  {p}
                 </option>
               ))}
             </select>
@@ -627,12 +733,13 @@ export default function AssistantDashboard() {
             </select>
 
             {/* Reset All Filters */}
-            {(statusFilter !== 'ALL' || categoryFilter !== 'ALL' || periodFilter !== 'ALL' || searchQuery) && (
+            {(statusFilter !== 'ALL' || categoryFilter !== 'ALL' || periodFilter !== 'ALL' || projectFilter !== 'ALL' || searchQuery) && (
               <button
                 onClick={() => {
                   setStatusFilter('ALL');
                   setCategoryFilter('ALL');
                   setPeriodFilter('ALL');
+                  setProjectFilter('ALL');
                   setSearchQuery('');
                   setCurrentPage(1);
                 }}
@@ -648,21 +755,59 @@ export default function AssistantDashboard() {
 
         {/* 4. Task / Reports List & Pagination */}
         <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider px-1 gap-1">
-            <span>
-              Daftar Laporan ({filteredReports.length} laporan)
-              {periodFilter !== 'ALL' && (
-                <span className="text-indigo-600 font-semibold normal-case ml-1.5">
-                  • Periode {periodFilter}
-                </span>
-              )}
-            </span>
-            <div className="flex items-center gap-2 font-normal normal-case text-slate-400">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider px-1 gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span>
+                Daftar Laporan ({filteredReports.length} laporan)
+                {periodFilter !== 'ALL' && (
+                  <span className="text-indigo-600 font-semibold normal-case ml-1.5">
+                    • Periode {periodFilter}
+                  </span>
+                )}
+                {projectFilter !== 'ALL' && (
+                  <span className="text-emerald-700 font-semibold normal-case ml-1.5">
+                    • Project: {projectFilter}
+                  </span>
+                )}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3 font-normal normal-case text-slate-400 justify-between sm:justify-end">
               {filteredReports.length > 0 && (
-                <span>
+                <span className="text-xs">
                   Halaman {currentPage} dari {totalPages}
                 </span>
               )}
+
+              {/* Toggle Tampilan: Tabel Padat vs Kartu */}
+              <div className="inline-flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleViewModeChange('TABLE')}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    viewMode === 'TABLE'
+                      ? 'bg-white text-indigo-700 shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                  title="Tampilan Tabel Padat Ringkas (Tekan V)"
+                >
+                  <Table className="h-3.5 w-3.5" />
+                  <span className="hidden md:inline">Tabel Ringkas</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleViewModeChange('CARD')}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    viewMode === 'CARD'
+                      ? 'bg-white text-indigo-700 shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                  title="Tampilan Kartu Lengkap (Tekan V)"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  <span className="hidden md:inline">Kartu</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -691,134 +836,241 @@ export default function AssistantDashboard() {
             </div>
           ) : (
             <>
-              <div className="space-y-2.5">
-                {paginatedReports.map((report) => {
-                  const statusInfo = STATUS_CONFIG[report.actionStatus] || {
-                    label: report.actionStatus,
-                    badgeClass: 'bg-slate-100 text-slate-800 border-slate-200',
-                    isClosed: false,
-                  };
-                  const isUrgent = report.priority === 'URGENT';
+              {viewMode === 'CARD' ? (
+                <div className="space-y-2.5">
+                  {paginatedReports.map((report) => {
+                    const statusInfo = STATUS_CONFIG[report.actionStatus] || {
+                      label: report.actionStatus,
+                      badgeClass: 'bg-slate-100 text-slate-800 border-slate-200',
+                      isClosed: false,
+                    };
+                    const isUrgent = report.priority === 'URGENT';
 
-                  return (
-                    <div
-                      key={report.id}
-                      onClick={() => setSelectedReport(report)}
-                      className="group rounded-2xl bg-white p-4 md:p-5 border border-slate-200/80 hover:border-indigo-300 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4"
-                    >
-                      {/* Left Info */}
-                      <div className="space-y-2 flex-1">
-                        {/* Baris Badges */}
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
-                            {report.ticketNumber}
-                          </span>
-
-                          <span
-                            className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${statusInfo.badgeClass}`}
-                          >
-                            {statusInfo.label}
-                          </span>
-
-                          {isUrgent && !statusInfo.isClosed && (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200 animate-pulse">
-                              <AlertTriangle className="h-3 w-3 text-rose-600" />
-                              URGENT
+                    return (
+                      <div
+                        key={report.id}
+                        onClick={() => setSelectedReport(report)}
+                        className="group rounded-2xl bg-white p-4 md:p-5 border border-slate-200/80 hover:border-indigo-300 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4"
+                      >
+                        {/* Left Info */}
+                        <div className="space-y-2 flex-1">
+                          {/* Baris Badges */}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
+                              {report.ticketNumber}
                             </span>
-                          )}
 
-                          <span className="text-[10px] text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200/60 font-semibold">
-                            {report.period}
-                          </span>
-
-                          <span className="text-[11px] text-slate-400">
-                            {new Date(report.createdAt).toLocaleDateString('id-ID', {
-                              day: 'numeric',
-                              month: 'short',
-                            })}
-                          </span>
-
-                          <span className="text-[10px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-200/60">
-                            {report.source === 'FORM_KARYAWAN' ? 'Form Mandiri' : 'Dicatat PIC'}
-                          </span>
-
-                          {report.reportedBy && (
-                            <span className="text-[10px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/70 font-medium">
-                              🗣️ Pelapor: {report.reportedBy}
+                            <span
+                              className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${statusInfo.badgeClass}`}
+                            >
+                              {statusInfo.label}
                             </span>
-                          )}
-                        </div>
 
-                        {/* Nama & Project */}
-                        <div>
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2">
-                            <h4 className="text-sm md:text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                              {report.employeeName}
-                            </h4>
-                            <span className="text-xs text-slate-500">
-                              NRP: {report.employeeNik} • {report.department}
+                            {isUrgent && !statusInfo.isClosed && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200 animate-pulse">
+                                <AlertTriangle className="h-3 w-3 text-rose-600" />
+                                URGENT
+                              </span>
+                            )}
+
+                            <span className="text-[10px] text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200/60 font-semibold">
+                              {report.period}
                             </span>
+
+                            <span className="text-[11px] text-slate-400">
+                              {new Date(report.createdAt).toLocaleDateString('id-ID', {
+                                day: 'numeric',
+                                month: 'short',
+                              })}
+                            </span>
+
+                            <span className="text-[10px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-200/60">
+                              {report.source === 'FORM_KARYAWAN' ? 'Form Mandiri' : 'Dicatat PIC'}
+                            </span>
+
+                            {report.reportedBy && (
+                              <span className="text-[10px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/70 font-medium">
+                                🗣️ Pelapor: {report.reportedBy}
+                              </span>
+                            )}
                           </div>
-                          <p className="text-xs font-semibold text-indigo-700 mt-0.5">
-                            {CATEGORY_LABELS[report.category] || report.category}
+
+                          {/* Nama & Project */}
+                          <div>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2">
+                              <h4 className="text-sm md:text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                                {report.employeeName}
+                              </h4>
+                              <span className="text-xs text-slate-500">
+                                NRP: {report.employeeNik} • {report.department}
+                              </span>
+                            </div>
+                            <p className="text-xs font-semibold text-indigo-700 mt-0.5">
+                              {CATEGORY_LABELS[report.category] || report.category}
+                            </p>
+                          </div>
+
+                          {/* Deskripsi Kronologi Singkat */}
+                          <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                            {report.description}
                           </p>
+
+                          {/* Catatan Tindak Lanjut jika ada */}
+                          {report.resolutionNotes && (
+                            <div className="text-[11px] text-slate-500 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/60 line-clamp-1">
+                              <span className="font-semibold text-slate-700">Tindak Lanjut:</span>{' '}
+                              {report.resolutionNotes}
+                            </div>
+                          )}
                         </div>
 
-                        {/* Deskripsi Kronologi Singkat */}
-                        <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
-                          {report.description}
-                        </p>
-
-                        {/* Catatan Tindak Lanjut jika ada */}
-                        {report.resolutionNotes && (
-                          <div className="text-[11px] text-slate-500 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/60 line-clamp-1">
-                            <span className="font-semibold text-slate-700">Tindak Lanjut:</span>{' '}
-                            {report.resolutionNotes}
+                        {/* Right Info: Nominal & Quick Action Status */}
+                        <div className="flex md:flex-col items-center md:items-end justify-between border-t md:border-t-0 pt-3 md:pt-0 border-slate-100 shrink-0 gap-2">
+                          <div className="text-left md:text-right">
+                            <div className="text-[10px] uppercase font-semibold text-slate-400">
+                              Estimasi Selisih
+                            </div>
+                            <div className="text-sm md:text-base font-bold text-slate-900">
+                              {formatRupiah(report.discrepancyAmount)}
+                            </div>
                           </div>
-                        )}
-                      </div>
 
-                      {/* Right Info: Nominal & Quick Action Status */}
-                      <div className="flex md:flex-col items-center md:items-end justify-between border-t md:border-t-0 pt-3 md:pt-0 border-slate-100 shrink-0 gap-2">
-                        <div className="text-left md:text-right">
-                          <div className="text-[10px] uppercase font-semibold text-slate-400">
-                            Estimasi Selisih
+                          {/* 1-Click Status Quick Action Dropdown */}
+                          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            <select
+                              value={report.actionStatus}
+                              onChange={(e) =>
+                                handleQuickStatusChange(
+                                  report.id,
+                                  e.target.value as ActionStatus
+                                )
+                              }
+                              className="text-[11px] font-semibold py-1.5 px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 outline-none cursor-pointer"
+                            >
+                              <option value="OPEN">Open</option>
+                              <option value="CROSSCHECK">Crosscheck</option>
+                              <option value="CLOSE">Close</option>
+                            </select>
+
+                            <button
+                              onClick={() => setSelectedReport(report)}
+                              className="p-1.5 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                              title="Lihat Detail & Catatan"
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </button>
                           </div>
-                          <div className="text-sm md:text-base font-bold text-slate-900">
-                            {formatRupiah(report.discrepancyAmount)}
-                          </div>
-                        </div>
-
-                        {/* 1-Click Status Quick Action Dropdown */}
-                        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                          <select
-                            value={report.actionStatus}
-                            onChange={(e) =>
-                              handleQuickStatusChange(
-                                report.id,
-                                e.target.value as ActionStatus
-                              )
-                            }
-                            className="text-[11px] font-semibold py-1.5 px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 outline-none cursor-pointer"
-                          >
-                            <option value="OPEN">Open</option>
-                            <option value="CROSSCHECK">Crosscheck</option>
-                            <option value="CLOSE">Close</option>
-                          </select>
-
-                          <button
-                            onClick={() => setSelectedReport(report)}
-                            className="p-1.5 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                            title="Lihat Detail & Catatan"
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                          </button>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* Compact Table View (Tabel Padat) */
+                <div className="rounded-2xl bg-white border border-slate-200/80 shadow-xs overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-slate-100/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                        <tr>
+                          <th className="py-3 px-3 w-10 text-center">No</th>
+                          <th className="py-3 px-3 w-28">No. Tiket</th>
+                          <th className="py-3 px-3 w-32">Status</th>
+                          <th className="py-3 px-3">Pegawai & NRP</th>
+                          <th className="py-3 px-3">Project / Cost Center</th>
+                          <th className="py-3 px-3">Kategori</th>
+                          <th className="py-3 px-3 text-right">Selisih</th>
+                          <th className="py-3 px-3 w-20">Tgl</th>
+                          <th className="py-3 px-3 w-16 text-center">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-700">
+                        {paginatedReports.map((report, idx) => {
+                          const isUrgent = report.priority === 'URGENT';
+                          const rowNumber = startIndex + idx + 1;
+
+                          return (
+                            <tr
+                              key={report.id}
+                              onClick={() => setSelectedReport(report)}
+                              className="hover:bg-indigo-50/50 transition-colors cursor-pointer group"
+                            >
+                              <td className="py-2.5 px-3 text-center text-slate-400 font-mono text-[11px]">
+                                {rowNumber}
+                              </td>
+                              <td className="py-2.5 px-3 font-mono font-bold text-slate-800 whitespace-nowrap">
+                                <span className="bg-slate-100 px-2 py-0.5 rounded text-[11px] group-hover:bg-indigo-100 group-hover:text-indigo-800 transition-colors">
+                                  {report.ticketNumber}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3" onClick={(e) => e.stopPropagation()}>
+                                <select
+                                  value={report.actionStatus}
+                                  onChange={(e) =>
+                                    handleQuickStatusChange(
+                                      report.id,
+                                      e.target.value as ActionStatus
+                                    )
+                                  }
+                                  className={`text-[11px] font-semibold py-1 px-2 rounded-lg border outline-none cursor-pointer ${
+                                    report.actionStatus === 'OPEN'
+                                      ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                      : report.actionStatus === 'CROSSCHECK'
+                                      ? 'bg-sky-50 text-sky-800 border-sky-200'
+                                      : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                  }`}
+                                >
+                                  <option value="OPEN">🟡 Open</option>
+                                  <option value="CROSSCHECK">🔵 Crosscheck</option>
+                                  <option value="CLOSE">🟢 Close</option>
+                                </select>
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <div className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                                  {report.employeeName}
+                                </div>
+                                <div className="text-[11px] text-slate-400 font-mono">
+                                  NRP: {report.employeeNik}
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 text-slate-600 font-medium max-w-[200px] truncate" title={report.department}>
+                                {report.department || '-'}
+                              </td>
+                              <td className="py-2.5 px-3 font-medium text-indigo-700 whitespace-nowrap">
+                                <div className="flex items-center gap-1.5">
+                                  <span>{CATEGORY_LABELS[report.category] || report.category}</span>
+                                  {isUrgent && (
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-rose-100 text-rose-800 uppercase animate-pulse">
+                                      Urgent
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
+                                {formatRupiah(report.discrepancyAmount)}
+                              </td>
+                              <td className="py-2.5 px-3 text-[11px] text-slate-400 whitespace-nowrap">
+                                {new Date(report.createdAt).toLocaleDateString('id-ID', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                })}
+                              </td>
+                              <td className="py-2.5 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  onClick={() => setSelectedReport(report)}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
+                                  title="Buka Detail Laporan"
+                                >
+                                  <ChevronRight className="h-4 w-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {/* Pagination Controls */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 sm:px-5 rounded-2xl border border-slate-200/80 shadow-xs mt-3">
