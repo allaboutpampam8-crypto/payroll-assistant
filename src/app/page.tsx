@@ -558,6 +558,7 @@ export default function AssistantDashboard() {
           todos={todos}
           activeTodosCount={todos.filter((t) => !t.isCompleted).length}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          onRefresh={fetchDashboardData}
           onFilterStatus={(st) => {
             handleStatusFilterChange(st);
             setActiveTab('REPORTS');

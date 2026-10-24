@@ -80,6 +80,8 @@ export interface PayrollSettings {
   cutoffDate: string; // YYYY-MM-DD
   assistantName: string;
   companyName: string;
+  isPeriodCompleted?: boolean;
+  completedAt?: string; // YYYY-MM-DD or ISO string
 }
 
 export interface DashboardMetrics {

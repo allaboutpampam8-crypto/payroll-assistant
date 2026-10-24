@@ -13,6 +13,7 @@ import {
 } from './types';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { sendTelegramNotification } from './telegram';
+import { getNextPeriodSuggestion, INDONESIAN_MONTHS } from './periodUtils';
 
 const DB_PATH = path.join(process.cwd(), 'data', 'payroll_db.json');
 
@@ -28,6 +29,8 @@ const DEFAULT_SETTINGS: PayrollSettings = {
   cutoffDate: '2026-10-23',
   assistantName: 'Asisten Payroll',
   companyName: 'PT Pelindo Daya Sejahtera',
+  isPeriodCompleted: false,
+  completedAt: undefined,
 };
 
 // Row mappers for Supabase
@@ -476,53 +479,109 @@ export async function deleteTodo(id: string): Promise<boolean> {
 // -------------------------------------------------------------
 
 export async function getSettings(): Promise<PayrollSettings> {
-  if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
-      .from('payroll_settings')
-      .select('*')
-      .eq('id', 'default_settings')
-      .single();
+  let settings: PayrollSettings = { ...DEFAULT_SETTINGS };
 
-    if (!error && data) {
-      return {
-        activePeriod: data.active_period,
-        cutoffDate: data.cutoff_date,
-        assistantName: data.assistant_name,
-        companyName: data.company_name,
-      };
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('payroll_settings')
+        .select('*')
+        .in('id', ['default_settings', 'period_lifecycle']);
+
+      if (!error && data && data.length > 0) {
+        const defaultRow = data.find((r) => r.id === 'default_settings');
+        const lifecycleRow = data.find((r) => r.id === 'period_lifecycle');
+
+        if (defaultRow) {
+          settings.activePeriod = defaultRow.active_period || settings.activePeriod;
+          settings.cutoffDate = defaultRow.cutoff_date || settings.cutoffDate;
+          settings.assistantName = defaultRow.assistant_name || settings.assistantName;
+          settings.companyName = defaultRow.company_name || settings.companyName;
+        }
+
+        if (lifecycleRow && lifecycleRow.active_period === settings.activePeriod) {
+          settings.isPeriodCompleted = lifecycleRow.assistant_name === 'COMPLETED';
+          settings.completedAt = lifecycleRow.company_name || undefined;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to get Supabase settings:', err);
+    }
+  } else {
+    const local = getLocalDatabase();
+    if (local.settings) {
+      settings = { ...settings, ...local.settings };
     }
   }
 
-  return getLocalDatabase().settings;
+  // Smart Auto-Rollover (Opsi C):
+  // Jika periode aktif telah ditandai Selesai, dan kalender saat ini sudah berganti bulan
+  const now = new Date();
+  const currentCalendarPeriod = `${INDONESIAN_MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+
+  if (settings.isPeriodCompleted && settings.activePeriod !== currentCalendarPeriod) {
+    const { nextPeriod, nextCutoff } = getNextPeriodSuggestion(
+      settings.activePeriod,
+      settings.cutoffDate
+    );
+    settings.activePeriod = nextPeriod;
+    settings.cutoffDate = nextCutoff;
+    settings.isPeriodCompleted = false;
+    settings.completedAt = undefined;
+
+    // Simpan otomatis ke database
+    await updateSettings({
+      activePeriod: nextPeriod,
+      cutoffDate: nextCutoff,
+      isPeriodCompleted: false,
+    });
+  }
+
+  return settings;
 }
 
 export async function updateSettings(
   settings: Partial<PayrollSettings>
 ): Promise<PayrollSettings> {
   if (isSupabaseConfigured && supabase) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rowUpdates: Record<string, any> = {
-      updated_at: new Date().toISOString(),
-    };
-    if (settings.activePeriod) rowUpdates.active_period = settings.activePeriod;
-    if (settings.cutoffDate) rowUpdates.cutoff_date = settings.cutoffDate;
-    if (settings.assistantName) rowUpdates.assistant_name = settings.assistantName;
-    if (settings.companyName) rowUpdates.company_name = settings.companyName;
-
-    const { data, error } = await supabase
-      .from('payroll_settings')
-      .update(rowUpdates)
-      .eq('id', 'default_settings')
-      .select()
-      .single();
-
-    if (!error && data) {
-      return {
-        activePeriod: data.active_period,
-        cutoffDate: data.cutoff_date,
-        assistantName: data.assistant_name,
-        companyName: data.company_name,
+    try {
+      // 1. Update default_settings
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rowUpdates: Record<string, any> = {
+        updated_at: new Date().toISOString(),
       };
+      if (settings.activePeriod) rowUpdates.active_period = settings.activePeriod;
+      if (settings.cutoffDate) rowUpdates.cutoff_date = settings.cutoffDate;
+      if (settings.assistantName) rowUpdates.assistant_name = settings.assistantName;
+      if (settings.companyName) rowUpdates.company_name = settings.companyName;
+
+      await supabase
+        .from('payroll_settings')
+        .update(rowUpdates)
+        .eq('id', 'default_settings');
+
+      // Ambil activePeriod & cutoffDate yang berlaku
+      const activePeriod = settings.activePeriod || (await getSettings()).activePeriod;
+      const cutoffDate = settings.cutoffDate || (await getSettings()).cutoffDate;
+
+      // 2. Update period_lifecycle jika ada mutasi status closing atau periode
+      if (settings.isPeriodCompleted !== undefined || settings.activePeriod) {
+        const isCompleted = settings.isPeriodCompleted ?? false;
+        const completedAt = isCompleted
+          ? settings.completedAt || new Date().toISOString()
+          : '';
+
+        await supabase.from('payroll_settings').upsert({
+          id: 'period_lifecycle',
+          active_period: activePeriod,
+          cutoff_date: cutoffDate,
+          assistant_name: isCompleted ? 'COMPLETED' : 'IN_PROGRESS',
+          company_name: completedAt,
+          updated_at: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      console.error('Failed to update Supabase settings:', err);
     }
   }
 

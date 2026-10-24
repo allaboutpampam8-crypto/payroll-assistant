@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Calendar, Save, Loader2, AlertCircle } from 'lucide-react';
+import { X, Calendar, Save, Loader2, AlertCircle, CheckCircle2, FastForward } from 'lucide-react';
 import { PayrollSettings } from '@/lib/types';
+import { getNextPeriodSuggestion } from '@/lib/periodUtils';
 
 interface CutoffSettingsModalProps {
   isOpen: boolean;
@@ -20,9 +21,20 @@ export default function CutoffSettingsModal({
   const [activePeriod, setActivePeriod] = useState(settings.activePeriod);
   const [cutoffDate, setCutoffDate] = useState(settings.cutoffDate);
   const [companyName, setCompanyName] = useState(settings.companyName);
+  const [isPeriodCompleted, setIsPeriodCompleted] = useState<boolean>(
+    Boolean(settings.isPeriodCompleted)
+  );
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  const nextSuggestion = getNextPeriodSuggestion(activePeriod, cutoffDate);
+
+  const handleApplyNextPeriod = () => {
+    setActivePeriod(nextSuggestion.nextPeriod);
+    setCutoffDate(nextSuggestion.nextCutoff);
+    setIsPeriodCompleted(false);
+  };
 
   if (!isOpen) return null;
 
@@ -39,6 +51,10 @@ export default function CutoffSettingsModal({
           activePeriod,
           cutoffDate,
           companyName,
+          isPeriodCompleted,
+          completedAt: isPeriodCompleted
+            ? settings.completedAt || new Date().toISOString()
+            : '',
         }),
       });
 
@@ -92,9 +108,20 @@ export default function CutoffSettingsModal({
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Periode Penggajian Aktif
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-slate-700">
+                Periode Penggajian Aktif
+              </label>
+              <button
+                type="button"
+                onClick={handleApplyNextPeriod}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                title={`Otomatis isi ${nextSuggestion.nextPeriod} dan cut-off ${nextSuggestion.nextCutoff}`}
+              >
+                <FastForward className="h-3 w-3" />
+                <span>Maju ke {nextSuggestion.nextPeriod}</span>
+              </button>
+            </div>
             <input
               type="text"
               required
@@ -103,6 +130,41 @@ export default function CutoffSettingsModal({
               placeholder="Contoh: Oktober 2026"
               className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Status Siklus Payroll Bulan Ini
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setIsPeriodCompleted(false)}
+                className={`flex items-center justify-center gap-1.5 p-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                  !isPeriodCompleted
+                    ? 'bg-amber-50 border-amber-300 text-amber-800 shadow-2xs'
+                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+                }`}
+              >
+                <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                <span>Sedang Berjalan</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsPeriodCompleted(true)}
+                className={`flex items-center justify-center gap-1.5 p-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                  isPeriodCompleted
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-2xs'
+                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+                }`}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                <span>Selesai / Closed</span>
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Jika ditandai Selesai, peringatan merah keterlambatan cut-off akan dinonaktifkan hingga awal bulan berikutnya.
+            </p>
           </div>
 
           <div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Sparkles,
   Calendar,
@@ -12,8 +12,14 @@ import {
   Flame,
   Hourglass,
   ArrowRight,
+  CheckCircle2,
+  FastForward,
+  RotateCcw,
+  Loader2,
 } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import { PayrollSettings, PayrollReport, PayrollTodo } from '@/lib/types';
+import { getNextPeriodSuggestion } from '@/lib/periodUtils';
 
 interface DailyBriefingProps {
   settings: PayrollSettings;
@@ -23,6 +29,7 @@ interface DailyBriefingProps {
   onOpenSettings: () => void;
   onFilterStatus: (status: string) => void;
   onOpenTodos?: (filter?: 'ALL' | 'ACTIVE' | 'COMPLETED' | 'OVERDUE' | 'TODAY') => void;
+  onRefresh?: () => void;
 }
 
 export default function DailyBriefing({
@@ -33,7 +40,73 @@ export default function DailyBriefing({
   onOpenSettings,
   onFilterStatus,
   onOpenTodos,
+  onRefresh,
 }: DailyBriefingProps) {
+  const [updatingLifecycle, setUpdatingLifecycle] = useState(false);
+  const nextSuggestion = getNextPeriodSuggestion(settings.activePeriod, settings.cutoffDate);
+
+  const handleToggleComplete = async (isCompleted: boolean) => {
+    setUpdatingLifecycle(true);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isPeriodCompleted: isCompleted,
+          completedAt: isCompleted ? new Date().toISOString() : '',
+        }),
+      });
+      if (res.ok) {
+        if (isCompleted && typeof window !== 'undefined') {
+          try {
+            confetti({
+              particleCount: 80,
+              spread: 70,
+              origin: { y: 0.6 },
+            });
+          } catch {
+            // ignore
+          }
+        }
+        onRefresh?.();
+      }
+    } catch (err) {
+      console.error('Failed to update period lifecycle:', err);
+    } finally {
+      setUpdatingLifecycle(false);
+    }
+  };
+
+  const handleStartNextCycle = async () => {
+    if (
+      !confirm(
+        `Buka siklus payroll baru untuk "${nextSuggestion.nextPeriod}" dengan cut-off tanggal ${nextSuggestion.nextCutoff}?`
+      )
+    ) {
+      return;
+    }
+    setUpdatingLifecycle(true);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          activePeriod: nextSuggestion.nextPeriod,
+          cutoffDate: nextSuggestion.nextCutoff,
+          isPeriodCompleted: false,
+          completedAt: '',
+        }),
+      });
+      if (res.ok) {
+        onRefresh?.();
+      }
+    } catch (err) {
+      console.error('Failed to start next cycle:', err);
+    } finally {
+      setUpdatingLifecycle(false);
+    }
+  };
+
   // Hitung selisih hari ke cutoff
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -105,7 +178,14 @@ export default function DailyBriefing({
           </div>
 
           <h2 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight text-white leading-snug">
-            {totalOverdueItems > 0 ? (
+            {settings.isPeriodCompleted ? (
+              <span className="flex items-center flex-wrap gap-2 text-emerald-300">
+                <CheckCircle2 className="h-6 w-6 text-emerald-400 shrink-0" />
+                <span>
+                  Payroll {settings.activePeriod} Selesai Diproses! 🎉
+                </span>
+              </span>
+            ) : totalOverdueItems > 0 ? (
               <span className="flex items-center flex-wrap gap-2 text-rose-300">
                 <AlertTriangle className="h-6 w-6 text-rose-400 animate-bounce shrink-0" />
                 <span>
@@ -123,7 +203,16 @@ export default function DailyBriefing({
           </h2>
 
           <p className="text-sm text-indigo-100/90 max-w-2xl leading-relaxed">
-            {totalOverdueItems > 0 ? (
+            {settings.isPeriodCompleted ? (
+              <>
+                Siklus penggajian {settings.activePeriod} telah tuntas difinalisasi. Dashboard dalam masa standby sampai siklus baru dimulai.
+                {totalUnresolved > 0 && (
+                  <span className="text-indigo-200 block text-xs mt-1 opacity-90">
+                    💡 Catatan: Masih ada {totalUnresolved} tiket laporan tercatat, yang dapat Anda tindak lanjuti pada siklus penggajian berikutnya.
+                  </span>
+                )}
+              </>
+            ) : totalOverdueItems > 0 ? (
               <>
                 Segera tindaklanjuti:{' '}
                 {overdueTodos.length > 0 && (
@@ -172,11 +261,14 @@ export default function DailyBriefing({
           </p>
         </div>
 
-        {/* Status Cutoff & Pengaturan */}
+        {/* Status Cutoff & Pengaturan Lifecycle */}
         <div className="flex flex-col sm:flex-row md:flex-col items-stretch sm:items-start md:items-end gap-2 shrink-0 w-full sm:w-auto">
+          {/* Badge Status Cut-Off / Selesai */}
           <div
             className={`flex items-center justify-between sm:justify-start gap-2.5 rounded-xl px-3.5 py-2 text-xs font-semibold backdrop-blur-md border ${
-              isCutoffPassed
+              settings.isPeriodCompleted
+                ? 'bg-emerald-950/70 border-emerald-500/80 text-emerald-200'
+                : isCutoffPassed
                 ? 'bg-rose-950/70 border-rose-600 text-rose-200'
                 : isCutoffNear
                 ? 'bg-amber-950/70 border-amber-500 text-amber-200 animate-pulse'
@@ -184,17 +276,23 @@ export default function DailyBriefing({
             }`}
           >
             <div className="flex items-center gap-2">
-              {isCutoffNear || isCutoffPassed ? (
+              {settings.isPeriodCompleted ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+              ) : isCutoffNear || isCutoffPassed ? (
                 <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
               ) : (
                 <Calendar className="h-4 w-4 shrink-0 text-indigo-300" />
               )}
               <div>
-                <div className="text-[10px] uppercase tracking-wider text-indigo-200/80">Cut-Off Payroll</div>
+                <div className="text-[10px] uppercase tracking-wider text-indigo-200/80">
+                  {settings.isPeriodCompleted ? 'Payroll Selesai' : 'Cut-Off Payroll'}
+                </div>
                 <div>
                   {settings.cutoffDate}{' '}
                   <span className="text-[11px] font-normal opacity-90">
-                    {isCutoffPassed
+                    {settings.isPeriodCompleted
+                      ? '(Closing Tuntas)'
+                      : isCutoffPassed
                       ? '(Lewat ' + Math.abs(diffDays) + ' hari)'
                       : diffDays === 0
                       ? '(Hari ini!)'
@@ -205,13 +303,65 @@ export default function DailyBriefing({
             </div>
           </div>
 
-          <button
-            onClick={onOpenSettings}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-white/10 hover:bg-white/20 px-3 py-2 text-xs font-medium text-white transition-all cursor-pointer border border-white/10 w-full sm:w-auto"
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            <span>Atur Periode & Cut-Off</span>
-          </button>
+          {/* Tombol Aksi Lifecycle Periode */}
+          <div className="flex items-center gap-1.5 w-full sm:w-auto">
+            {settings.isPeriodCompleted ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleStartNextCycle}
+                  disabled={updatingLifecycle}
+                  className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3 py-2 text-xs font-bold text-white transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                  title={`Buka siklus baru untuk ${nextSuggestion.nextPeriod}`}
+                >
+                  {updatingLifecycle ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <FastForward className="h-3.5 w-3.5" />
+                  )}
+                  <span>Buka {nextSuggestion.nextPeriod} ➔</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleToggleComplete(false)}
+                  disabled={updatingLifecycle}
+                  className="flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 p-2 text-xs font-medium text-white transition-all cursor-pointer border border-white/10"
+                  title="Buka kembali status periode ini (batalkan selesai)"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 text-slate-300" />
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleToggleComplete(true)}
+                disabled={updatingLifecycle}
+                className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white transition-all cursor-pointer shadow-sm disabled:opacity-50 ${
+                  isCutoffPassed
+                    ? 'bg-emerald-600 hover:bg-emerald-500 ring-2 ring-emerald-400/50 shadow-lg'
+                    : 'bg-emerald-600/90 hover:bg-emerald-500'
+                }`}
+                title="Tandai proses payroll periode ini telah selesai dikerjakan"
+              >
+                {updatingLifecycle ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                )}
+                <span>Tandai Payroll Selesai</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="flex items-center justify-center gap-1.5 rounded-xl bg-white/10 hover:bg-white/20 px-2.5 py-2 text-xs font-medium text-white transition-all cursor-pointer border border-white/10"
+              title="Atur Periode & Cut-Off"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Atur</span>
+            </button>
+          </div>
         </div>
       </div>
 
