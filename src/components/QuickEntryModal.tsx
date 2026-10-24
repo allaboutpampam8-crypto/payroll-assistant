@@ -12,14 +12,28 @@ import {
   CheckCircle2,
   Search,
   Check,
+  Paperclip,
+  Upload,
+  Image as ImageIcon,
+  FileText,
+  Trash2,
 } from 'lucide-react';
-import { IssueCategory, CATEGORY_LABELS, ActionStatus, Priority, PayrollResult } from '@/lib/types';
+import {
+  IssueCategory,
+  CATEGORY_LABELS,
+  ActionStatus,
+  Priority,
+  PayrollResult,
+  AppUserProfile,
+  APP_USER_PROFILES,
+} from '@/lib/types';
 
 interface QuickEntryModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   activePeriod: string;
+  activeUser?: AppUserProfile;
 }
 
 type ReportScope = 'INDIVIDUAL' | 'GROUP' | 'PROJECT';
@@ -29,6 +43,7 @@ export default function QuickEntryModal({
   onClose,
   onSuccess,
   activePeriod,
+  activeUser = 'Pampam',
 }: QuickEntryModalProps) {
   // Scope Laporan
   const [scope, setScope] = useState<ReportScope>('INDIVIDUAL');
@@ -38,6 +53,7 @@ export default function QuickEntryModal({
   const [employeeNik, setEmployeeNik] = useState('');
   const [department, setDepartment] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [picName, setPicName] = useState<AppUserProfile>(activeUser);
   const [reportedBy, setReportedBy] = useState('');
   const [category, setCategory] = useState<IssueCategory>('KOREKSI_GAJI');
   const [discrepancyAmount, setDiscrepancyAmount] = useState('');
@@ -45,6 +61,9 @@ export default function QuickEntryModal({
   const [priority, setPriority] = useState<Priority>('NORMAL');
   const [actionStatus, setActionStatus] = useState<ActionStatus>('OPEN');
   const [dueDate, setDueDate] = useState('');
+  const [attachmentUrl, setAttachmentUrl] = useState('');
+  const [attachmentName, setAttachmentName] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Status & Loaders
   const [loading, setLoading] = useState(false);
@@ -72,6 +91,64 @@ export default function QuickEntryModal({
   const [loadingDeptEmployees, setLoadingDeptEmployees] = useState(false);
   const [selectedGroupEmployees, setSelectedGroupEmployees] = useState<PayrollResult[]>([]);
   const [groupSearchTerm, setGroupSearchTerm] = useState('');
+
+  // Handle upload lampiran file
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Ukuran berkas lampiran maksimal 5 MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setAttachmentUrl(base64);
+      setAttachmentName(file.name);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Clipboard Paste Listener (Ctrl + V langsung untuk gambar screenshot)
+  useEffect(() => {
+    if (activeUser && isOpen) {
+      setPicName(activeUser);
+    }
+  }, [activeUser, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          const blob = items[i].getAsFile();
+          if (blob) {
+            if (blob.size > 5 * 1024 * 1024) {
+              alert('Ukuran gambar screenshot melebihi batas 5 MB.');
+              return;
+            }
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              const base64 = event.target?.result as string;
+              setAttachmentUrl(base64);
+              setAttachmentName(`screenshot-${Date.now().toString().slice(-6)}.png`);
+            };
+            reader.readAsDataURL(blob);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [isOpen]);
 
   // Debounced search for departments across all 700+ projects
   useEffect(() => {
@@ -295,7 +372,7 @@ export default function QuickEntryModal({
   };
 
   // Handle Submit
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, isAddAnother: boolean = false) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -350,6 +427,9 @@ export default function QuickEntryModal({
           dueDate,
           source: 'MANUAL_PIC',
           reportedBy: reportedBy.trim(),
+          picName: picName || activeUser || 'Pampam',
+          attachmentUrl: attachmentUrl || undefined,
+          attachmentName: attachmentName || undefined,
         }),
       });
 
@@ -358,22 +438,40 @@ export default function QuickEntryModal({
         throw new Error(data.message || 'Gagal menyimpan laporan.');
       }
 
-      // Reset form
-      setEmployeeName('');
-      setEmployeeNik('');
-      setDepartment('');
-      setPhoneNumber('');
-      setReportedBy('');
-      setDiscrepancyAmount('');
-      setDescription('');
-      setMatchedEmployee(null);
-      setSelectedGroupEmployees([]);
-      setSelectedDept('');
-      setSelectedDeptCount(0);
-      setProjectSearchQuery('');
-      setScope('INDIVIDUAL');
-      onSuccess();
-      onClose();
+      if (isAddAnother) {
+        // Reset bidang spesifik pegawai, pertahankan project dan kategori agar cepat catat berikutnya
+        setEmployeeName('');
+        setEmployeeNik('');
+        setPhoneNumber('');
+        setDiscrepancyAmount('');
+        setDescription('');
+        setMatchedEmployee(null);
+        setSelectedGroupEmployees([]);
+        setAttachmentUrl('');
+        setAttachmentName('');
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        onSuccess();
+      } else {
+        // Reset total dan tutup modal
+        setEmployeeName('');
+        setEmployeeNik('');
+        setDepartment('');
+        setPhoneNumber('');
+        setReportedBy('');
+        setDiscrepancyAmount('');
+        setDescription('');
+        setMatchedEmployee(null);
+        setSelectedGroupEmployees([]);
+        setSelectedDept('');
+        setSelectedDeptCount(0);
+        setProjectSearchQuery('');
+        setScope('INDIVIDUAL');
+        setAttachmentUrl('');
+        setAttachmentName('');
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        onSuccess();
+        onClose();
+      }
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : 'Terjadi kesalahan sistem.');
     } finally {
@@ -916,21 +1014,39 @@ export default function QuickEntryModal({
           {/* COMMON FIELDS: PELAPOR, KATEGORI, NOMINAL, STATUS, DLL.        */}
           {/* ============================================================== */}
 
-          {/* Baris Pelapor / Sumber Laporan */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Pelapor / Sumber Laporan <span className="text-slate-400 font-normal">(Opsional)</span>
-            </label>
-            <input
-              type="text"
-              value={reportedBy}
-              onChange={(e) => setReportedBy(e.target.value)}
-              placeholder="Contoh: Pak Doni (Manager), HR Project, Karyawan Langsung, WhatsApp..."
-              className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
-            />
-            <p className="text-[11px] text-slate-400 mt-1">
-              Catat pihak yang meneruskan atau memberikan informasi laporan kendala ini.
-            </p>
+          {/* Baris PIC Penanggung Jawab & Pelapor */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                PIC Penanggung Jawab
+              </label>
+              <div className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm font-bold text-slate-800 flex items-center gap-2 select-none">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span>{activeUser || 'Pampam'}</span>
+                <span className="text-[10px] font-semibold text-slate-400 ml-auto bg-slate-200/60 px-2 py-0.5 rounded-md">
+                  Profil Anda
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Otomatis tercatat atas nama Anda.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Pelapor / Sumber Laporan <span className="text-slate-400 font-normal">(Opsional)</span>
+              </label>
+              <input
+                type="text"
+                value={reportedBy}
+                onChange={(e) => setReportedBy(e.target.value)}
+                placeholder="Contoh: Pak Doni, HR Lapangan..."
+                className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">
+                Catat pihak yang meneruskan kendala ini.
+              </p>
+            </div>
           </div>
 
           {/* Baris Kategori Kendala */}
@@ -1032,24 +1148,112 @@ export default function QuickEntryModal({
             />
           </div>
 
+          {/* Upload Lampiran Bukti / Slip (Opsional) */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-slate-700">
+                Lampiran Bukti / Slip Gaji / Chat <span className="text-slate-400 font-normal">(Opsional)</span>
+              </label>
+              <span className="text-[10px] text-indigo-600 font-medium bg-indigo-50 px-2 py-0.5 rounded-md">
+                Bisa paste langsung (Ctrl + V)
+              </span>
+            </div>
+
+            {attachmentUrl ? (
+              <div className="flex items-center justify-between p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/50 gap-3">
+                <div className="flex items-center gap-2.5 overflow-hidden">
+                  {attachmentUrl.startsWith('data:image') ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={attachmentUrl}
+                      alt="Thumbnail Bukti"
+                      className="h-10 w-10 rounded-lg object-cover border border-indigo-200 shrink-0 bg-white"
+                    />
+                  ) : (
+                    <div className="h-10 w-10 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                      <FileText className="h-5 w-5" />
+                    </div>
+                  )}
+                  <div className="overflow-hidden">
+                    <div className="text-xs font-semibold text-slate-800 truncate max-w-[200px] sm:max-w-[300px]">
+                      {attachmentName || 'lampiran-bukti'}
+                    </div>
+                    <div className="text-[10px] text-emerald-600 font-medium">
+                      ✓ Berkas terlampir
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAttachmentUrl('');
+                    setAttachmentName('');
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                  }}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
+                  title="Hapus berkas lampiran"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="group border border-dashed border-slate-300 hover:border-indigo-400 rounded-xl p-3 text-center cursor-pointer transition-all bg-slate-50/50 hover:bg-indigo-50/30 flex flex-col items-center justify-center gap-1"
+              >
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 group-hover:text-indigo-600">
+                  <Upload className="h-4 w-4 text-slate-400 group-hover:text-indigo-500" />
+                  <span>Pilih file gambar / PDF atau tekan Ctrl+V</span>
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  Format JPG, PNG, WEBP, atau PDF (Maksimal 5 MB)
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+              </div>
+            )}
+          </div>
+
           {/* Tombol Aksi */}
-          <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={loading}
-              className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-            >
-              Batal
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-md shadow-indigo-600/20 flex items-center gap-2 cursor-pointer disabled:opacity-70"
-            >
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              <span>Simpan Laporan</span>
-            </button>
+          <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-slate-100">
+            <span className="text-[11px] text-slate-400 hidden sm:inline">
+              💡 Tekan Esc untuk batal
+            </span>
+
+            <div className="flex items-center gap-1.5 sm:gap-2 justify-end flex-wrap sm:flex-nowrap">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={loading}
+                className="px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={(e) => handleSubmit(e, true)}
+                disabled={loading}
+                className="px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-70"
+                title="Simpan tiket ini dan langsung lanjut catat tiket berikutnya untuk project ini"
+              >
+                <span className="hidden sm:inline">Simpan & </span>
+                <span>Buat Lagi</span>
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 sm:flex-none px-4 sm:px-5 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
+              >
+                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                <span>Simpan Laporan</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>

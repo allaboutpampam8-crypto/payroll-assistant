@@ -25,6 +25,7 @@ function createChatMessageId(prefix: string): string {
 
 interface AiChatWidgetProps {
   onDataUpdated?: () => void;
+  activeUser?: string;
 }
 
 const QUICK_PROMPTS = [
@@ -60,13 +61,16 @@ const QUICK_PROMPTS = [
   },
 ];
 
-export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
+export default function AiChatWidget({ onDataUpdated, activeUser }: AiChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const currentUser = activeUser || 'Pampam';
+  const userGreeting = currentUser === 'Ucup' ? 'Pak Ucup' : `Pak ${currentUser}`;
 
   // Auto scroll to bottom
   const scrollToBottom = () => {
@@ -101,7 +105,7 @@ export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, userName: currentUser }),
       });
 
       const data = await res.json();
@@ -275,7 +279,7 @@ export default function AiChatWidget({ onDataUpdated }: AiChatWidgetProps) {
                   />
                 </div>
                 <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base">
-                  Halo Pak Pampam! 👋 Saya Si PALI
+                  Halo {userGreeting}! 👋 Saya Si PALI
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mt-1 leading-relaxed">
                   Asisten pintar payroll Anda. Tanyakan rincian gaji, komparasi selisih, tiket kendala, atau minta saya update status tiket.

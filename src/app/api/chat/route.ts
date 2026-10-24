@@ -5,6 +5,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const message = typeof body.message === 'string' ? body.message.trim() : '';
+    const userName = typeof body.userName === 'string' ? body.userName.trim() : undefined;
 
     if (!message) {
       return NextResponse.json(
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const reply = await askPayrollAI(message);
+    const reply = await askPayrollAI(message, userName);
 
     return NextResponse.json({
       success: true,

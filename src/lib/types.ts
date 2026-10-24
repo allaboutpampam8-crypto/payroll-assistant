@@ -40,6 +40,24 @@ export const STATUS_CONFIG: Record<
 
 export type Priority = 'NORMAL' | 'TINGGI' | 'URGENT';
 
+export type AppUserProfile = 'Pampam' | 'Wahid' | 'Izul' | 'Ucup';
+
+export interface UserProfileInfo {
+  id: AppUserProfile;
+  name: string;
+  role: 'PIC' | 'SUPERINTENDENT';
+  roleLabel: string;
+  avatarBg: string;
+  colorHex: string;
+}
+
+export const APP_USER_PROFILES: UserProfileInfo[] = [
+  { id: 'Pampam', name: 'Pampam', role: 'PIC', roleLabel: 'PIC Payroll', avatarBg: 'bg-indigo-600', colorHex: '#4f46e5' },
+  { id: 'Wahid', name: 'Wahid', role: 'PIC', roleLabel: 'PIC Payroll', avatarBg: 'bg-sky-600', colorHex: '#0284c7' },
+  { id: 'Izul', name: 'Izul', role: 'PIC', roleLabel: 'PIC Payroll', avatarBg: 'bg-emerald-600', colorHex: '#059669' },
+  { id: 'Ucup', name: 'Ucup', role: 'SUPERINTENDENT', roleLabel: 'Superintendent', avatarBg: 'bg-purple-600', colorHex: '#9333ea' },
+];
+
 export interface PayrollReport {
   id: string;
   ticketNumber: string;
@@ -62,6 +80,7 @@ export interface PayrollReport {
   resolvedAt?: string;
   source: 'MANUAL_PIC' | 'FORM_KARYAWAN';
   reportedBy?: string; // Nama / catatan pelapor atau sumber (misal: Atasan, HR Lapangan, dsb)
+  picName?: string; // PIC Penanggung Jawab / Pembuat (Pampam, Wahid, Izul, Ucup)
 }
 
 export interface PayrollTodo {
@@ -73,6 +92,7 @@ export interface PayrollTodo {
   relatedTicketNumber?: string; // Nomor tiket jika tugas berasal dari kendala
   createdAt: string;
   completedAt?: string;
+  userName?: string; // Pemilik to-do list mandiri (Pampam, Wahid, Izul, Ucup)
 }
 
 export interface PayrollSettings {

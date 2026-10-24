@@ -8,5 +8,33 @@
     "completedAt": "2026-10-24T03:04:37.214Z"
   },
   "reports": [],
-  "todos": []
+  "todos": [
+    {
+      "title": "[Pampam] test",
+      "isCompleted": false,
+      "dueDate": "",
+      "priority": "NORMAL",
+      "userName": "Pampam",
+      "id": "todo-1792835354057-a684",
+      "createdAt": "2026-10-24T09:49:14.057Z"
+    },
+    {
+      "title": "[Pampam] [Dari Superintendent] proses nota dinas ini",
+      "isCompleted": false,
+      "dueDate": "2026-10-26",
+      "priority": "NORMAL",
+      "userName": "Pampam",
+      "id": "todo-1792835329647-23kl",
+      "createdAt": "2026-10-24T09:48:49.647Z"
+    },
+    {
+      "title": "[Pampam] test",
+      "isCompleted": false,
+      "dueDate": "2026-10-26",
+      "priority": "NORMAL",
+      "userName": "Pampam",
+      "id": "todo-1792835252003-8hbl",
+      "createdAt": "2026-10-24T09:47:32.003Z"
+    }
+  ]
 }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import {
   getAllReports,
   createReport,
+  updateReportsBulk,
   getDashboardMetrics,
   getSettings,
 } from '@/lib/db';
@@ -118,6 +119,7 @@ export async function POST(request: Request) {
       resolutionNotes: body.resolutionNotes || '',
       source: body.source || 'MANUAL_PIC',
       reportedBy: body.reportedBy || '',
+      picName: body.picName || undefined,
     });
 
     return NextResponse.json(
@@ -128,6 +130,37 @@ export async function POST(request: Request) {
     console.error('Failed to create report:', error);
     return NextResponse.json(
       { success: false, message: 'Terjadi kesalahan server saat menyimpan laporan.' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { ids, actionStatus, priority } = body;
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json(
+        { success: false, message: 'Daftar ID laporan tidak boleh kosong.' },
+        { status: 400 }
+      );
+    }
+
+    const result = await updateReportsBulk(ids, {
+      ...(actionStatus && { actionStatus }),
+      ...(priority && { priority }),
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: result,
+      message: `${result.count} laporan berhasil diperbarui.`,
+    });
+  } catch (error) {
+    console.error('Failed to bulk update reports:', error);
+    return NextResponse.json(
+      { success: false, message: 'Gagal memperbarui status laporan secara massal.' },
       { status: 500 }
     );
   }

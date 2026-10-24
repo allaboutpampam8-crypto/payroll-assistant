@@ -12,8 +12,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Flame,
+  Crown,
 } from 'lucide-react';
-import { PayrollTodo, Priority } from '@/lib/types';
+import { PayrollTodo, Priority, AppUserProfile } from '@/lib/types';
 
 export type TodoFilterType = 'ALL' | 'ACTIVE' | 'COMPLETED' | 'OVERDUE' | 'TODAY';
 
@@ -21,12 +22,14 @@ interface TodoListWidgetProps {
   todos: PayrollTodo[];
   initialFilter?: TodoFilterType;
   onRefresh: () => void;
+  activeUser?: AppUserProfile;
 }
 
 export default function TodoListWidget({
   todos,
   initialFilter = 'ACTIVE',
   onRefresh,
+  activeUser = 'Pampam',
 }: TodoListWidgetProps) {
   const [filter, setFilter] = useState<TodoFilterType>(initialFilter);
   const [currentPage, setCurrentPage] = useState(1);
@@ -36,6 +39,11 @@ export default function TodoListWidget({
   const [newDueDate, setNewDueDate] = useState('');
   const [loadingAdd, setLoadingAdd] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  // Khusus Superintendent (Ucup) bisa menugaskan to-do ke PIC tertentu & memantau to-do PIC
+  const [assignedTo, setAssignedTo] = useState<AppUserProfile>('Pampam');
+  const [viewUserFilter, setViewUserFilter] = useState<string>('ALL');
 
   useEffect(() => {
     if (initialFilter) {
@@ -58,15 +66,20 @@ export default function TodoListWidget({
     e.preventDefault();
     if (!newTitle.trim()) return;
 
+    const targetUser = activeUser === 'Ucup' ? assignedTo : activeUser;
+    const isFromSuper = activeUser === 'Ucup' && assignedTo !== 'Ucup';
+    const finalTitle = isFromSuper ? `[Dari Superintendent] ${newTitle.trim()}` : newTitle.trim();
+
     setLoadingAdd(true);
     try {
       const res = await fetch('/api/todos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: newTitle.trim(),
+          title: finalTitle,
           priority: newPriority,
           dueDate: newDueDate,
+          userName: targetUser,
         }),
       });
 
@@ -84,6 +97,7 @@ export default function TodoListWidget({
   };
 
   const handleToggleComplete = async (todo: PayrollTodo) => {
+    setTogglingId(todo.id);
     try {
       const res = await fetch(`/api/todos/${todo.id}`, {
         method: 'PATCH',
@@ -95,6 +109,8 @@ export default function TodoListWidget({
       }
     } catch (err) {
       console.error('Failed to toggle todo:', err);
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -113,7 +129,16 @@ export default function TodoListWidget({
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const filteredTodos = todos.filter((t) => {
+  // Filter to-do: Khusus PIC hanya melihat milik mereka; Khusus Ucup bisa memantau semua atau per-PIC
+  const userTodos = todos.filter((t) => {
+    if (activeUser === 'Ucup') {
+      if (viewUserFilter === 'ALL') return true;
+      return (t.userName || 'Pampam') === viewUserFilter;
+    }
+    return !t.userName || t.userName === activeUser;
+  });
+
+  const filteredTodos = userTodos.filter((t) => {
     if (filter === 'ACTIVE') return !t.isCompleted;
     if (filter === 'COMPLETED') return t.isCompleted;
     if (filter === 'OVERDUE') return !t.isCompleted && Boolean(t.dueDate && t.dueDate < todayStr);
@@ -127,19 +152,26 @@ export default function TodoListWidget({
   const endIndex = Math.min(startIndex + pageSize, filteredTodos.length);
   const paginatedTodos = filteredTodos.slice(startIndex, startIndex + pageSize);
 
-  const activeCount = todos.filter((t) => !t.isCompleted).length;
-  const completedCount = todos.filter((t) => t.isCompleted).length;
-  const overdueCount = todos.filter((t) => !t.isCompleted && Boolean(t.dueDate && t.dueDate < todayStr)).length;
-  const dueTodayCount = todos.filter((t) => !t.isCompleted && t.dueDate === todayStr).length;
+  const activeCount = userTodos.filter((t) => !t.isCompleted).length;
+  const completedCount = userTodos.filter((t) => t.isCompleted).length;
+  const overdueCount = userTodos.filter((t) => !t.isCompleted && Boolean(t.dueDate && t.dueDate < todayStr)).length;
+  const dueTodayCount = userTodos.filter((t) => !t.isCompleted && t.dueDate === todayStr).length;
+
+  const isSuperintendent = activeUser === 'Ucup';
 
   return (
     <div className="rounded-2xl bg-white p-4 sm:p-6 border border-slate-200/80 shadow-xs space-y-4 sm:space-y-5">
       {/* Header Widget */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3 sm:pb-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h3 className="text-base md:text-lg font-bold text-slate-900">
-              To-Do List & Agenda Saya
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-base md:text-lg font-bold text-slate-900 flex items-center gap-2">
+              To-Do List Mandiri ({activeUser})
+              {isSuperintendent && (
+                <span className="rounded-full bg-amber-100 border border-amber-300 text-amber-800 text-[11px] font-bold px-2 py-0.5 inline-flex items-center gap-1 shadow-2xs">
+                  <Crown className="h-3 w-3 text-amber-600" /> Superintendent
+                </span>
+              )}
             </h3>
             <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-bold text-indigo-700">
               {activeCount} tugas aktif
@@ -152,7 +184,9 @@ export default function TodoListWidget({
             )}
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Catatan rencana kerja pribadi Anda: koordinasi, rekap data, dan follow-up payroll.
+            {isSuperintendent
+              ? 'Mode Superintendent: Anda dapat memantau meja kerja semua PIC dan mendelegasikan tugas khusus ke PIC tertentu.'
+              : `Meja kerja privat ${activeUser}: Catatan agenda dan tindak lanjut tugas pribadi.`}
           </p>
         </div>
 
@@ -215,10 +249,52 @@ export default function TodoListWidget({
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Semua ({todos.length})
+            Semua ({userTodos.length})
           </button>
         </div>
       </div>
+
+      {/* Panel Khusus Superintendent: Filter Pantau Meja Kerja PIC */}
+      {isSuperintendent && (
+        <div className="flex flex-wrap items-center gap-1.5 p-2.5 bg-amber-50/70 border border-amber-200/80 rounded-xl text-xs">
+          <span className="text-amber-950 font-bold flex items-center gap-1.5 text-xs pr-1">
+            <Crown className="h-3.5 w-3.5 text-amber-600" />
+            Pantau Meja Kerja:
+          </span>
+          {(['ALL', 'Pampam', 'Wahid', 'Izul', 'Ucup'] as const).map((userKey) => {
+            const count = todos.filter((t) => {
+              if (userKey === 'ALL') return true;
+              return (t.userName || 'Pampam') === userKey;
+            }).filter((t) => !t.isCompleted).length;
+
+            const label =
+              userKey === 'ALL'
+                ? '👥 Semua PIC'
+                : userKey === 'Ucup'
+                ? '👑 Ucup (Agenda Saya)'
+                : `👤 PIC ${userKey}`;
+            const isSelected = viewUserFilter === userKey;
+
+            return (
+              <button
+                key={userKey}
+                type="button"
+                onClick={() => {
+                  setViewUserFilter(userKey);
+                  setCurrentPage(1);
+                }}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer text-xs ${
+                  isSelected
+                    ? 'bg-amber-600 text-white font-bold shadow-xs'
+                    : 'bg-white text-slate-700 hover:bg-amber-100/80 border border-amber-200/80'
+                }`}
+              >
+                {label} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Input Tambah To-Do Baru */}
       <form onSubmit={handleAddTodo} className="space-y-2.5 bg-slate-50/70 p-3.5 rounded-2xl border border-slate-200/60">
@@ -228,7 +304,11 @@ export default function TodoListWidget({
             required
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="Tambah to-do baru... (contoh: Konfirmasi ke SPV Project Petikemas perihal jam lembur)"
+            placeholder={
+              isSuperintendent && assignedTo !== 'Ucup'
+                ? `Berikan instruksi to-do untuk ${assignedTo}... (contoh: Crosscheck selisih lembur Dept Ops)`
+                : 'Tambah to-do baru... (contoh: Konfirmasi ke SPV Project Petikemas perihal jam lembur)'
+            }
             className="flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs sm:text-sm focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
           />
           <button
@@ -241,18 +321,39 @@ export default function TodoListWidget({
             ) : (
               <Plus className="h-4 w-4" />
             )}
-            <span className="hidden sm:inline">Tambah</span>
+            <span className="hidden sm:inline">
+              {isSuperintendent && assignedTo !== 'Ucup' ? `Tugaskan ke ${assignedTo}` : 'Tambah'}
+            </span>
           </button>
         </div>
 
-        {/* Opsi Tambahan: Prioritas & Due Date */}
+        {/* Opsi Tambahan: Tugaskan Ke (Khusus Superintendent), Prioritas & Due Date */}
         <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+          {isSuperintendent && (
+            <div className="flex items-center gap-1.5 bg-amber-100/80 border border-amber-300 px-2.5 py-1 rounded-lg">
+              <span className="text-[11px] font-bold text-amber-950 flex items-center gap-1">
+                <Crown className="h-3 w-3 text-amber-700" />
+                Tugaskan Ke:
+              </span>
+              <select
+                value={assignedTo}
+                onChange={(e) => setAssignedTo(e.target.value as AppUserProfile)}
+                className="rounded-md border border-amber-300 bg-white px-2 py-0.5 text-xs font-bold text-amber-950 outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+              >
+                <option value="Pampam">Pampam (PIC)</option>
+                <option value="Wahid">Wahid (PIC)</option>
+                <option value="Izul">Izul (PIC)</option>
+                <option value="Ucup">Ucup (Agenda Saya Sendiri)</option>
+              </select>
+            </div>
+          )}
+
           <div className="flex items-center gap-1.5 text-slate-500">
             <span className="text-[11px] font-semibold">Prioritas:</span>
             <select
               value={newPriority}
               onChange={(e) => setNewPriority(e.target.value as Priority)}
-              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 outline-none focus:border-indigo-600"
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 outline-none focus:border-indigo-600 cursor-pointer"
             >
               <option value="NORMAL">Normal</option>
               <option value="TINGGI">Tinggi</option>
@@ -266,7 +367,7 @@ export default function TodoListWidget({
               type="date"
               value={newDueDate}
               onChange={(e) => setNewDueDate(e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 outline-none focus:border-indigo-600"
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 outline-none focus:border-indigo-600 cursor-pointer"
             />
           </div>
         </div>
@@ -292,12 +393,17 @@ export default function TodoListWidget({
             const isOverdue =
               todo.dueDate && todo.dueDate < todayStr && !todo.isCompleted;
             const isDueToday = todo.dueDate === todayStr && !todo.isCompleted;
+            const isToggling = togglingId === todo.id;
+            const isSuperTask = todo.title.includes('[Dari Superintendent]');
+            const displayTitle = todo.title.replace(/^\[Dari Superintendent\]\s*/i, '');
 
             return (
               <div
                 key={todo.id}
                 className={`group flex items-start justify-between gap-3 p-3 sm:px-4 rounded-xl border transition-all ${
-                  todo.isCompleted
+                  isToggling
+                    ? 'bg-indigo-50/50 border-indigo-200 opacity-80'
+                    : todo.isCompleted
                     ? 'bg-slate-50/60 border-slate-200/60 text-slate-400'
                     : isOverdue
                     ? 'bg-rose-50/70 border-rose-300 shadow-xs ring-1 ring-rose-200'
@@ -310,10 +416,13 @@ export default function TodoListWidget({
                 <div className="flex items-start gap-3 flex-1">
                   <button
                     onClick={() => handleToggleComplete(todo)}
-                    className="mt-0.5 shrink-0 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
+                    disabled={isToggling}
+                    className="mt-0.5 shrink-0 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer disabled:cursor-wait"
                     title={todo.isCompleted ? 'Tandai belum selesai' : 'Tandai selesai'}
                   >
-                    {todo.isCompleted ? (
+                    {isToggling ? (
+                      <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />
+                    ) : todo.isCompleted ? (
                       <CheckSquare className="h-5 w-5 text-emerald-600" />
                     ) : (
                       <Square className="h-5 w-5 hover:text-indigo-600" />
@@ -321,20 +430,53 @@ export default function TodoListWidget({
                   </button>
 
                   <div className="space-y-1 flex-1">
-                    <p
-                      className={`text-xs sm:text-sm font-medium leading-relaxed ${
-                        todo.isCompleted
-                          ? 'line-through text-slate-400'
-                          : isOverdue
-                          ? 'text-rose-950 font-bold'
-                          : 'text-slate-800'
-                      }`}
-                    >
-                      {todo.title}
-                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p
+                        className={`text-xs sm:text-sm font-medium leading-relaxed ${
+                          todo.isCompleted
+                            ? 'line-through text-slate-400'
+                            : isOverdue
+                            ? 'text-rose-950 font-bold'
+                            : 'text-slate-800'
+                        }`}
+                      >
+                        {displayTitle}
+                      </p>
+                      {isToggling && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-100/70 px-2 py-0.5 rounded-full animate-pulse">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          Menyimpan status...
+                        </span>
+                      )}
+                    </div>
 
                     {/* Metadata Badges */}
                     <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                      {/* Badge Khusus: Ditugaskan oleh Superintendent */}
+                      {isSuperTask && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 font-bold">
+                          <Crown className="h-3 w-3 text-amber-700" />
+                          Tugas dari Superintendent
+                        </span>
+                      )}
+
+                      {/* Info PIC pemilik tugas (Ditampilkan saat Ucup memantau atau melihat Semua) */}
+                      {(isSuperintendent || viewUserFilter === 'ALL') && (
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-bold ${
+                            todo.userName === 'Pampam'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                              : todo.userName === 'Wahid'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : todo.userName === 'Izul'
+                              ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                              : 'bg-amber-50 text-amber-800 border border-amber-200'
+                          }`}
+                        >
+                          👤 PIC: {todo.userName || 'Pampam'}
+                        </span>
+                      )}
+
                       {/* Prioritas */}
                       {todo.priority === 'URGENT' && !todo.isCompleted && (
                         <span className="rounded-md bg-rose-100 px-1.5 py-0.5 font-bold text-rose-700">
@@ -391,8 +533,6 @@ export default function TodoListWidget({
                     </div>
                   </div>
                 </div>
-
-                {/* Tombol Hapus dengan Konfirmasi Aman */}
                 {deletingId === todo.id ? (
                   <div className="flex items-center gap-1.5 animate-in fade-in shrink-0">
                     <button

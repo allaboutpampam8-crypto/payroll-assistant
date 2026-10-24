@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getAllTodos, createTodo } from '@/lib/db';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const todos = await getAllTodos();
+    const { searchParams } = new URL(request.url);
+    const user = searchParams.get('user') || undefined;
+    const todos = await getAllTodos(user);
     return NextResponse.json({ success: true, data: todos });
   } catch (error) {
     console.error('Failed to get todos:', error);
@@ -31,6 +33,7 @@ export async function POST(request: Request) {
       dueDate: body.dueDate || '',
       priority: body.priority || 'NORMAL',
       relatedTicketNumber: body.relatedTicketNumber || undefined,
+      userName: body.userName || undefined,
     });
 
     return NextResponse.json(

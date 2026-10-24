@@ -16,6 +16,7 @@ interface MetricsCardsProps {
   activeFilter: string;
   onSelectFilter: (filter: string) => void;
   onSelectTodosOverdue?: () => void;
+  scopeLabel?: string;
 }
 
 export default function MetricsCards({
@@ -23,13 +24,14 @@ export default function MetricsCards({
   activeFilter,
   onSelectFilter,
   onSelectTodosOverdue,
+  scopeLabel,
 }: MetricsCardsProps) {
   const cards = [
     {
       id: 'ALL',
       title: 'Total Masuk',
       value: metrics.totalReports,
-      subtext: 'Seluruh laporan periode ini',
+      subtext: scopeLabel ? `Laporan ${scopeLabel}` : 'Seluruh laporan periode ini',
       icon: Inbox,
       color: 'slate',
       borderClass: 'hover:border-slate-400',
@@ -40,7 +42,7 @@ export default function MetricsCards({
       id: 'OPEN',
       title: 'Open',
       value: metrics.openReports,
-      subtext: 'Laporan baru / belum ditangani',
+      subtext: scopeLabel ? 'Tiket Anda butuh penanganan' : 'Laporan baru / belum ditangani',
       icon: AlertCircle,
       color: 'amber',
       borderClass: 'hover:border-amber-400',
@@ -51,7 +53,7 @@ export default function MetricsCards({
       id: 'CROSSCHECK',
       title: 'Crosscheck',
       value: metrics.crosscheckReports,
-      subtext: 'Sedang diteliti / dicek project',
+      subtext: scopeLabel ? 'Tiket Anda sedang dicek' : 'Sedang diteliti / dicek project',
       icon: SearchCheck,
       color: 'blue',
       borderClass: 'hover:border-blue-400',
@@ -62,7 +64,7 @@ export default function MetricsCards({
       id: 'CLOSE',
       title: 'Close',
       value: metrics.closeReports,
-      subtext: 'Selesai ditangani tuntas',
+      subtext: scopeLabel ? 'Tiket Anda selesai tuntas' : 'Selesai ditangani tuntas',
       icon: CheckCircle2,
       color: 'emerald',
       borderClass: 'hover:border-emerald-400',
@@ -92,9 +94,16 @@ export default function MetricsCards({
               }`}
             >
               <div className="flex items-center justify-between w-full mb-3">
-                <span className="text-xs md:text-sm font-semibold text-slate-500">
-                  {c.title}
-                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs md:text-sm font-semibold text-slate-500">
+                    {c.title}
+                  </span>
+                  {scopeLabel && c.id === 'ALL' && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-200">
+                      ⭐ {scopeLabel}
+                    </span>
+                  )}
+                </div>
                 <div className={`p-2 rounded-xl ${c.badgeClass}`}>
                   <Icon className="h-4 w-4 md:h-5 md:w-5" />
                 </div>

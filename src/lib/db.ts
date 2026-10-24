@@ -36,6 +36,22 @@ const DEFAULT_SETTINGS: PayrollSettings = {
 // Row mappers for Supabase
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapReportFromRow(row: any): PayrollReport {
+  let reportedBy = row.reported_by || '';
+  let picName: string | undefined = row.pic_name || undefined;
+
+  // Graceful fallback for picName encoded inside reported_by: "Reporter • [PIC: Pampam]"
+  if (!picName && reportedBy.includes('[PIC:')) {
+    const match = reportedBy.match(/\[PIC:\s*([^\]]+)\]/);
+    if (match) {
+      picName = match[1].trim();
+      reportedBy = reportedBy
+        .replace(/\[PIC:\s*([^\]]+)\]/, '')
+        .replace(/[•|]\s*$/, '')
+        .replace(/^[•|]\s*/, '')
+        .trim();
+    }
+  }
+
   return {
     id: row.id,
     ticketNumber: row.ticket_number,
@@ -54,24 +70,38 @@ function mapReportFromRow(row: any): PayrollReport {
     dueDate: row.due_date || '',
     resolutionNotes: row.resolution_notes || '',
     source: row.source,
-    reportedBy: row.reported_by || '',
+    reportedBy: reportedBy || undefined,
     attachmentUrl: row.attachment_url || undefined,
     attachmentName: row.attachment_name || undefined,
     resolvedAt: row.resolved_at || undefined,
+    picName: picName || undefined,
   };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapTodoFromRow(row: any): PayrollTodo {
+  let title = row.title || '';
+  let userName: string | undefined = row.user_name || undefined;
+
+  // Graceful fallback for userName encoded inside title: "[Pampam] Title"
+  if (!userName && title.startsWith('[')) {
+    const match = title.match(/^\[(Pampam|Wahid|Izul|Ucup)\]\s*(.*)$/);
+    if (match) {
+      userName = match[1];
+      title = match[2];
+    }
+  }
+
   return {
     id: row.id,
-    title: row.title,
+    title,
     isCompleted: Boolean(row.is_completed),
     dueDate: row.due_date || '',
     priority: row.priority,
     relatedTicketNumber: row.related_ticket_number || undefined,
     createdAt: row.created_at,
     completedAt: row.completed_at || undefined,
+    userName: userName || 'Pampam',
   };
 }
 
@@ -177,6 +207,14 @@ export async function createReport(
   };
 
   if (isSupabaseConfigured && supabase) {
+    // Encode picName in reported_by for database persistence fallback:
+    let combinedReportedBy = newReport.reportedBy || '';
+    if (newReport.picName) {
+      combinedReportedBy = combinedReportedBy
+        ? `${combinedReportedBy} • [PIC: ${newReport.picName}]`
+        : `[PIC: ${newReport.picName}]`;
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const insertPayload: Record<string, any> = {
       id: newReport.id,
@@ -192,7 +230,7 @@ export async function createReport(
       priority: newReport.priority || 'NORMAL',
       period: newReport.period || 'Oktober 2026',
       source: newReport.source || 'MANUAL_PIC',
-      reported_by: newReport.reportedBy || null,
+      reported_by: combinedReportedBy || null,
       resolution_notes: newReport.resolutionNotes || '',
       due_date: newReport.dueDate || '',
       attachment_url: newReport.attachmentUrl || null,
@@ -262,13 +300,6 @@ export async function updateReport(
     const rowUpdates: Record<string, any> = { updated_at: now };
     if (updates.actionStatus !== undefined) {
       rowUpdates.action_status = updates.actionStatus;
-      if (updates.actionStatus === 'CLOSE') {
-        rowUpdates.resolved_at = updates.resolvedAt || now;
-      } else {
-        rowUpdates.resolved_at = null;
-      }
-    } else if (updates.resolvedAt !== undefined) {
-      rowUpdates.resolved_at = updates.resolvedAt;
     }
 
     if (updates.priority !== undefined) rowUpdates.priority = updates.priority;
@@ -276,8 +307,17 @@ export async function updateReport(
     if (updates.discrepancyAmount !== undefined) rowUpdates.discrepancy_amount = updates.discrepancyAmount;
     if (updates.dueDate !== undefined) rowUpdates.due_date = updates.dueDate;
     if (updates.period !== undefined) rowUpdates.period = updates.period;
-    if (updates.reportedBy !== undefined) rowUpdates.reported_by = updates.reportedBy;
+    if (updates.reportedBy !== undefined || updates.picName !== undefined) {
+      let combined = updates.reportedBy !== undefined ? updates.reportedBy : '';
+      const pic = updates.picName;
+      if (pic) {
+        combined = combined ? `${combined} • [PIC: ${pic}]` : `[PIC: ${pic}]`;
+      }
+      rowUpdates.reported_by = combined || null;
+    }
     if (updates.phoneNumber !== undefined) rowUpdates.phone_number = updates.phoneNumber;
+    if (updates.attachmentUrl !== undefined) rowUpdates.attachment_url = updates.attachmentUrl;
+    if (updates.attachmentName !== undefined) rowUpdates.attachment_name = updates.attachmentName;
 
     let { data, error } = await supabase
       .from('payroll_reports')
@@ -332,6 +372,67 @@ export async function updateReport(
   return updated;
 }
 
+export async function updateReportsBulk(
+  ids: string[],
+  updates: Partial<PayrollReport>
+): Promise<{ count: number }> {
+  if (!ids || ids.length === 0) return { count: 0 };
+  const now = new Date().toISOString();
+
+  if (isSupabaseConfigured && supabase) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rowUpdates: Record<string, any> = { updated_at: now };
+    if (updates.actionStatus !== undefined) {
+      rowUpdates.action_status = updates.actionStatus;
+    }
+
+    if (updates.priority !== undefined) rowUpdates.priority = updates.priority;
+    if (updates.resolutionNotes !== undefined) rowUpdates.resolution_notes = updates.resolutionNotes;
+
+    let { error } = await supabase
+      .from('payroll_reports')
+      .update(rowUpdates)
+      .in('id', ids);
+
+    // Fallback jika ada kolom yang tidak terdaftar di Supabase
+    if (error && (error.code === 'PGRST204' || error.code === '42703')) {
+      console.warn('Kolom tidak ditemukan di Supabase, mencoba update status saja...');
+      const minimalUpdates: Record<string, any> = { updated_at: now };
+      if (updates.actionStatus !== undefined) minimalUpdates.action_status = updates.actionStatus;
+      const retry = await supabase.from('payroll_reports').update(minimalUpdates).in('id', ids);
+      error = retry.error;
+    }
+
+    if (error) {
+      console.error('Error updating reports in bulk in Supabase:', error);
+      throw new Error(`Gagal memperbarui status di basis data: ${error.message}`);
+    }
+  }
+
+  // Juga update basis data JSON lokal
+  const local = getLocalDatabase();
+  local.reports = local.reports.map((r) => {
+    if (ids.includes(r.id)) {
+      let resolvedAt = r.resolvedAt;
+      if (updates.actionStatus === 'CLOSE') {
+        resolvedAt = updates.resolvedAt || r.resolvedAt || now;
+      } else if (updates.actionStatus) {
+        resolvedAt = undefined;
+      }
+      return {
+        ...r,
+        ...updates,
+        resolvedAt,
+        updatedAt: now,
+      };
+    }
+    return r;
+  });
+
+  saveLocalDatabase(local);
+  return { count: ids.length };
+}
+
 export async function deleteReport(id: string): Promise<boolean> {
   if (isSupabaseConfigured && supabase) {
     const { error } = await supabase.from('payroll_reports').delete().eq('id', id);
@@ -353,7 +454,8 @@ export async function deleteReport(id: string): Promise<boolean> {
 // TODOS
 // -------------------------------------------------------------
 
-export async function getAllTodos(): Promise<PayrollTodo[]> {
+export async function getAllTodos(userName?: string): Promise<PayrollTodo[]> {
+  let list: PayrollTodo[] = [];
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase
       .from('payroll_todos')
@@ -362,16 +464,22 @@ export async function getAllTodos(): Promise<PayrollTodo[]> {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      return data.map(mapTodoFromRow);
+      list = data.map(mapTodoFromRow);
+    } else {
+      console.error('Error fetching todos from Supabase:', error);
     }
-    console.error('Error fetching todos from Supabase:', error);
+  } else {
+    const local = getLocalDatabase();
+    list = (local.todos || []).map(mapTodoFromRow).sort((a, b) => {
+      if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
   }
 
-  const local = getLocalDatabase();
-  return (local.todos || []).sort((a, b) => {
-    if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1;
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
+  if (userName) {
+    return list.filter((t) => t.userName === userName);
+  }
+  return list;
 }
 
 export async function createTodo(
@@ -379,18 +487,22 @@ export async function createTodo(
 ): Promise<PayrollTodo> {
   const date = new Date();
   const id = `todo-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+  const userName = payload.userName || 'Pampam';
 
   const newTodo: PayrollTodo = {
     ...payload,
     id,
+    userName,
     isCompleted: payload.isCompleted ?? false,
     createdAt: date.toISOString(),
   };
 
+  const dbTitle = `[${userName}] ${newTodo.title}`;
+
   if (isSupabaseConfigured && supabase) {
     const { error } = await supabase.from('payroll_todos').insert({
       id: newTodo.id,
-      title: newTodo.title,
+      title: dbTitle,
       is_completed: newTodo.isCompleted,
       due_date: newTodo.dueDate || '',
       priority: newTodo.priority || 'NORMAL',
@@ -402,7 +514,10 @@ export async function createTodo(
 
   const local = getLocalDatabase();
   if (!local.todos) local.todos = [];
-  local.todos.unshift(newTodo);
+  local.todos.unshift({
+    ...newTodo,
+    title: dbTitle,
+  });
   saveLocalDatabase(local);
 
   return newTodo;
@@ -421,7 +536,10 @@ export async function updateTodo(
       rowUpdates.is_completed = updates.isCompleted;
       rowUpdates.completed_at = updates.isCompleted ? now : null;
     }
-    if (updates.title !== undefined) rowUpdates.title = updates.title;
+    if (updates.title !== undefined) {
+      const prefix = updates.userName ? `[${updates.userName}] ` : '';
+      rowUpdates.title = `${prefix}${updates.title}`;
+    }
     if (updates.dueDate !== undefined) rowUpdates.due_date = updates.dueDate;
     if (updates.priority !== undefined) rowUpdates.priority = updates.priority;
 
@@ -432,27 +550,30 @@ export async function updateTodo(
       .select()
       .single();
 
-    if (!error && data) return mapTodoFromRow(data);
+    if (!error && data) {
+      return mapTodoFromRow(data);
+    }
     console.error('Error updating todo in Supabase:', error);
   }
 
   const local = getLocalDatabase();
-  if (!local.todos) local.todos = [];
+  if (!local.todos) return null;
   const idx = local.todos.findIndex((t) => t.id === id);
   if (idx === -1) return null;
 
-  const existing = local.todos[idx];
-  let completedAt = updates.completedAt ?? existing.completedAt;
-  if (updates.isCompleted === true && !completedAt) completedAt = now;
-  else if (updates.isCompleted === false) completedAt = undefined;
-
+  const existing = mapTodoFromRow(local.todos[idx]);
   const updated: PayrollTodo = {
     ...existing,
     ...updates,
-    completedAt,
+    completedAt: updates.isCompleted ? now : undefined,
   };
-  local.todos[idx] = updated;
+  const prefix = updated.userName ? `[${updated.userName}] ` : '';
+  local.todos[idx] = {
+    ...updated,
+    title: `${prefix}${updated.title}`,
+  };
   saveLocalDatabase(local);
+
   return updated;
 }
 

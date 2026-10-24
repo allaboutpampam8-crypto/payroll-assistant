@@ -238,7 +238,7 @@ export default function ExcelSplitterPage() {
               Jaminan Keamanan & Privasi Data Gaji:
             </p>
             <p className="text-emerald-700 leading-relaxed">
-              Seluruh proses membaca, memotong baris data, dan mengompresi ke file ZIP dilakukan secara <b>100% Client-Side di dalam memori laptop Pak Pampam</b>. File Excel master Anda <b>tidak pernah dikirim ke internet, cloud, atau server pihak ketiga mana pun</b>.
+              Seluruh proses membaca, memotong baris data, dan mengompresi ke file ZIP dilakukan secara <b>100% Client-Side di dalam memori laptop Anda</b>. File Excel master Anda <b>tidak pernah dikirim ke internet, cloud, atau server pihak ketiga mana pun</b>.
             </p>
           </div>
         </div>
