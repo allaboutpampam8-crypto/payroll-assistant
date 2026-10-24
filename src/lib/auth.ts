@@ -3,11 +3,16 @@ import { createHmac, timingSafeEqual } from 'crypto';
 const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 hari masa berlaku sesi
 
 function getSecretKey(): string {
-  return (
-    process.env.SESSION_SECRET ||
-    process.env.DASHBOARD_PIN ||
-    'pds-lapor-payroll-secure-auth-secret-key-2026'
-  );
+  const secret = process.env.SESSION_SECRET || process.env.DASHBOARD_PIN;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'Konfigurasi Keamanan Server Error: SESSION_SECRET atau DASHBOARD_PIN belum disetel pada Environment Variables Production.'
+      );
+    }
+    return 'pds-lapor-payroll-dev-secret-only';
+  }
+  return secret;
 }
 
 /**

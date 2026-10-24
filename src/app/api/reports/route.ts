@@ -77,12 +77,12 @@ export async function POST(request: Request) {
     const description = String(body.description || '').trim().slice(0, 2000);
     const period = String(body.period || 'Oktober 2026').trim().slice(0, 50);
 
-    // Validasi lampiran (maksimal 4.5 MB Base64 string & MIME type aman)
+    // Validasi lampiran (maksimal 7 MB Base64 string setara ~5 MB file asli & MIME type aman)
     let attachmentUrl = body.attachmentUrl;
     if (attachmentUrl) {
-      if (typeof attachmentUrl !== 'string' || attachmentUrl.length > 4.5 * 1024 * 1024) {
+      if (typeof attachmentUrl !== 'string' || attachmentUrl.length > 7 * 1024 * 1024) {
         return NextResponse.json(
-          { success: false, message: 'Ukuran lampiran terlalu besar. Maksimal 3 MB.' },
+          { success: false, message: 'Ukuran lampiran terlalu besar. Maksimal 5 MB.' },
           { status: 413 }
         );
       }
