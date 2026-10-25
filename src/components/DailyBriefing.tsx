@@ -18,7 +18,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { PayrollSettings, PayrollReport, PayrollTodo } from '@/lib/types';
+import { PayrollSettings, PayrollReport, PayrollTodo, AppUserProfile } from '@/lib/types';
 import { getNextPeriodSuggestion } from '@/lib/periodUtils';
 
 interface DailyBriefingProps {
@@ -26,6 +26,7 @@ interface DailyBriefingProps {
   reports: PayrollReport[];
   todos?: PayrollTodo[];
   activeTodosCount?: number;
+  activeUser?: AppUserProfile;
   onOpenSettings: () => void;
   onFilterStatus: (status: string) => void;
   onOpenTodos?: (filter?: 'ALL' | 'ACTIVE' | 'COMPLETED' | 'OVERDUE' | 'TODAY') => void;
@@ -37,6 +38,7 @@ export default function DailyBriefing({
   reports,
   todos = [],
   activeTodosCount = 0,
+  activeUser,
   onOpenSettings,
   onFilterStatus,
   onOpenTodos,
@@ -121,20 +123,33 @@ export default function DailyBriefing({
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
+  const isSuperintendent = activeUser === 'Ucup';
+
+  // Saring laporan & to-do sesuai profil user aktif:
+  // - PIC (Pampam, Wahid, Izul): HANYA hitung tiket & agenda miliknya sendiri
+  // - Superintendent (Ucup): Memantau seluruh tim
+  const scopedReports = isSuperintendent
+    ? reports
+    : reports.filter((r) => (r.picName || 'Pampam') === (activeUser || 'Pampam'));
+
+  const scopedTodos = isSuperintendent
+    ? todos
+    : todos.filter((t) => !t.userName || t.userName === (activeUser || 'Pampam'));
+
   // Analisis laporan
-  const openCount = reports.filter((r) => r.actionStatus === 'OPEN').length;
-  const crosscheckCount = reports.filter((r) => r.actionStatus === 'CROSSCHECK').length;
+  const openCount = scopedReports.filter((r) => r.actionStatus === 'OPEN').length;
+  const crosscheckCount = scopedReports.filter((r) => r.actionStatus === 'CROSSCHECK').length;
   const totalUnresolved = openCount + crosscheckCount;
 
-  const urgentCount = reports.filter(
+  const urgentCount = scopedReports.filter(
     (r) => r.priority === 'URGENT' && r.actionStatus !== 'CLOSE'
   ).length;
 
   // Laporan Terlambat (Overdue) & Jatuh Tempo Hari Ini / Besok
-  const overdueReports = reports.filter(
+  const overdueReports = scopedReports.filter(
     (r) => r.dueDate && r.dueDate < todayStr && r.actionStatus !== 'CLOSE'
   );
-  const dueSoonReports = reports.filter(
+  const dueSoonReports = scopedReports.filter(
     (r) =>
       r.dueDate &&
       (r.dueDate === todayStr || r.dueDate === tomorrowStr) &&
@@ -142,7 +157,7 @@ export default function DailyBriefing({
   );
 
   // To-Do List Terlambat & Jatuh Tempo Hari Ini / Besok
-  const activeTodoList = todos.filter((t) => !t.isCompleted);
+  const activeTodoList = scopedTodos.filter((t) => !t.isCompleted);
   const overdueTodos = activeTodoList.filter(
     (t) => t.dueDate && t.dueDate < todayStr
   );
@@ -175,6 +190,19 @@ export default function DailyBriefing({
             </span>
             <span className="text-indigo-400 hidden sm:inline">•</span>
             <span className="font-semibold text-indigo-100">{settings.activePeriod}</span>
+            {activeUser && (
+              <>
+                <span className="text-indigo-400 hidden sm:inline">•</span>
+                <span className="font-semibold text-amber-300 flex items-center gap-1">
+                  <span>PIC: {activeUser}</span>
+                  {isSuperintendent && (
+                    <span className="text-[10px] bg-purple-500/30 text-purple-200 px-1.5 py-0.5 rounded border border-purple-400/40 font-bold">
+                      👑 Superintendent
+                    </span>
+                  )}
+                </span>
+              </>
+            )}
           </div>
 
           <h2 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight text-white leading-snug">
@@ -189,7 +217,7 @@ export default function DailyBriefing({
               <span className="flex items-center flex-wrap gap-2 text-rose-300">
                 <AlertTriangle className="h-6 w-6 text-rose-400 animate-bounce shrink-0" />
                 <span>
-                  Perhatian: Ada <span className="underline decoration-rose-400 font-extrabold text-white">{totalOverdueItems} item terlambat</span> dari target deadline!
+                  Perhatian: Ada <span className="underline decoration-rose-400 font-extrabold text-white">{totalOverdueItems} item terlambat</span> {isSuperintendent ? 'pada tim' : 'dalam tanggung jawab Anda'}!
                 </span>
               </span>
             ) : totalUnresolved === 0 && activeTodoList.length === 0 ? (
@@ -197,7 +225,7 @@ export default function DailyBriefing({
             ) : (
               <>
                 Ada <span className="text-amber-300 font-extrabold">{totalUnresolved} laporan</span> dan{' '}
-                <span className="text-emerald-300 font-extrabold">{activeTodoList.length} to-do</span> dalam agenda Anda
+                <span className="text-emerald-300 font-extrabold">{activeTodoList.length} to-do</span> {isSuperintendent ? 'dalam pantauan tim' : 'dalam agenda Anda'}
               </>
             )}
           </h2>
@@ -214,7 +242,7 @@ export default function DailyBriefing({
               </>
             ) : totalOverdueItems > 0 ? (
               <>
-                Segera tindaklanjuti:{' '}
+                Segera tindaklanjuti ({isSuperintendent ? 'Pantauan Tim' : `Tiket Milik ${activeUser || 'Anda'}`}):{' '}
                 {overdueTodos.length > 0 && (
                   <span className="font-bold text-rose-200 bg-rose-950/60 px-2 py-0.5 rounded-md border border-rose-500/30 mr-1.5">
                     🚨 {overdueTodos.length} To-Do terlewat jatuh tempo
@@ -236,7 +264,7 @@ export default function DailyBriefing({
               'Bagus sekali! Tidak ada laporan tertunda dan agenda to-do Anda kosong atau sudah diselesaikan.'
             ) : (
               <>
-                Fokus tugas saat ini:{' '}
+                Fokus tugas saat ini ({isSuperintendent ? 'Pantauan Tim' : `Milik ${activeUser || 'Anda'}`}):{' '}
                 {openCount > 0 && (
                   <span className="font-semibold text-amber-200">{openCount} laporan baru (Open), </span>
                 )}
@@ -371,7 +399,7 @@ export default function DailyBriefing({
           <div className="flex items-center gap-2 text-xs flex-wrap">
             <span className="font-extrabold text-amber-300 flex items-center gap-1">
               <Hourglass className="h-3.5 w-3.5" />
-              <span>Reminder Batas Waktu:</span>
+              <span>Reminder Batas Waktu {isSuperintendent ? '(Seluruh Tim)' : `(${activeUser || 'Tiket Saya'})`}:</span>
             </span>
 
             {overdueTodos.length > 0 && (
@@ -392,7 +420,7 @@ export default function DailyBriefing({
                 type="button"
                 onClick={() => onFilterStatus('OVERDUE')}
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-600/90 hover:bg-rose-600 text-white font-bold text-[11px] shadow-sm cursor-pointer transition-all"
-                title="Klik untuk memfilter laporan yang lewat target tanggal"
+                title={`Klik untuk memfilter laporan yang lewat target tanggal (${isSuperintendent ? 'Semua PIC' : activeUser})`}
               >
                 <Clock className="h-3 w-3 text-amber-300" />
                 <span>{overdueReports.length} Laporan Terlambat</span>
@@ -426,9 +454,11 @@ export default function DailyBriefing({
       )}
 
       {/* Quick Action Badges */}
-      {(totalUnresolved > 0 || activeTodosCount > 0) && (
+      {(totalUnresolved > 0 || activeTodoList.length > 0) && (
         <div className="mt-3.5 pt-3 border-t border-white/10 flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-indigo-200/70 text-[11px]">Akses Cepat:</span>
+          <span className="text-indigo-200/70 text-[11px]">
+            Akses Cepat {isSuperintendent ? '(Tim):' : `(${activeUser || 'Saya'}):`}
+          </span>
           {openCount > 0 && (
             <button
               onClick={() => onFilterStatus('OPEN')}

@@ -96,7 +96,7 @@ export default function AssistantDashboard() {
   // Multi-User Profile State: Pampam, Wahid, Izul, Ucup
   const [activeProfile, setActiveProfile] = useState<AppUserProfile>('Pampam');
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const [picFilter, setPicFilter] = useState<'ALL' | 'MY_TICKETS'>('ALL');
+  const [picFilter, setPicFilter] = useState<'ALL' | 'MY_TICKETS'>('MY_TICKETS');
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -146,6 +146,11 @@ export default function AssistantDashboard() {
     const saved = localStorage.getItem('lapor_payroll_active_user') as AppUserProfile;
     if (saved && ['Pampam', 'Wahid', 'Izul', 'Ucup'].includes(saved)) {
       setActiveProfile(saved);
+      if (saved === 'Ucup') {
+        setPicFilter('ALL');
+      } else {
+        setPicFilter('MY_TICKETS');
+      }
     }
   }, []);
 
@@ -185,6 +190,12 @@ export default function AssistantDashboard() {
     localStorage.setItem('lapor_payroll_active_user', prof);
     setIsProfileDropdownOpen(false);
     fetchTodos(prof);
+    if (prof === 'Ucup') {
+      setPicFilter('ALL');
+    } else {
+      setPicFilter('MY_TICKETS');
+    }
+    setCurrentPage(1);
   };
 
   useEffect(() => {
@@ -563,6 +574,11 @@ export default function AssistantDashboard() {
         onSuccess={(selectedUser) => {
           setIsAuthenticated(true);
           setActiveProfile(selectedUser);
+          if (selectedUser === 'Ucup') {
+            setPicFilter('ALL');
+          } else {
+            setPicFilter('MY_TICKETS');
+          }
         }}
         assistantName={settings.assistantName}
         companyName={settings.companyName}
@@ -820,9 +836,13 @@ export default function AssistantDashboard() {
           reports={reports}
           todos={todos}
           activeTodosCount={todos.filter((t) => !t.isCompleted).length}
+          activeUser={activeProfile}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onRefresh={fetchDashboardData}
           onFilterStatus={(st) => {
+            if (activeProfile !== 'Ucup' && st === 'OVERDUE') {
+              setPicFilter('MY_TICKETS');
+            }
             handleStatusFilterChange(st);
             setActiveTab('REPORTS');
           }}
@@ -838,6 +858,9 @@ export default function AssistantDashboard() {
           scopeLabel={picFilter === 'MY_TICKETS' ? `Milik ${activeProfile}` : undefined}
           activeFilter={statusFilter}
           onSelectFilter={(st) => {
+            if (activeProfile !== 'Ucup' && st === 'OVERDUE') {
+              setPicFilter('MY_TICKETS');
+            }
             handleStatusFilterChange(st);
             setActiveTab('REPORTS');
           }}
