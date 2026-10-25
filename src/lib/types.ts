@@ -1,12 +1,16 @@
 export type IssueCategory =
-  | 'PERMINTAAN_DATA'
   | 'KOREKSI_GAJI'
-  | 'PEMUTAKHIRAN_GAJI';
+  | 'KEKURANGAN_GAJI'
+  | 'GAJI_SUSULAN'
+  | 'PEMUTAKHIRAN_GAJI'
+  | 'PERMINTAAN_DATA';
 
 export const CATEGORY_LABELS: Record<IssueCategory, string> = {
-  PERMINTAAN_DATA: 'Permintaan Data',
   KOREKSI_GAJI: 'Koreksi Gaji',
+  KEKURANGAN_GAJI: 'Kekurangan Gaji',
+  GAJI_SUSULAN: 'Gaji Susulan',
   PEMUTAKHIRAN_GAJI: 'Pemutakhiran Gaji',
+  PERMINTAAN_DATA: 'Permintaan Data',
 };
 
 export type ActionStatus =

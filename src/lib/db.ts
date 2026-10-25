@@ -13,7 +13,7 @@ import {
 } from './types';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { sendTelegramNotification } from './telegram';
-import { getNextPeriodSuggestion, INDONESIAN_MONTHS } from './periodUtils';
+import { getNextPeriodSuggestion, INDONESIAN_MONTHS, formatPeriodToIso } from './periodUtils';
 
 const DB_PATH = path.join(process.cwd(), 'data', 'payroll_db.json');
 
@@ -810,7 +810,7 @@ export async function savePayrollResultsBatch(
 
   if (isSupabaseConfigured && supabase) {
     const rows = results.map((r) => ({
-      period: r.period,
+      period: formatPeriodToIso(r.period),
       employee_nik: r.employeeNik,
       employee_name: r.employeeName,
       status: r.status || null,

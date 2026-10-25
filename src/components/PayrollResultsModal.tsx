@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { PayrollResult, PayrollComparison, PayrollPeriodSummary } from '@/lib/types';
+import { formatPeriodToIso } from '@/lib/periodUtils';
 
 interface PayrollResultsModalProps {
   isOpen: boolean;
@@ -39,7 +40,7 @@ export default function PayrollResultsModal({
   const [activeTab, setActiveTab] = useState<'UPLOAD' | 'SEARCH' | 'SUMMARY'>('UPLOAD');
 
   // Upload States
-  const [uploadPeriod, setUploadPeriod] = useState(defaultPeriod || '2026-10');
+  const [uploadPeriod, setUploadPeriod] = useState(formatPeriodToIso(defaultPeriod) || '2026-10');
   const [parsedRows, setParsedRows] = useState<Omit<PayrollResult, 'id' | 'uploadedAt'>[]>([]);
   const [fileName, setFileName] = useState('');
   const [isProcessingFile, setIsProcessingFile] = useState(false);
@@ -280,8 +281,9 @@ export default function PayrollResultsModal({
 
   useEffect(() => {
     if (defaultPeriod) {
-      setUploadPeriod(defaultPeriod);
-      setSummaryPeriod(defaultPeriod);
+      const iso = formatPeriodToIso(defaultPeriod);
+      setUploadPeriod(iso);
+      setSummaryPeriod(iso);
     }
   }, [defaultPeriod]);
 
@@ -401,12 +403,13 @@ export default function PayrollResultsModal({
         ];
 
         const dataRows = aoa.slice(headerRowIdx + 1);
+        const normalizedUploadPeriod = formatPeriodToIso(uploadPeriod.trim()) || uploadPeriod.trim();
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const mapped: Omit<PayrollResult, 'id' | 'uploadedAt'>[] = dataRows.map((row: any[]) => {
           if (!row || row.length === 0) {
             return {
-              period: uploadPeriod.trim(),
+              period: normalizedUploadPeriod,
               employeeNik: 'NON-NRP',
               employeeName: 'Tanpa Nama',
               status: '',
@@ -573,7 +576,7 @@ export default function PayrollResultsModal({
           const takeHomePay = grossSalary - totalDeductions;
 
           return {
-            period: uploadPeriod.trim(),
+            period: normalizedUploadPeriod,
             employeeNik: nik || 'NON-NRP',
             employeeName: name || 'Tanpa Nama',
             status,
@@ -610,6 +613,12 @@ export default function PayrollResultsModal({
   const handleStartBatchUpload = async () => {
     if (parsedRows.length === 0) return;
 
+    const normalizedPeriod = formatPeriodToIso(uploadPeriod.trim()) || uploadPeriod.trim();
+    if (!normalizedPeriod) {
+      setUploadErrorMessage('Periode gaji wajib diisi (contoh: 2026-10).');
+      return;
+    }
+
     setUploadErrorMessage('');
     setUploadSuccessMessage('');
     const BATCH_SIZE = 1000;
@@ -620,7 +629,10 @@ export default function PayrollResultsModal({
 
     try {
       for (let i = 0; i < total; i += BATCH_SIZE) {
-        const chunk = parsedRows.slice(i, i + BATCH_SIZE);
+        const chunk = parsedRows.slice(i, i + BATCH_SIZE).map((r) => ({
+          ...r,
+          period: normalizedPeriod,
+        }));
         const res = await fetch('/api/payroll-results/upload', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -637,7 +649,7 @@ export default function PayrollResultsModal({
       }
 
       setUploadSuccessMessage(
-        `Sukses! Seluruh ${total.toLocaleString('id-ID')} data payroll periode ${uploadPeriod} berhasil disimpan ke database cloud.`
+        `Sukses! Seluruh ${total.toLocaleString('id-ID')} data payroll periode ${normalizedPeriod} berhasil disimpan ke database cloud.`
       );
       setParsedRows([]);
       setFileName('');
@@ -811,11 +823,16 @@ export default function PayrollResultsModal({
                     value={uploadPeriod}
                     onChange={(e) => setUploadPeriod(e.target.value)}
                     placeholder="Contoh: 2026-10"
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs sm:text-sm font-semibold outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs sm:text-sm font-semibold font-mono outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Gunakan format YYYY-MM untuk memudahkan perbandingan antar bulan.
-                  </p>
+                  <div className="text-[10px] text-slate-500 mt-1 flex flex-col gap-1">
+                    <span>Format standar: YYYY-MM (misal: 2026-10)</span>
+                    {uploadPeriod && formatPeriodToIso(uploadPeriod) !== uploadPeriod && (
+                      <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-block self-start">
+                        ✓ Disimpan otomatis sebagai: {formatPeriodToIso(uploadPeriod)}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="sm:col-span-2">

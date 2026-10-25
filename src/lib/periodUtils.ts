@@ -68,3 +68,73 @@ export function getNextPeriodSuggestion(
 
   return { nextPeriod, nextCutoff };
 }
+
+/**
+ * Mengonversi format periode teks bebas (misal "Oktober 2026", "oktober 2026", "2026/10", "10-2026")
+ * ke format standar ISO YYYY-MM (misal "2026-10") untuk tabel payroll_results.
+ */
+export function formatPeriodToIso(periodStr: string): string {
+  if (!periodStr) return '';
+  const clean = periodStr.trim();
+
+  // Sudah format YYYY-MM
+  if (/^\d{4}-\d{2}$/.test(clean)) {
+    return clean;
+  }
+
+  // Format YYYY/MM
+  if (/^\d{4}\/\d{2}$/.test(clean)) {
+    return clean.replace('/', '-');
+  }
+
+  // Format MM-YYYY atau MM/YYYY
+  const mmyyyy = clean.match(/^(\d{1,2})[-/](\d{4})$/);
+  if (mmyyyy) {
+    const mm = mmyyyy[1].padStart(2, '0');
+    return `${mmyyyy[2]}-${mm}`;
+  }
+
+  // Format NamaBulan Tahun (contoh: "Oktober 2026")
+  const parts = clean.split(/\s+/);
+  if (parts.length >= 2) {
+    const monthName = parts[0].toLowerCase();
+    const yearStr = parts[1];
+    const monthIdx = INDONESIAN_MONTHS.findIndex((m) =>
+      m.toLowerCase().startsWith(monthName.slice(0, 3))
+    );
+    if (monthIdx !== -1 && /^\d{4}$/.test(yearStr)) {
+      const mm = String(monthIdx + 1).padStart(2, '0');
+      return `${yearStr}-${mm}`;
+    }
+  }
+
+  // Format Tahun NamaBulan (contoh: "2026 Oktober")
+  if (parts.length >= 2 && /^\d{4}$/.test(parts[0])) {
+    const yearStr = parts[0];
+    const monthName = parts[1].toLowerCase();
+    const monthIdx = INDONESIAN_MONTHS.findIndex((m) =>
+      m.toLowerCase().startsWith(monthName.slice(0, 3))
+    );
+    if (monthIdx !== -1) {
+      const mm = String(monthIdx + 1).padStart(2, '0');
+      return `${yearStr}-${mm}`;
+    }
+  }
+
+  return clean;
+}
+
+/**
+ * Mengonversi format ISO YYYY-MM (misal "2026-10") ke tampilan formal (misal "Oktober 2026")
+ */
+export function formatIsoToPeriod(isoPeriod: string): string {
+  if (!isoPeriod) return '-';
+  const parts = isoPeriod.trim().split('-');
+  if (parts.length === 2) {
+    const monthIdx = parseInt(parts[1], 10) - 1;
+    if (monthIdx >= 0 && monthIdx < 12) {
+      return `${INDONESIAN_MONTHS[monthIdx]} ${parts[0]}`;
+    }
+  }
+  return isoPeriod;
+}

@@ -74,7 +74,7 @@ const toolDeclarations: FunctionDeclaration[] = [
         },
         kategori: {
           type: Type.STRING,
-          description: 'Kategori kendala opsional (contoh: LEMBUR, KOREKSI_GAJI, SLIP_GAJI, BPJS)',
+          description: 'Kategori kendala opsional (contoh: KOREKSI_GAJI, KEKURANGAN_GAJI, GAJI_SUSULAN, PEMUTAKHIRAN_GAJI, PERMINTAAN_DATA)',
         },
       },
     },
