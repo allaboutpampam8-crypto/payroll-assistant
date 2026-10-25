@@ -12,6 +12,7 @@ import {
   ChevronRight,
   ChevronDown,
   AlertTriangle,
+  AlertCircle,
   RotateCcw,
   ListTodo,
   ClipboardList,
@@ -126,6 +127,11 @@ export default function AssistantDashboard() {
   const [selectedReportIds, setSelectedReportIds] = useState<Set<string>>(new Set());
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [bulkToastMessage, setBulkToastMessage] = useState<string | null>(null);
+  const [updatingReportIds, setUpdatingReportIds] = useState<Set<string>>(new Set());
+  const [toastNotification, setToastNotification] = useState<{
+    message: string;
+    type: 'loading' | 'success' | 'error';
+  } | null>(null);
 
   // Authentication & Security State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -322,22 +328,70 @@ export default function AssistantDashboard() {
     localStorage.setItem('payroll_dashboard_page_size', String(size));
   };
 
-  // Quick 1-click update status from list
+  // Quick 1-click update status from list dengan loading progress & optimistic update
   const handleQuickStatusChange = async (
     reportId: string,
     newStatus: ActionStatus
   ) => {
+    const targetReport = reports.find((r) => r.id === reportId);
+    const oldStatus = targetReport?.actionStatus;
+    const ticketNo = targetReport?.ticketNumber || '';
+    const statusLabel =
+      newStatus === 'CLOSE' ? 'Selesai (Close)' : newStatus === 'CROSSCHECK' ? 'Crosscheck' : 'Open';
+
+    // 1. Set ID yang sedang diproses untuk menampilkan spinner loading
+    setUpdatingReportIds((prev) => new Set(prev).add(reportId));
+
+    // 2. Optimistic update: status di tabel/card langsung berubah seketika tanpa delay
+    setReports((prev) =>
+      prev.map((r) => (r.id === reportId ? { ...r, actionStatus: newStatus } : r))
+    );
+
+    // 3. Tampilkan toast loading bahwa proses penyimpanan sedang berjalan
+    setToastNotification({
+      message: `Sedang memproses perubahan status #${ticketNo} ke ${statusLabel}...`,
+      type: 'loading',
+    });
+
     try {
       const res = await fetch(`/api/reports/${reportId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ actionStatus: newStatus }),
       });
-      if (res.ok) {
+      const data = await res.json();
+      if (res.ok && data.success) {
+        // Tampilkan konfirmasi sukses
+        setToastNotification({
+          message: `Status laporan #${ticketNo} berhasil disimpan sebagai ${statusLabel}!`,
+          type: 'success',
+        });
+        setTimeout(() => setToastNotification(null), 3000);
+        // Refresh latar belakang untuk sinkronisasi metrik & settings
         fetchDashboardData();
+        fetchTodos();
+      } else {
+        throw new Error(data.message || 'Gagal mengubah status');
       }
     } catch (err) {
       console.error('Failed to quick-update status:', err);
+      // Kembalikan ke status semula jika request gagal
+      if (oldStatus) {
+        setReports((prev) =>
+          prev.map((r) => (r.id === reportId ? { ...r, actionStatus: oldStatus } : r))
+        );
+      }
+      setToastNotification({
+        message: 'Gagal memperbarui status laporan. Silakan coba lagi.',
+        type: 'error',
+      });
+      setTimeout(() => setToastNotification(null), 4000);
+    } finally {
+      setUpdatingReportIds((prev) => {
+        const next = new Set(prev);
+        next.delete(reportId);
+        return next;
+      });
     }
   };
 
@@ -521,8 +575,14 @@ export default function AssistantDashboard() {
   const handleBulkStatusUpdate = async (status: ActionStatus) => {
     if (selectedReportIds.size === 0) return;
     setIsBulkUpdating(true);
+    const ids = Array.from(selectedReportIds);
+    const statusLabel =
+      status === 'CLOSE' ? 'Selesai (Close)' : status === 'CROSSCHECK' ? 'Crosscheck' : 'Open';
+    setToastNotification({
+      message: `Sedang memproses ${ids.length} laporan terpilih ke status ${statusLabel}...`,
+      type: 'loading',
+    });
     try {
-      const ids = Array.from(selectedReportIds);
       const res = await fetch('/api/reports', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -530,10 +590,11 @@ export default function AssistantDashboard() {
       });
       const data = await res.json();
       if (data.success) {
-        const statusLabel =
-          status === 'CLOSE' ? 'Selesai (Close)' : status === 'CROSSCHECK' ? 'Crosscheck' : 'Open';
-        setBulkToastMessage(`${ids.length} laporan berhasil diubah ke status ${statusLabel}!`);
-        setTimeout(() => setBulkToastMessage(null), 3500);
+        setToastNotification({
+          message: `${ids.length} laporan berhasil diubah ke status ${statusLabel}!`,
+          type: 'success',
+        });
+        setTimeout(() => setToastNotification(null), 3500);
         setSelectedReportIds(new Set());
         fetchDashboardData();
         fetchTodos();
@@ -542,7 +603,11 @@ export default function AssistantDashboard() {
       }
     } catch (err) {
       console.error('Error bulk updating:', err);
-      alert('Terjadi kesalahan saat memproses pembaruan massal.');
+      setToastNotification({
+        message: 'Terjadi kesalahan saat memproses pembaruan massal.',
+        type: 'error',
+      });
+      setTimeout(() => setToastNotification(null), 4000);
     } finally {
       setIsBulkUpdating(false);
     }
@@ -1369,22 +1434,30 @@ export default function AssistantDashboard() {
                             </div>
                           </div>
 
-                          {/* 1-Click Status Quick Action Dropdown */}
+                          {/* 1-Click Status Quick Action Dropdown dengan Loading Spinner */}
                           <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                            <select
-                              value={report.actionStatus}
-                              onChange={(e) =>
-                                handleQuickStatusChange(
-                                  report.id,
-                                  e.target.value as ActionStatus
-                                )
-                              }
-                              className="text-[11px] font-semibold py-1.5 px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 outline-none cursor-pointer"
-                            >
-                              <option value="OPEN">Open</option>
-                              <option value="CROSSCHECK">Crosscheck</option>
-                              <option value="CLOSE">Close</option>
-                            </select>
+                            <div className="relative inline-flex items-center">
+                              <select
+                                value={report.actionStatus}
+                                disabled={updatingReportIds.has(report.id)}
+                                onChange={(e) =>
+                                  handleQuickStatusChange(
+                                    report.id,
+                                    e.target.value as ActionStatus
+                                  )
+                                }
+                                className={`text-[11px] font-semibold py-1.5 px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 outline-none cursor-pointer transition-all ${
+                                  updatingReportIds.has(report.id) ? 'opacity-60 cursor-wait pl-7' : ''
+                                }`}
+                              >
+                                <option value="OPEN">Open</option>
+                                <option value="CROSSCHECK">Crosscheck</option>
+                                <option value="CLOSE">Close</option>
+                              </select>
+                              {updatingReportIds.has(report.id) && (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-600 absolute left-2 pointer-events-none" />
+                              )}
+                            </div>
 
                             <button
                               onClick={() => setSelectedReport(report)}
@@ -1652,28 +1725,36 @@ export default function AssistantDashboard() {
                                 </div>
                               </td>
 
-                              {/* Quick Action Status */}
+                              {/* Quick Action Status dengan Loading Spinner */}
                               <td className="py-2.5 px-3" onClick={(e) => e.stopPropagation()}>
-                                <select
-                                  value={report.actionStatus}
-                                  onChange={(e) =>
-                                    handleQuickStatusChange(
-                                      report.id,
-                                      e.target.value as ActionStatus
-                                    )
-                                  }
-                                  className={`text-[11px] font-semibold py-1 px-2 rounded-lg border outline-none cursor-pointer ${
-                                    report.actionStatus === 'OPEN'
-                                      ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                      : report.actionStatus === 'CROSSCHECK'
-                                      ? 'bg-sky-50 text-sky-800 border-sky-200'
-                                      : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                  }`}
-                                >
-                                  <option value="OPEN">🟡 Open</option>
-                                  <option value="CROSSCHECK">🔵 Crosscheck</option>
-                                  <option value="CLOSE">🟢 Close</option>
-                                </select>
+                                <div className="relative inline-flex items-center">
+                                  <select
+                                    value={report.actionStatus}
+                                    disabled={updatingReportIds.has(report.id)}
+                                    onChange={(e) =>
+                                      handleQuickStatusChange(
+                                        report.id,
+                                        e.target.value as ActionStatus
+                                      )
+                                    }
+                                    className={`text-[11px] font-semibold py-1 px-2 rounded-lg border outline-none cursor-pointer transition-all ${
+                                      updatingReportIds.has(report.id) ? 'opacity-60 cursor-wait pr-6' : ''
+                                    } ${
+                                      report.actionStatus === 'OPEN'
+                                        ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                        : report.actionStatus === 'CROSSCHECK'
+                                        ? 'bg-sky-50 text-sky-800 border-sky-200'
+                                        : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                    }`}
+                                  >
+                                    <option value="OPEN">🟡 Open</option>
+                                    <option value="CROSSCHECK">🔵 Crosscheck</option>
+                                    <option value="CLOSE">🟢 Close</option>
+                                  </select>
+                                  {updatingReportIds.has(report.id) && (
+                                    <Loader2 className="h-3 w-3 animate-spin text-indigo-600 absolute right-1.5 pointer-events-none" />
+                                  )}
+                                </div>
                               </td>
 
                               {/* PIC Penanggung Jawab */}
@@ -1983,7 +2064,18 @@ export default function AssistantDashboard() {
         report={selectedReport}
         isOpen={Boolean(selectedReport)}
         onClose={() => setSelectedReport(null)}
-        onUpdated={() => {
+        onUpdated={(updatedReport) => {
+          if (updatedReport) {
+            // Optimistic update: langsung perbarui laporan di tabel & card seketika
+            setReports((prev) =>
+              prev.map((r) => (r.id === updatedReport.id ? updatedReport : r))
+            );
+            setToastNotification({
+              message: `Perubahan laporan #${updatedReport.ticketNumber} (${updatedReport.employeeName}) berhasil disimpan!`,
+              type: 'success',
+            });
+            setTimeout(() => setToastNotification(null), 3500);
+          }
           fetchDashboardData();
           fetchTodos();
         }}
@@ -2017,13 +2109,32 @@ export default function AssistantDashboard() {
         }}
       />
 
-      {/* Toast Notifikasi Aksi Massal */}
-      {bulkToastMessage && (
+      {/* Global Toast Notifikasi Progress & Aksi */}
+      {toastNotification ? (
+        <div
+          className={`fixed top-16 right-4 z-50 rounded-xl px-4 py-2.5 text-xs font-semibold shadow-xl flex items-center gap-2.5 animate-in slide-in-from-top duration-200 border ${
+            toastNotification.type === 'loading'
+              ? 'bg-slate-900/95 text-indigo-200 border-indigo-500/40 backdrop-blur-md shadow-indigo-950/40'
+              : toastNotification.type === 'error'
+              ? 'bg-rose-950 text-rose-200 border-rose-600 shadow-rose-950/50'
+              : 'bg-slate-900 text-white border-slate-700'
+          }`}
+        >
+          {toastNotification.type === 'loading' ? (
+            <Loader2 className="h-4 w-4 text-indigo-400 animate-spin shrink-0" />
+          ) : toastNotification.type === 'error' ? (
+            <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />
+          ) : (
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+          )}
+          <span>{toastNotification.message}</span>
+        </div>
+      ) : bulkToastMessage ? (
         <div className="fixed top-16 right-4 z-50 rounded-xl bg-slate-900 text-white px-4 py-2.5 text-xs font-semibold shadow-xl flex items-center gap-2 animate-in slide-in-from-top duration-200 border border-slate-700">
           <CheckCircle2 className="h-4 w-4 text-emerald-400" />
           <span>{bulkToastMessage}</span>
         </div>
-      )}
+      ) : null}
 
       {/* Floating Bulk Action Bar (Rekomendasi 6) */}
       {selectedReportIds.size > 0 && (

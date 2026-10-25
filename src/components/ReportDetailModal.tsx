@@ -32,7 +32,7 @@ interface ReportDetailModalProps {
   report: PayrollReport | null;
   isOpen: boolean;
   onClose: () => void;
-  onUpdated: () => void;
+  onUpdated: (updatedReport?: PayrollReport) => void;
   activeUser?: AppUserProfile;
 }
 
@@ -64,7 +64,7 @@ function ReportDetailModalContent({
 }: {
   report: PayrollReport;
   onClose: () => void;
-  onUpdated: () => void;
+  onUpdated: (updatedReport?: PayrollReport) => void;
   activeUser: AppUserProfile;
 }) {
   const [actionStatus, setActionStatus] = useState<ActionStatus>(report.actionStatus);
@@ -173,7 +173,7 @@ function ReportDetailModalContent({
         throw new Error(data.message || 'Gagal menyimpan perubahan.');
       }
 
-      onUpdated();
+      onUpdated(data.data);
       onClose();
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : 'Terjadi kesalahan sistem.');
@@ -266,6 +266,15 @@ function ReportDetailModalContent({
 
         {/* Content Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5">
+          {loading && (
+            <div className="flex items-center gap-2.5 rounded-xl bg-indigo-50 p-3 text-xs text-indigo-700 border border-indigo-200 animate-pulse">
+              <Loader2 className="h-4 w-4 animate-spin text-indigo-600 shrink-0" />
+              <span className="font-semibold">
+                Sedang menyimpan perubahan laporan ke sistem... Mohon tunggu sebentar.
+              </span>
+            </div>
+          )}
+
           {errorMsg && (
             <div className="flex items-center gap-2 rounded-xl bg-rose-50 p-3 text-xs text-rose-700 border border-rose-200">
               <AlertCircle className="h-4 w-4 shrink-0" />
@@ -705,11 +714,16 @@ function ReportDetailModalContent({
               className="px-4 sm:px-5 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-md shadow-indigo-600/20 flex items-center gap-1.5 sm:gap-2 cursor-pointer disabled:opacity-70"
             >
               {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Menyimpan...</span>
+                </>
               ) : (
-                <Save className="h-4 w-4" />
+                <>
+                  <Save className="h-4 w-4" />
+                  <span>Simpan<span className="hidden sm:inline"> Perubahan</span></span>
+                </>
               )}
-              <span>Simpan<span className="hidden sm:inline"> Perubahan</span></span>
             </button>
           </div>
         </div>
