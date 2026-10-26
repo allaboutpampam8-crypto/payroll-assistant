@@ -82,6 +82,8 @@ function mapReportFromRow(row: any): PayrollReport {
 function mapTodoFromRow(row: any): PayrollTodo {
   let title = row.title || '';
   let userName: string | undefined = row.user_name || undefined;
+  let description: string | undefined = row.description || undefined;
+  let subTodos: any[] | undefined = undefined;
 
   // Graceful fallback for userName encoded inside title: "[Pampam] Title"
   if (!userName && title.startsWith('[')) {
@@ -92,9 +94,32 @@ function mapTodoFromRow(row: any): PayrollTodo {
     }
   }
 
+  // Graceful extraction of structured payload metadata if encoded in title:
+  // Format: "Real Title __TODO_META__{"description":"...","subTodos":[...]}"
+  const metaIndex = title.indexOf('__TODO_META__');
+  if (metaIndex !== -1) {
+    try {
+      const rawMeta = title.substring(metaIndex + 13);
+      title = title.substring(0, metaIndex).trim();
+      const meta = JSON.parse(rawMeta);
+      if (meta.description) description = meta.description;
+      if (Array.isArray(meta.subTodos)) subTodos = meta.subTodos;
+    } catch {
+      // ignore parse error if malformed
+    }
+  }
+
+  if (row.sub_todos && Array.isArray(row.sub_todos)) {
+    subTodos = row.sub_todos;
+  } else if (row.subTodos && Array.isArray(row.subTodos)) {
+    subTodos = row.subTodos;
+  }
+
   return {
     id: row.id,
     title,
+    description: description || row.description || undefined,
+    subTodos: subTodos || undefined,
     isCompleted: Boolean(row.is_completed),
     dueDate: row.due_date || '',
     priority: row.priority,
@@ -482,6 +507,26 @@ export async function getAllTodos(userName?: string): Promise<PayrollTodo[]> {
   return list;
 }
 
+function buildDbTodoTitle(todo: {
+  title: string;
+  userName?: string;
+  description?: string;
+  subTodos?: any[];
+}): string {
+  const userName = todo.userName || 'Pampam';
+  let title = todo.title.trim();
+  const hasMeta = Boolean(todo.description?.trim()) || (Array.isArray(todo.subTodos) && todo.subTodos.length > 0);
+
+  if (hasMeta) {
+    const metaPayload: Record<string, any> = {};
+    if (todo.description?.trim()) metaPayload.description = todo.description.trim();
+    if (Array.isArray(todo.subTodos) && todo.subTodos.length > 0) metaPayload.subTodos = todo.subTodos;
+    title = `${title} __TODO_META__${JSON.stringify(metaPayload)}`;
+  }
+
+  return `[${userName}] ${title}`;
+}
+
 export async function createTodo(
   payload: Omit<PayrollTodo, 'id' | 'createdAt' | 'completedAt'>
 ): Promise<PayrollTodo> {
@@ -497,7 +542,7 @@ export async function createTodo(
     createdAt: date.toISOString(),
   };
 
-  const dbTitle = `[${userName}] ${newTodo.title}`;
+  const dbTitle = buildDbTodoTitle(newTodo);
 
   if (isSupabaseConfigured && supabase) {
     const { error } = await supabase.from('payroll_todos').insert({
@@ -529,16 +574,27 @@ export async function updateTodo(
 ): Promise<PayrollTodo | null> {
   const now = new Date().toISOString();
 
+  // Ambil state existing to-do terlebih dahulu agar metadata tidak tertimpa
+  const allTodos = await getAllTodos();
+  const currentTodo = allTodos.find((t) => t.id === id);
+  if (!currentTodo) return null;
+
+  const mergedTodo: PayrollTodo = {
+    ...currentTodo,
+    ...updates,
+    completedAt: updates.isCompleted !== undefined ? (updates.isCompleted ? now : undefined) : currentTodo.completedAt,
+  };
+
+  const dbTitle = buildDbTodoTitle(mergedTodo);
+
   if (isSupabaseConfigured && supabase) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rowUpdates: Record<string, any> = {};
+    const rowUpdates: Record<string, any> = {
+      title: dbTitle,
+    };
     if (updates.isCompleted !== undefined) {
       rowUpdates.is_completed = updates.isCompleted;
       rowUpdates.completed_at = updates.isCompleted ? now : null;
-    }
-    if (updates.title !== undefined) {
-      const prefix = updates.userName ? `[${updates.userName}] ` : '';
-      rowUpdates.title = `${prefix}${updates.title}`;
     }
     if (updates.dueDate !== undefined) rowUpdates.due_date = updates.dueDate;
     if (updates.priority !== undefined) rowUpdates.priority = updates.priority;
@@ -561,20 +617,13 @@ export async function updateTodo(
   const idx = local.todos.findIndex((t) => t.id === id);
   if (idx === -1) return null;
 
-  const existing = mapTodoFromRow(local.todos[idx]);
-  const updated: PayrollTodo = {
-    ...existing,
-    ...updates,
-    completedAt: updates.isCompleted ? now : undefined,
-  };
-  const prefix = updated.userName ? `[${updated.userName}] ` : '';
   local.todos[idx] = {
-    ...updated,
-    title: `${prefix}${updated.title}`,
+    ...mergedTodo,
+    title: dbTitle,
   };
   saveLocalDatabase(local);
 
-  return updated;
+  return mergedTodo;
 }
 
 export async function deleteTodo(id: string): Promise<boolean> {

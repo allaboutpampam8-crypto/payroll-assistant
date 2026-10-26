@@ -87,9 +87,18 @@ export interface PayrollReport {
   picName?: string; // PIC Penanggung Jawab / Pembuat (Pampam, Wahid, Izul, Ucup)
 }
 
+export interface SubTodoItem {
+  id: string;
+  title: string;
+  isCompleted: boolean;
+  createdAt: string;
+}
+
 export interface PayrollTodo {
   id: string;
   title: string;
+  description?: string; // Catatan tambahan / teks panjang
+  subTodos?: SubTodoItem[]; // Daftar sub-tugas lanjutan
   isCompleted: boolean;
   dueDate?: string; // YYYY-MM-DD
   priority: Priority;

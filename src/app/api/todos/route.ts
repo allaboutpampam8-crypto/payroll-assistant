@@ -29,6 +29,8 @@ export async function POST(request: Request) {
 
     const newTodo = await createTodo({
       title: body.title.trim(),
+      description: body.description?.trim() || undefined,
+      subTodos: Array.isArray(body.subTodos) ? body.subTodos : undefined,
       isCompleted: body.isCompleted ?? false,
       dueDate: body.dueDate || '',
       priority: body.priority || 'NORMAL',

@@ -11,10 +11,14 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Flame,
   Crown,
+  ListTree,
+  CornerDownRight,
+  FileText,
 } from 'lucide-react';
-import { PayrollTodo, Priority, AppUserProfile } from '@/lib/types';
+import { PayrollTodo, SubTodoItem, Priority, AppUserProfile } from '@/lib/types';
 
 export type TodoFilterType = 'ALL' | 'ACTIVE' | 'COMPLETED' | 'OVERDUE' | 'TODAY';
 
@@ -34,10 +38,21 @@ export default function TodoListWidget({
   const [filter, setFilter] = useState<TodoFilterType>(initialFilter);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+
+  // Form Input To-Do Baru
   const [newTitle, setNewTitle] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [showDescriptionInput, setShowDescriptionInput] = useState(false);
   const [newPriority, setNewPriority] = useState<Priority>('NORMAL');
   const [newDueDate, setNewDueDate] = useState('');
   const [loadingAdd, setLoadingAdd] = useState(false);
+
+  // Sub-task states
+  const [expandedSubTodos, setExpandedSubTodos] = useState<Set<string>>(new Set());
+  const [newSubTitles, setNewSubTitles] = useState<Record<string, string>>({});
+  const [addingSubTodoId, setAddingSubTodoId] = useState<string | null>(null);
+
+  // Actions loading
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
@@ -62,8 +77,20 @@ export default function TodoListWidget({
     setCurrentPage(1);
   };
 
-  const handleAddTodo = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const toggleSubTodoSection = (todoId: string) => {
+    setExpandedSubTodos((prev) => {
+      const next = new Set(prev);
+      if (next.has(todoId)) {
+        next.delete(todoId);
+      } else {
+        next.add(todoId);
+      }
+      return next;
+    });
+  };
+
+  const handleAddTodo = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!newTitle.trim()) return;
 
     const targetUser = activeUser === 'Ucup' ? assignedTo : activeUser;
@@ -77,6 +104,7 @@ export default function TodoListWidget({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: finalTitle,
+          description: newDescription.trim() || undefined,
           priority: newPriority,
           dueDate: newDueDate,
           userName: targetUser,
@@ -85,6 +113,8 @@ export default function TodoListWidget({
 
       if (res.ok) {
         setNewTitle('');
+        setNewDescription('');
+        setShowDescriptionInput(false);
         setNewDueDate('');
         setNewPriority('NORMAL');
         onRefresh();
@@ -99,10 +129,11 @@ export default function TodoListWidget({
   const handleToggleComplete = async (todo: PayrollTodo) => {
     setTogglingId(todo.id);
     try {
+      const nextCompleted = !todo.isCompleted;
       const res = await fetch(`/api/todos/${todo.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isCompleted: !todo.isCompleted }),
+        body: JSON.stringify({ isCompleted: nextCompleted }),
       });
       if (res.ok) {
         onRefresh();
@@ -111,6 +142,90 @@ export default function TodoListWidget({
       console.error('Failed to toggle todo:', err);
     } finally {
       setTogglingId(null);
+    }
+  };
+
+  // Tambah Sub-Tugas ke To-Do Utama
+  const handleAddSubTodo = async (todo: PayrollTodo) => {
+    const subTitle = (newSubTitles[todo.id] || '').trim();
+    if (!subTitle) return;
+
+    setAddingSubTodoId(todo.id);
+    try {
+      const currentSub = todo.subTodos || [];
+      const newSubItem: SubTodoItem = {
+        id: `sub-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        title: subTitle,
+        isCompleted: false,
+        createdAt: new Date().toISOString(),
+      };
+      const updatedSubTodos = [...currentSub, newSubItem];
+
+      const res = await fetch(`/api/todos/${todo.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subTodos: updatedSubTodos }),
+      });
+
+      if (res.ok) {
+        setNewSubTitles((prev) => ({ ...prev, [todo.id]: '' }));
+        // Pastikan dropdown sub-tugas terbuka
+        setExpandedSubTodos((prev) => new Set(prev).add(todo.id));
+        onRefresh();
+      }
+    } catch (err) {
+      console.error('Failed to add sub-todo:', err);
+    } finally {
+      setAddingSubTodoId(null);
+    }
+  };
+
+  // Toggle Centang Sub-Tugas
+  const handleToggleSubTodo = async (todo: PayrollTodo, subId: string) => {
+    const currentSub = todo.subTodos || [];
+    const updatedSubTodos = currentSub.map((item) =>
+      item.id === subId ? { ...item, isCompleted: !item.isCompleted } : item
+    );
+
+    // Cek apakah seluruh sub-tugas selesai
+    const allCompleted = updatedSubTodos.length > 0 && updatedSubTodos.every((s) => s.isCompleted);
+
+    try {
+      const res = await fetch(`/api/todos/${todo.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subTodos: updatedSubTodos,
+          // Jika semua sub-tugas selesai, otomatis tandai tugas utama selesai (jika belum)
+          ...(allCompleted && !todo.isCompleted ? { isCompleted: true } : {}),
+        }),
+      });
+
+      if (res.ok) {
+        onRefresh();
+      }
+    } catch (err) {
+      console.error('Failed to toggle sub-todo:', err);
+    }
+  };
+
+  // Hapus Sub-Tugas
+  const handleDeleteSubTodo = async (todo: PayrollTodo, subId: string) => {
+    const currentSub = todo.subTodos || [];
+    const updatedSubTodos = currentSub.filter((item) => item.id !== subId);
+
+    try {
+      const res = await fetch(`/api/todos/${todo.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subTodos: updatedSubTodos }),
+      });
+
+      if (res.ok) {
+        onRefresh();
+      }
+    } catch (err) {
+      console.error('Failed to delete sub-todo:', err);
     }
   };
 
@@ -186,7 +301,7 @@ export default function TodoListWidget({
           <p className="text-xs text-slate-500 mt-0.5">
             {isSuperintendent
               ? 'Mode Superintendent: Anda dapat memantau meja kerja semua PIC dan mendelegasikan tugas khusus ke PIC tertentu.'
-              : `Meja kerja privat ${activeUser}: Catatan agenda dan tindak lanjut tugas pribadi.`}
+              : `Meja kerja privat ${activeUser}: Catatan agenda, instruksi lanjutan, dan checklist sub-tugas pribadi.`}
           </p>
         </div>
 
@@ -296,85 +411,133 @@ export default function TodoListWidget({
         </div>
       )}
 
-      {/* Input Tambah To-Do Baru */}
-      <form onSubmit={handleAddTodo} className="space-y-2.5 bg-slate-50/70 p-3.5 rounded-2xl border border-slate-200/60">
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            required
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            placeholder={
-              isSuperintendent && assignedTo !== 'Ucup'
-                ? `Berikan instruksi to-do untuk ${assignedTo}... (contoh: Crosscheck selisih lembur Dept Ops)`
-                : 'Tambah to-do baru... (contoh: Konfirmasi ke SPV Project Petikemas perihal jam lembur)'
-            }
-            className="flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs sm:text-sm focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
-          />
+      {/* Form Input Tambah To-Do Baru (Multi-line Support) */}
+      <form onSubmit={handleAddTodo} className="space-y-2.5 bg-slate-50/80 p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
+        <div className="space-y-2">
+          {/* Textarea Multi-line untuk Judul Tugas Utama */}
+          <div className="relative">
+            <textarea
+              required
+              rows={2}
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              onKeyDown={(e) => {
+                // Ctrl+Enter atau Cmd+Enter untuk submit instan
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddTodo();
+                }
+              }}
+              placeholder={
+                isSuperintendent && assignedTo !== 'Ucup'
+                  ? `Berikan instruksi to-do untuk ${assignedTo}...\n(Tekan Enter untuk baris baru, Ctrl+Enter untuk simpan)`
+                  : `Tulis to-do atau catatan tugas...\n(Tekan Enter untuk baris baru, Ctrl+Enter untuk simpan)`
+              }
+              className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs sm:text-sm focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none resize-y min-h-[52px] leading-relaxed"
+            />
+          </div>
+
+          {/* Opsi Tambahan Deskripsi / Rincian Penjelasan Panjang */}
+          {showDescriptionInput ? (
+            <div className="animate-in fade-in duration-150">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
+                  <FileText className="h-3 w-3 text-indigo-600" />
+                  Rincian Penjelasan / Catatan Tambahan (Opsional):
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowDescriptionInput(false)}
+                  className="text-[10px] text-slate-400 hover:text-slate-600 font-semibold"
+                >
+                  Tutup Catatan
+                </button>
+              </div>
+              <textarea
+                rows={2}
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+                placeholder="Tambahkan catatan detail, link meeting, atau panduan kerja..."
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none leading-relaxed"
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowDescriptionInput(true)}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
+            >
+              <Plus className="h-3 w-3" />
+              <span>+ Tambah Catatan / Rincian Penjelasan</span>
+            </button>
+          )}
+        </div>
+
+        {/* Toolbar Bawah: Tugaskan Ke, Prioritas, Due Date, dan Tombol Tambah */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1 border-t border-slate-200/60 text-xs">
+          <div className="flex flex-wrap items-center gap-2 text-slate-500">
+            {isSuperintendent && (
+              <div className="flex items-center gap-1.5 bg-amber-100/80 border border-amber-300 px-2 py-1 rounded-lg">
+                <span className="text-[11px] font-bold text-amber-950 flex items-center gap-1">
+                  <Crown className="h-3 w-3 text-amber-700" />
+                  Tugaskan Ke:
+                </span>
+                <select
+                  value={assignedTo}
+                  onChange={(e) => setAssignedTo(e.target.value as AppUserProfile)}
+                  className="rounded-md border border-amber-300 bg-white px-2 py-0.5 text-xs font-bold text-amber-950 outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+                >
+                  <option value="Pampam">Pampam (PIC)</option>
+                  <option value="Wahid">Wahid (PIC)</option>
+                  <option value="Izul">Izul (PIC)</option>
+                  <option value="Ucup">Ucup (Agenda Saya Sendiri)</option>
+                </select>
+              </div>
+            )}
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-semibold">Prioritas:</span>
+              <select
+                value={newPriority}
+                onChange={(e) => setNewPriority(e.target.value as Priority)}
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 outline-none focus:border-indigo-600 cursor-pointer"
+              >
+                <option value="NORMAL">Normal</option>
+                <option value="TINGGI">Tinggi</option>
+                <option value="URGENT">Urgent 🔴</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-semibold">Batas Waktu:</span>
+              <input
+                type="date"
+                value={newDueDate}
+                onChange={(e) => setNewDueDate(e.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 outline-none focus:border-indigo-600 cursor-pointer"
+              />
+            </div>
+          </div>
+
           <button
             type="submit"
             disabled={loadingAdd || !newTitle.trim()}
-            className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm shadow-indigo-600/20 cursor-pointer"
+            className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm shadow-indigo-600/20 cursor-pointer shrink-0"
           >
             {loadingAdd ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Plus className="h-4 w-4" />
             )}
-            <span className="hidden sm:inline">
-              {isSuperintendent && assignedTo !== 'Ucup' ? `Tugaskan ke ${assignedTo}` : 'Tambah'}
+            <span>
+              {isSuperintendent && assignedTo !== 'Ucup' ? `Tugaskan ke ${assignedTo}` : 'Tambah To-Do'}
             </span>
           </button>
-        </div>
-
-        {/* Opsi Tambahan: Tugaskan Ke (Khusus Superintendent), Prioritas & Due Date */}
-        <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-          {isSuperintendent && (
-            <div className="flex items-center gap-1.5 bg-amber-100/80 border border-amber-300 px-2.5 py-1 rounded-lg">
-              <span className="text-[11px] font-bold text-amber-950 flex items-center gap-1">
-                <Crown className="h-3 w-3 text-amber-700" />
-                Tugaskan Ke:
-              </span>
-              <select
-                value={assignedTo}
-                onChange={(e) => setAssignedTo(e.target.value as AppUserProfile)}
-                className="rounded-md border border-amber-300 bg-white px-2 py-0.5 text-xs font-bold text-amber-950 outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
-              >
-                <option value="Pampam">Pampam (PIC)</option>
-                <option value="Wahid">Wahid (PIC)</option>
-                <option value="Izul">Izul (PIC)</option>
-                <option value="Ucup">Ucup (Agenda Saya Sendiri)</option>
-              </select>
-            </div>
-          )}
-
-          <div className="flex items-center gap-1.5 text-slate-500">
-            <span className="text-[11px] font-semibold">Prioritas:</span>
-            <select
-              value={newPriority}
-              onChange={(e) => setNewPriority(e.target.value as Priority)}
-              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 outline-none focus:border-indigo-600 cursor-pointer"
-            >
-              <option value="NORMAL">Normal</option>
-              <option value="TINGGI">Tinggi</option>
-              <option value="URGENT">Urgent 🔴</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-1.5 text-slate-500">
-            <span className="text-[11px] font-semibold">Batas Waktu:</span>
-            <input
-              type="date"
-              value={newDueDate}
-              onChange={(e) => setNewDueDate(e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 outline-none focus:border-indigo-600 cursor-pointer"
-            />
-          </div>
         </div>
       </form>
 
       {/* Daftar To-Do */}
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         {filteredTodos.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-slate-400 space-y-1">
             <CheckCircle2 className="h-8 w-8 mx-auto text-slate-300" />
@@ -397,10 +560,15 @@ export default function TodoListWidget({
             const isSuperTask = todo.title.includes('[Dari Superintendent]');
             const displayTitle = todo.title.replace(/^\[Dari Superintendent\]\s*/i, '');
 
+            const subList = todo.subTodos || [];
+            const subCompletedCount = subList.filter((s) => s.isCompleted).length;
+            const isSubExpanded = expandedSubTodos.has(todo.id);
+            const isAddingSub = addingSubTodoId === todo.id;
+
             return (
               <div
                 key={todo.id}
-                className={`group flex items-start justify-between gap-3 p-3 sm:px-4 rounded-xl border transition-all ${
+                className={`group rounded-2xl border transition-all ${
                   isToggling
                     ? 'bg-indigo-50/50 border-indigo-200 opacity-80'
                     : todo.isCompleted
@@ -412,156 +580,303 @@ export default function TodoListWidget({
                     : 'bg-white border-slate-200 hover:border-indigo-300 shadow-2xs'
                 }`}
               >
-                {/* Checkbox & Konten */}
-                <div className="flex items-start gap-3 flex-1">
-                  <button
-                    onClick={() => handleToggleComplete(todo)}
-                    disabled={isToggling}
-                    className="mt-0.5 shrink-0 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer disabled:cursor-wait"
-                    title={todo.isCompleted ? 'Tandai belum selesai' : 'Tandai selesai'}
-                  >
-                    {isToggling ? (
-                      <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />
-                    ) : todo.isCompleted ? (
-                      <CheckSquare className="h-5 w-5 text-emerald-600" />
-                    ) : (
-                      <Square className="h-5 w-5 hover:text-indigo-600" />
-                    )}
-                  </button>
-
-                  <div className="space-y-1 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p
-                        className={`text-xs sm:text-sm font-medium leading-relaxed ${
-                          todo.isCompleted
-                            ? 'line-through text-slate-400'
-                            : isOverdue
-                            ? 'text-rose-950 font-bold'
-                            : 'text-slate-800'
-                        }`}
-                      >
-                        {displayTitle}
-                      </p>
-                      {isToggling && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-100/70 px-2 py-0.5 rounded-full animate-pulse">
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                          Menyimpan status...
-                        </span>
+                {/* Baris Utama To-Do */}
+                <div className="flex items-start justify-between gap-3 p-3.5 sm:p-4">
+                  {/* Checkbox Tugas Utama & Judul */}
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <button
+                      onClick={() => handleToggleComplete(todo)}
+                      disabled={isToggling}
+                      className="mt-0.5 shrink-0 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer disabled:cursor-wait"
+                      title={todo.isCompleted ? 'Tandai belum selesai' : 'Tandai selesai'}
+                    >
+                      {isToggling ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />
+                      ) : todo.isCompleted ? (
+                        <CheckSquare className="h-5 w-5 text-emerald-600" />
+                      ) : (
+                        <Square className="h-5 w-5 hover:text-indigo-600" />
                       )}
-                    </div>
+                    </button>
 
-                    {/* Metadata Badges */}
-                    <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                      {/* Badge Khusus: Ditugaskan oleh Superintendent */}
-                      {isSuperTask && (
-                        <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 font-bold">
-                          <Crown className="h-3 w-3 text-amber-700" />
-                          Tugas dari Superintendent
-                        </span>
-                      )}
-
-                      {/* Info PIC pemilik tugas (Ditampilkan saat Ucup memantau atau melihat Semua) */}
-                      {(isSuperintendent || viewUserFilter === 'ALL') && (
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-bold ${
-                            todo.userName === 'Pampam'
-                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                              : todo.userName === 'Wahid'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : todo.userName === 'Izul'
-                              ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                              : 'bg-amber-50 text-amber-800 border border-amber-200'
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                      {/* Judul Multi-Line Support */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div
+                          className={`text-xs sm:text-sm font-medium leading-relaxed whitespace-pre-wrap break-words ${
+                            todo.isCompleted
+                              ? 'line-through text-slate-400'
+                              : isOverdue
+                              ? 'text-rose-950 font-bold'
+                              : 'text-slate-800'
                           }`}
                         >
-                          👤 PIC: {todo.userName || 'Pampam'}
-                        </span>
+                          {displayTitle}
+                        </div>
+                        {isToggling && (
+                          <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-100/70 px-2 py-0.5 rounded-full animate-pulse">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Menyimpan...
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Deskripsi Tambahan Multi-line (Jika ada) */}
+                      {todo.description && (
+                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 text-slate-600 text-xs whitespace-pre-wrap leading-relaxed">
+                          {todo.description}
+                        </div>
                       )}
 
-                      {/* Prioritas */}
-                      {todo.priority === 'URGENT' && !todo.isCompleted && (
-                        <span className="rounded-md bg-rose-100 px-1.5 py-0.5 font-bold text-rose-700">
-                          Urgent
-                        </span>
-                      )}
-                      {todo.priority === 'TINGGI' && !todo.isCompleted && (
-                        <span className="rounded-md bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-800">
-                          Tinggi
-                        </span>
-                      )}
+                      {/* Metadata Badges & Tombol Sub-Task */}
+                      <div className="flex flex-wrap items-center gap-1.5 text-[10px] pt-0.5">
+                        {/* Badge Khusus: Ditugaskan oleh Superintendent */}
+                        {isSuperTask && (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 font-bold">
+                            <Crown className="h-3 w-3 text-amber-700" />
+                            Tugas dari Superintendent
+                          </span>
+                        )}
 
-                      {/* Batas Waktu */}
-                      {todo.dueDate && (
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-medium ${
-                            isOverdue
-                              ? 'bg-rose-600 text-white font-extrabold shadow-2xs'
-                              : isDueToday
-                              ? 'bg-amber-400 text-slate-950 font-bold'
-                              : 'bg-slate-100 text-slate-600'
+                        {/* Info PIC pemilik tugas */}
+                        {(isSuperintendent || viewUserFilter === 'ALL') && (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-bold ${
+                              todo.userName === 'Pampam'
+                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                : todo.userName === 'Wahid'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : todo.userName === 'Izul'
+                                ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                : 'bg-amber-50 text-amber-800 border border-amber-200'
+                            }`}
+                          >
+                            👤 PIC: {todo.userName || 'Pampam'}
+                          </span>
+                        )}
+
+                        {/* Prioritas */}
+                        {todo.priority === 'URGENT' && !todo.isCompleted && (
+                          <span className="rounded-md bg-rose-100 px-1.5 py-0.5 font-bold text-rose-700">
+                            Urgent
+                          </span>
+                        )}
+                        {todo.priority === 'TINGGI' && !todo.isCompleted && (
+                          <span className="rounded-md bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-800">
+                            Tinggi
+                          </span>
+                        )}
+
+                        {/* Batas Waktu */}
+                        {todo.dueDate && (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-medium ${
+                              isOverdue
+                                ? 'bg-rose-600 text-white font-extrabold shadow-2xs'
+                                : isDueToday
+                                ? 'bg-amber-400 text-slate-950 font-bold'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            <Calendar className="h-2.5 w-2.5" />
+                            <span>
+                              {new Date(todo.dueDate).toLocaleDateString('id-ID', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                              })}
+                              {isOverdue && ' (TERLAMBAT)'}
+                              {isDueToday && ' (HARI INI)'}
+                            </span>
+                          </span>
+                        )}
+
+                        {/* Terkait Tiket */}
+                        {todo.relatedTicketNumber && (
+                          <span className="rounded-md bg-indigo-50 px-1.5 py-0.5 font-mono font-semibold text-indigo-700 border border-indigo-200">
+                            Tiket: {todo.relatedTicketNumber}
+                          </span>
+                        )}
+
+                        {/* Tombol Accordion Sub-Tugas */}
+                        <button
+                          type="button"
+                          onClick={() => toggleSubTodoSection(todo.id)}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold transition-all cursor-pointer ${
+                            subList.length > 0
+                              ? subCompletedCount === subList.length
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'
+                              : 'bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200'
                           }`}
                         >
-                          <Calendar className="h-2.5 w-2.5" />
+                          <ListTree className="h-3 w-3" />
                           <span>
-                            {new Date(todo.dueDate).toLocaleDateString('id-ID', {
+                            {subList.length > 0
+                              ? `${subCompletedCount}/${subList.length} Sub-Tugas`
+                              : '+ Sub-Tugas'}
+                          </span>
+                          <ChevronDown
+                            className={`h-3 w-3 transition-transform ${
+                              isSubExpanded ? 'rotate-180 text-indigo-600' : ''
+                            }`}
+                          />
+                        </button>
+
+                        {/* Waktu Selesai jika completed */}
+                        {todo.isCompleted && todo.completedAt && (
+                          <span className="text-slate-400">
+                            Selesai:{' '}
+                            {new Date(todo.completedAt).toLocaleDateString('id-ID', {
                               day: 'numeric',
                               month: 'short',
-                              year: 'numeric',
                             })}
-                            {isOverdue && ' (TERLAMBAT)'}
-                            {isDueToday && ' (HARI INI)'}
                           </span>
-                        </span>
-                      )}
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
-                      {/* Terkait Tiket */}
-                      {todo.relatedTicketNumber && (
-                        <span className="rounded-md bg-indigo-50 px-1.5 py-0.5 font-mono font-semibold text-indigo-700 border border-indigo-200">
-                          Tiket: {todo.relatedTicketNumber}
-                        </span>
-                      )}
+                  {/* Tombol Aksi Hapus */}
+                  {deletingId === todo.id ? (
+                    <div className="flex items-center gap-1.5 animate-in fade-in shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleDelete(todo.id);
+                          setDeletingId(null);
+                        }}
+                        className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer shadow-xs"
+                      >
+                        Hapus?
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeletingId(null)}
+                        className="px-1.5 py-0.5 rounded-md text-[11px] text-slate-500 hover:bg-slate-200 transition-colors cursor-pointer"
+                      >
+                        Batal
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setDeletingId(todo.id)}
+                      className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition-all cursor-pointer shrink-0"
+                      title="Hapus To-Do"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
 
-                      {/* Waktu Selesai jika completed */}
-                      {todo.isCompleted && todo.completedAt && (
-                        <span className="text-slate-400">
-                          Selesai:{' '}
-                          {new Date(todo.completedAt).toLocaleDateString('id-ID', {
-                            day: 'numeric',
-                            month: 'short',
-                          })}
+                {/* Sub-To-Do List Section (Checklist Turunan) */}
+                {isSubExpanded && (
+                  <div className="border-t border-slate-100 bg-slate-50/70 p-3 sm:px-5 sm:py-3.5 space-y-2.5 rounded-b-2xl animate-in fade-in duration-150">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+                      <span className="flex items-center gap-1.5">
+                        <ListTree className="h-3.5 w-3.5 text-indigo-600" />
+                        Checklist Sub-Tugas Lanjutan:
+                      </span>
+                      {subList.length > 0 && (
+                        <span className="text-[10px] text-indigo-700 font-extrabold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                          {Math.round((subCompletedCount / subList.length) * 100)}% Selesai
                         </span>
                       )}
                     </div>
+
+                    {/* Progress Bar Mini */}
+                    {subList.length > 0 && (
+                      <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className="bg-indigo-600 h-full transition-all duration-300"
+                          style={{
+                            width: `${(subCompletedCount / subList.length) * 100}%`,
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Daftar Sub-Tugas */}
+                    <div className="space-y-1.5">
+                      {subList.map((sub) => (
+                        <div
+                          key={sub.id}
+                          className={`flex items-start justify-between gap-2 p-2 rounded-xl border transition-all ${
+                            sub.isCompleted
+                              ? 'bg-white/50 border-slate-200/60 text-slate-400'
+                              : 'bg-white border-slate-200 text-slate-700 shadow-2xs'
+                          }`}
+                        >
+                          <div className="flex items-start gap-2 flex-1 min-w-0">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSubTodo(todo, sub.id)}
+                              className="mt-0.5 shrink-0 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
+                            >
+                              {sub.isCompleted ? (
+                                <CheckSquare className="h-4 w-4 text-emerald-600" />
+                              ) : (
+                                <Square className="h-4 w-4 hover:text-indigo-600" />
+                              )}
+                            </button>
+                            <span
+                              className={`text-xs leading-relaxed whitespace-pre-wrap break-words ${
+                                sub.isCompleted ? 'line-through text-slate-400' : 'text-slate-800'
+                              }`}
+                            >
+                              {sub.title}
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSubTodo(todo, sub.id)}
+                            className="text-slate-300 hover:text-rose-500 p-1 rounded-md transition-colors cursor-pointer shrink-0"
+                            title="Hapus Sub-Tugas"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Input Tambah Sub-Tugas Baru */}
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <CornerDownRight className="h-3.5 w-3.5 text-slate-400 shrink-0 ml-1" />
+                      <input
+                        type="text"
+                        value={newSubTitles[todo.id] || ''}
+                        onChange={(e) =>
+                          setNewSubTitles((prev) => ({
+                            ...prev,
+                            [todo.id]: e.target.value,
+                          }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddSubTodo(todo);
+                          }
+                        }}
+                        placeholder="Tulis sub-tugas lanjutan... (tekan Enter)"
+                        className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddSubTodo(todo)}
+                        disabled={isAddingSub || !(newSubTitles[todo.id] || '').trim()}
+                        className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1 shadow-2xs"
+                      >
+                        {isAddingSub ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Plus className="h-3 w-3" />
+                        )}
+                        <span>Tambah</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-                {deletingId === todo.id ? (
-                  <div className="flex items-center gap-1.5 animate-in fade-in shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleDelete(todo.id);
-                        setDeletingId(null);
-                      }}
-                      className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer shadow-xs"
-                    >
-                      Hapus?
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeletingId(null)}
-                      className="px-1.5 py-0.5 rounded-md text-[11px] text-slate-500 hover:bg-slate-200 transition-colors cursor-pointer"
-                    >
-                      Batal
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setDeletingId(todo.id)}
-                    className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition-all cursor-pointer"
-                    title="Hapus To-Do"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
                 )}
               </div>
             );
@@ -578,68 +893,42 @@ export default function TodoListWidget({
             </span>
 
             {/* Pilihan jumlah baris */}
-            <select
-              value={pageSize}
-              onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-              className="rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-600 outline-none focus:border-indigo-600"
-            >
-              <option value={5}>5 baris</option>
-              <option value={10}>10 baris</option>
-              <option value={20}>20 baris</option>
-            </select>
+            <div className="flex items-center gap-1 ml-2">
+              <span className="hidden sm:inline">Baris:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-600"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
           </div>
 
-          <div className="flex items-center gap-1 self-center sm:self-auto">
+          <div className="flex items-center gap-1.5 self-end sm:self-auto">
             <button
               onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
               disabled={safeCurrentPage === 1}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
             >
-              <ChevronLeft className="h-3.5 w-3.5" />
+              <ChevronLeft className="h-4 w-4" />
               <span className="hidden sm:inline">Sebelumnya</span>
             </button>
 
-            {/* Indikator Tombol Nomor Halaman */}
-            <div className="flex items-center gap-1 px-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((page) => {
-                  return (
-                    page === 1 ||
-                    page === totalPages ||
-                    Math.abs(page - safeCurrentPage) <= 1
-                  );
-                })
-                .map((page, idx, arr) => {
-                  const prev = arr[idx - 1];
-                  const showEllipsis = prev && page - prev > 1;
-
-                  return (
-                    <React.Fragment key={page}>
-                      {showEllipsis && (
-                        <span className="px-1 text-xs text-slate-400">...</span>
-                      )}
-                      <button
-                        onClick={() => setCurrentPage(page)}
-                        className={`h-7 w-7 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
-                          safeCurrentPage === page
-                            ? 'bg-indigo-600 text-white shadow-2xs'
-                            : 'text-slate-600 hover:bg-white border border-transparent hover:border-slate-200'
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    </React.Fragment>
-                  );
-                })}
-            </div>
+            <span className="px-2 text-xs font-bold text-slate-700">
+              {safeCurrentPage} / {totalPages}
+            </span>
 
             <button
               onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-              disabled={safeCurrentPage === totalPages || totalPages === 0}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+              disabled={safeCurrentPage === totalPages}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
             >
               <span className="hidden sm:inline">Selanjutnya</span>
-              <ChevronRight className="h-3.5 w-3.5" />
+              <ChevronRight className="h-4 w-4" />
             </button>
           </div>
         </div>
