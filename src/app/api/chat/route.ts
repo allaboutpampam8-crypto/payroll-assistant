@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { askPayrollAI } from '@/lib/gemini';
+import { askPayrollAI, ChatHistoryItem } from '@/lib/gemini';
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,7 +14,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const reply = await askPayrollAI(message, userName);
+    let history: ChatHistoryItem[] | undefined;
+    if (Array.isArray(body.history)) {
+      history = body.history
+        .filter((item: unknown) => item && typeof item === 'object')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((item: any) => ({
+          role: item.role === 'model' || item.role === 'assistant' ? ('model' as const) : ('user' as const),
+          text: typeof item.text === 'string' ? item.text : '',
+        }))
+        .filter((item: ChatHistoryItem) => Boolean(item.text));
+    }
+
+    const reply = await askPayrollAI(message, userName, history);
 
     return NextResponse.json({
       success: true,

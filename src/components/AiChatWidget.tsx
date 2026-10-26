@@ -72,6 +72,34 @@ export default function AiChatWidget({ onDataUpdated, activeUser }: AiChatWidget
   const currentUser = activeUser || 'Pampam';
   const userGreeting = currentUser === 'Ucup' ? 'Pak Ucup' : `Pak ${currentUser}`;
 
+  // Muat riwayat chat tersimpan dari sessionStorage
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(`pali_chat_history_${currentUser}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [currentUser]);
+
+  // Simpan riwayat chat ke sessionStorage saat berubah
+  useEffect(() => {
+    try {
+      if (messages.length > 0) {
+        sessionStorage.setItem(`pali_chat_history_${currentUser}`, JSON.stringify(messages.slice(-20)));
+      } else {
+        sessionStorage.removeItem(`pali_chat_history_${currentUser}`);
+      }
+    } catch {
+      // ignore
+    }
+  }, [messages, currentUser]);
+
   // Auto scroll to bottom
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -90,6 +118,15 @@ export default function AiChatWidget({ onDataUpdated, activeUser }: AiChatWidget
     const text = (textToSend || inputMessage).trim();
     if (!text || isLoading) return;
 
+    // Siapkan riwayat percakapan sebelumnya untuk multi-turn context
+    const historyPayload = messages
+      .filter((m) => m.sender === 'user' || m.sender === 'assistant')
+      .slice(-8)
+      .map((m) => ({
+        role: m.sender === 'user' ? 'user' : 'model',
+        text: m.text,
+      }));
+
     const userMsg: ChatMessage = {
       id: createChatMessageId('usr'),
       sender: 'user',
@@ -105,7 +142,11 @@ export default function AiChatWidget({ onDataUpdated, activeUser }: AiChatWidget
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, userName: currentUser }),
+        body: JSON.stringify({
+          message: text,
+          userName: currentUser,
+          history: historyPayload,
+        }),
       });
 
       const data = await res.json();
@@ -169,8 +210,13 @@ export default function AiChatWidget({ onDataUpdated, activeUser }: AiChatWidget
   };
 
   const handleClearHistory = () => {
-    if (confirm('Bersihkan percakapan chat AI?')) {
+    if (confirm('Mulai topik baru dan bersihkan memori chat?')) {
       setMessages([]);
+      try {
+        sessionStorage.removeItem(`pali_chat_history_${currentUser}`);
+      } catch {
+        // ignore
+      }
     }
   };
 
@@ -238,73 +284,90 @@ export default function AiChatWidget({ onDataUpdated, activeUser }: AiChatWidget
                     </h3>
                     <p className="text-[10px] sm:text-[11px] text-sky-200 flex items-center gap-1.5 mt-0.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                      Online • Siap membantu olah data
+                      <span>Online</span>
+                      <span className="text-white/40">•</span>
+                      <span
+                        className="text-[10px] bg-sky-500/20 text-sky-200 border border-sky-400/30 px-1.5 py-0.5 rounded-md font-medium inline-flex items-center gap-1"
+                        title="Si PALI mengingat topik dan nama pegawai yang sedang dibahas pada pesan sebelumnya"
+                      >
+                        🧠 Smart Memory
+                      </span>
                     </p>
                   </div>
                 </div>
 
-            <div className="flex items-center gap-1 text-slate-300">
-              {messages.length > 0 && (
-                <button
-                  onClick={handleClearHistory}
-                  className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-slate-300 hover:text-white"
-                  title="Bersihkan Chat"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                </button>
-              )}
-              <button
-                onClick={() => setIsOpen(false)}
-                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-slate-300 hover:text-white"
-                title="Tutup Chat"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Messages Body */}
-          <div className="flex-1 p-3.5 overflow-y-auto space-y-3.5 bg-slate-50/80 dark:bg-slate-950/50">
-            {messages.length === 0 ? (
-              <div className="min-h-full flex flex-col items-center justify-start text-center py-2 px-1">
-                <div className="w-24 h-28 sm:w-28 sm:h-32 relative mb-2 drop-shadow-md flex-shrink-0">
-                  <Image
-                    src="/mascot/waving.png"
-                    alt="Si PALI Menyapa"
-                    width={112}
-                    height={128}
-                    priority
-                    className="object-contain"
-                  />
-                </div>
-                <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base">
-                  Halo {userGreeting}! 👋 Saya Si PALI
-                </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mt-1 leading-relaxed">
-                  Asisten pintar payroll Anda. Tanyakan rincian gaji, komparasi selisih, tiket kendala, atau minta saya update status tiket.
-                </p>
-
-                {/* Quick Prompts */}
-                <div className="mt-3.5 w-full flex flex-col gap-1.5 text-left">
-                  <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-1">
-                    Pilihan Cepat:
-                  </div>
-                  {QUICK_PROMPTS.map((qp, idx) => (
+                <div className="flex items-center gap-1 text-slate-300">
+                  {messages.length > 0 && (
                     <button
-                      key={idx}
-                      onClick={() => handleSend(qp.prompt)}
-                      className="flex items-center gap-2 p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 hover:border-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/40 text-slate-700 dark:text-slate-200 text-xs text-left transition-all shadow-xs group"
+                      onClick={handleClearHistory}
+                      className="px-2 py-1 hover:bg-white/10 rounded-lg transition-colors text-slate-300 hover:text-white flex items-center gap-1 text-[11px] font-medium"
+                      title="Mulai Topik Baru (Reset Memori Percakapan)"
                     >
-                      <span className="text-base group-hover:scale-110 transition-transform">
-                        {qp.icon}
-                      </span>
-                      <span className="flex-1 font-medium">{qp.prompt}</span>
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Topik Baru</span>
                     </button>
-                  ))}
+                  )}
+                  <button
+                    onClick={() => setIsOpen(false)}
+                    className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-slate-300 hover:text-white"
+                    title="Tutup Chat"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
-            ) : (
+            </div>
+
+            {/* Messages Body */}
+            <div className="flex-1 p-3.5 overflow-y-auto space-y-3.5 bg-slate-50/80 dark:bg-slate-950/50">
+              {messages.length === 0 ? (
+                <div className="min-h-full flex flex-col items-center justify-start text-center py-2 px-1">
+                  <div className="w-24 h-28 sm:w-28 sm:h-32 relative mb-2 drop-shadow-md flex-shrink-0">
+                    <Image
+                      src="/mascot/waving.png"
+                      alt="Si PALI Menyapa"
+                      width={112}
+                      height={128}
+                      priority
+                      className="object-contain"
+                    />
+                  </div>
+                  <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base">
+                    Halo {userGreeting}! 👋 Saya Si PALI
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mt-1 leading-relaxed">
+                    Asisten pintar payroll Anda. Tanyakan rincian gaji, komparasi selisih, tiket kendala, atau minta saya update status tiket.
+                  </p>
+
+                  {/* Smart Memory Hint */}
+                  <div className="mt-3 w-full p-2.5 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/40 text-[11px] text-indigo-700 dark:text-indigo-300 text-left flex items-start gap-2 shadow-xs">
+                    <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mt-0.5 shrink-0" />
+                    <div className="leading-relaxed">
+                      <strong className="block font-bold">Fitur Smart Memory Aktif:</strong>
+                      Anda bisa bertanya secara bertahap seperti mengobrol biasa! Contoh: tanya <i>&quot;Cek gaji Ahmad Maulana&quot;</i>, lalu lanjut <i>&quot;Berapa upah lemburnya?&quot;</i> atau <i>&quot;Bandingkan dengan bulan lalu&quot;</i> tanpa perlu mengetik ulang nama atau NRP.
+                    </div>
+                  </div>
+
+                  {/* Quick Prompts */}
+                  <div className="mt-3.5 w-full flex flex-col gap-1.5 text-left">
+                    <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-1">
+                      Pilihan Cepat:
+                    </div>
+                    {QUICK_PROMPTS.map((qp, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleSend(qp.prompt)}
+                        className="flex items-center gap-2 p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 hover:border-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/40 text-slate-700 dark:text-slate-200 text-xs text-left transition-all shadow-xs group"
+                      >
+                        <span className="text-base group-hover:scale-110 transition-transform">
+                          {qp.icon}
+                        </span>
+                        <span className="flex-1 font-medium">{qp.prompt}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
               messages.map((msg) => (
                 <div
                   key={msg.id}

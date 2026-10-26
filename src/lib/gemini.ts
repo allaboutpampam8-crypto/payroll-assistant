@@ -558,10 +558,19 @@ async function executeTool(name: string, args: Record<string, any>): Promise<any
   }
 }
 
+export interface ChatHistoryItem {
+  role: 'user' | 'model';
+  text: string;
+}
+
 /**
- * Memproses pertanyaan teks bebas dari user menggunakan Google Gemini dengan Tool Execution
+ * Memproses pertanyaan teks bebas dari user menggunakan Google Gemini dengan Tool Execution dan Multi-Turn Memory
  */
-export async function askPayrollAI(userMessage: string, userName?: string): Promise<string> {
+export async function askPayrollAI(
+  userMessage: string,
+  userName?: string,
+  history?: ChatHistoryItem[]
+): Promise<string> {
   if (!apiKey) {
     return (
       `⚠️ <b>Kunci API Gemini Belum Dikonfigurasi</b>\n\n` +
@@ -594,6 +603,16 @@ Karakter & Gaya Komunikasi:
 - Jika pengguna meminta mengubah status tiket (contoh: "ubah tiket ini jadi crosscheck", "jadikan close", "update semua tiket open jadi crosscheck"), PANGGIL tool update_status_tiket dan laporkan hasilnya secara jelas (tiket mana saja yang berhasil diubah dan status barunya apa).
 - Jika hasil query tidak ditemukan, sampaikan secara sopan dan sarankan cara pencarian lain (misal periksa ejaan nama atau NRP).
 
+Aturan Memori Konteks Percakapan (Smart Memory / Multi-Turn Context):
+- Anda memiliki memori percakapan multi-turn. Gunakan riwayat percakapan sebelumnya untuk memahami pertanyaan lanjutan secara cerdas.
+- Jika ${userGreeting} mengajukan pertanyaan bertahap, misalnya:
+  * "Lemburnya berapa?" -> Merujuk ke pegawai yang dibahas di pesan sebelumnya.
+  * "Bandingkan dengan bulan lalu" -> Langsung bandingkan gaji pegawai tersebut tanpa meminta nama/NRP lagi.
+  * "Buatkan file Excelnya" -> Langsung panggil tool export excel untuk pegawai yang sama.
+  * "Tolong ubah tiket tadi jadi Close" -> Gunakan nomor tiket atau pegawai dari konteks sebelumnya.
+  * "Berapa take home pay-nya?" -> Rujuk ke subjek pegawai terakhir.
+- JANGAN PERNAH meminta ${userGreeting} mengulang menyebutkan nama, NRP, atau nomor tiket jika informasinya sudah ada di percakapan sebelumnya.
+
 Aturan Khusus Rekap Pendapatan Multi-Bulan & Excel:
 1. Komponen Upah Lembur BUKAN lembur terpisah, melainkan komponen penggajian bulanan yang dikategorikan ke dalam Tunjangan.
 2. Ketika pengguna meminta rekap gaji beberapa bulan (misal Jan - Okt): Secara DEFAULT di chat, tampilkan ringkasan TOTAL saja (Total Take Home Pay, Total Gaji Pokok, Total Tunjangan [termasuk lembur], Total Potongan, serta Rata-rata THP per bulan) agar ringkas dan cepat dibaca oleh ${userGreeting}.
@@ -606,10 +625,21 @@ Aturan Khusus Rekap Pendapatan Multi-Bulan & Excel:
     // Primary model: gemini-3.5-flash-lite (kecepatan tinggi & kuota free tier besar)
     const modelName = 'gemini-3.5-flash-lite';
 
-    // Step 1: Panggil model dengan tools
+    // Format riwayat percakapan sebelumnya untuk multi-turn context
+    const previousContents = (history || [])
+      .slice(-8) // Ambil 8 percakapan terakhir agar fokus, cepat, & hemat token
+      .filter((m) => m.text && (m.role === 'user' || m.role === 'model'))
+      .map((m) => ({
+        role: m.role,
+        parts: [{ text: m.text.replace(/<[^>]*>/g, '').trim() }],
+      }));
+
+    const currentTurnContent = { role: 'user' as const, parts: [{ text: userMessage }] };
+
+    // Step 1: Panggil model dengan riwayat percakapan + pertanyaan saat ini
     const response = await ai.models.generateContent({
       model: modelName,
-      contents: userMessage,
+      contents: [...previousContents, currentTurnContent],
       config: {
         systemInstruction,
         tools: [{ functionDeclarations: toolDeclarations }],
@@ -629,7 +659,8 @@ Aturan Khusus Rekap Pendapatan Multi-Bulan & Excel:
         const secondResponse = await ai.models.generateContent({
           model: modelName,
           contents: [
-            { role: 'user', parts: [{ text: userMessage }] },
+            ...previousContents,
+            currentTurnContent,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             { role: 'model', parts: modelParts as any },
             {
@@ -664,7 +695,13 @@ Aturan Khusus Rekap Pendapatan Multi-Bulan & Excel:
         const fallbackAi = new GoogleGenAI({ apiKey });
         const res = await fallbackAi.models.generateContent({
           model: 'gemini-3.5-flash',
-          contents: userMessage,
+          contents: [
+            ...((history || []).slice(-8).map((m) => ({
+              role: m.role,
+              parts: [{ text: m.text.replace(/<[^>]*>/g, '').trim() }],
+            }))),
+            { role: 'user', parts: [{ text: userMessage }] },
+          ],
           config: {
             systemInstruction,
           },
