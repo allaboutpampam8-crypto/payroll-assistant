@@ -17,6 +17,9 @@ import {
   ListTree,
   CornerDownRight,
   FileText,
+  Pencil,
+  X,
+  Check,
 } from 'lucide-react';
 import { PayrollTodo, SubTodoItem, Priority, AppUserProfile } from '@/lib/types';
 
@@ -51,6 +54,19 @@ export default function TodoListWidget({
   const [expandedSubTodos, setExpandedSubTodos] = useState<Set<string>>(new Set());
   const [newSubTitles, setNewSubTitles] = useState<Record<string, string>>({});
   const [addingSubTodoId, setAddingSubTodoId] = useState<string | null>(null);
+
+  // Edit State To-Do Utama
+  const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editPriority, setEditPriority] = useState<Priority>('NORMAL');
+  const [editDueDate, setEditDueDate] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // Edit State Sub-Tugas
+  const [editingSubKey, setEditingSubKey] = useState<string | null>(null); // format: `${todoId}_${subId}`
+  const [editSubTitle, setEditSubTitle] = useState('');
+  const [savingSubEdit, setSavingSubEdit] = useState(false);
 
   // Actions loading
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -183,9 +199,18 @@ export default function TodoListWidget({
   // Toggle Centang Sub-Tugas
   const handleToggleSubTodo = async (todo: PayrollTodo, subId: string) => {
     const currentSub = todo.subTodos || [];
-    const updatedSubTodos = currentSub.map((item) =>
-      item.id === subId ? { ...item, isCompleted: !item.isCompleted } : item
-    );
+    const now = new Date().toISOString();
+    const updatedSubTodos = currentSub.map((item) => {
+      if (item.id === subId) {
+        const nextCompleted = !item.isCompleted;
+        return {
+          ...item,
+          isCompleted: nextCompleted,
+          completedAt: nextCompleted ? now : undefined,
+        };
+      }
+      return item;
+    });
 
     // Cek apakah seluruh sub-tugas selesai
     const allCompleted = updatedSubTodos.length > 0 && updatedSubTodos.every((s) => s.isCompleted);
@@ -226,6 +251,92 @@ export default function TodoListWidget({
       }
     } catch (err) {
       console.error('Failed to delete sub-todo:', err);
+    }
+  };
+
+  // Handler Mulai & Simpan Edit Tugas Utama
+  const handleStartEdit = (todo: PayrollTodo) => {
+    setEditingTodoId(todo.id);
+    const cleanTitle = todo.title.replace(/^\[Dari Superintendent\]\s*/i, '');
+    setEditTitle(cleanTitle);
+    setEditDescription(todo.description || '');
+    setEditPriority(todo.priority || 'NORMAL');
+    setEditDueDate(todo.dueDate || '');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingTodoId(null);
+    setEditTitle('');
+    setEditDescription('');
+    setEditPriority('NORMAL');
+    setEditDueDate('');
+  };
+
+  const handleSaveEdit = async (todo: PayrollTodo) => {
+    if (!editTitle.trim()) return;
+
+    setSavingEdit(true);
+    try {
+      const isSuperTask = todo.title.includes('[Dari Superintendent]');
+      const finalTitle = isSuperTask ? `[Dari Superintendent] ${editTitle.trim()}` : editTitle.trim();
+
+      const res = await fetch(`/api/todos/${todo.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: finalTitle,
+          description: editDescription.trim() || undefined,
+          priority: editPriority,
+          dueDate: editDueDate,
+        }),
+      });
+
+      if (res.ok) {
+        handleCancelEdit();
+        onRefresh();
+      }
+    } catch (err) {
+      console.error('Failed to update todo:', err);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  // Handler Mulai & Simpan Edit Sub-Tugas
+  const handleStartSubEdit = (todoId: string, sub: SubTodoItem) => {
+    setEditingSubKey(`${todoId}_${sub.id}`);
+    setEditSubTitle(sub.title);
+  };
+
+  const handleCancelSubEdit = () => {
+    setEditingSubKey(null);
+    setEditSubTitle('');
+  };
+
+  const handleSaveSubEdit = async (todo: PayrollTodo, subId: string) => {
+    if (!editSubTitle.trim()) return;
+
+    setSavingSubEdit(true);
+    try {
+      const currentSub = todo.subTodos || [];
+      const updatedSubTodos = currentSub.map((item) =>
+        item.id === subId ? { ...item, title: editSubTitle.trim() } : item
+      );
+
+      const res = await fetch(`/api/todos/${todo.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subTodos: updatedSubTodos }),
+      });
+
+      if (res.ok) {
+        handleCancelSubEdit();
+        onRefresh();
+      }
+    } catch (err) {
+      console.error('Failed to update sub-todo:', err);
+    } finally {
+      setSavingSubEdit(false);
     }
   };
 
@@ -600,32 +711,111 @@ export default function TodoListWidget({
                     </button>
 
                     <div className="space-y-1.5 flex-1 min-w-0">
-                      {/* Judul Multi-Line Support */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div
-                          className={`text-xs sm:text-sm font-medium leading-relaxed whitespace-pre-wrap break-words ${
-                            todo.isCompleted
-                              ? 'line-through text-slate-400'
-                              : isOverdue
-                              ? 'text-rose-950 font-bold'
-                              : 'text-slate-800'
-                          }`}
-                        >
-                          {displayTitle}
-                        </div>
-                        {isToggling && (
-                          <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-100/70 px-2 py-0.5 rounded-full animate-pulse">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            Menyimpan...
-                          </span>
-                        )}
-                      </div>
+                      {/* Mode Tampilan Normal vs Mode Edit */}
+                      {editingTodoId === todo.id ? (
+                        /* Form Edit Inline Tugas Utama */
+                        <div className="space-y-2 p-2.5 rounded-xl bg-indigo-50/50 border border-indigo-200 animate-in fade-in">
+                          <div>
+                            <span className="text-[10px] font-bold text-indigo-900 block mb-1">
+                              Edit Judul Tugas:
+                            </span>
+                            <textarea
+                              rows={2}
+                              value={editTitle}
+                              onChange={(e) => setEditTitle(e.target.value)}
+                              className="w-full rounded-lg border border-indigo-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 leading-relaxed"
+                              placeholder="Edit judul tugas..."
+                            />
+                          </div>
 
-                      {/* Deskripsi Tambahan Multi-line (Jika ada) */}
-                      {todo.description && (
-                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 text-slate-600 text-xs whitespace-pre-wrap leading-relaxed">
-                          {todo.description}
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-600 block mb-1">
+                              Edit Catatan / Deskripsi Tambahan (Opsional):
+                            </span>
+                            <textarea
+                              rows={2}
+                              value={editDescription}
+                              onChange={(e) => setEditDescription(e.target.value)}
+                              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500 leading-relaxed"
+                              placeholder="Edit catatan..."
+                            />
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-indigo-200/60">
+                            <div className="flex items-center gap-2 text-xs">
+                              <select
+                                value={editPriority}
+                                onChange={(e) => setEditPriority(e.target.value as Priority)}
+                                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 outline-none"
+                              >
+                                <option value="NORMAL">Normal</option>
+                                <option value="TINGGI">Tinggi</option>
+                                <option value="URGENT">Urgent 🔴</option>
+                              </select>
+
+                              <input
+                                type="date"
+                                value={editDueDate}
+                                onChange={(e) => setEditDueDate(e.target.value)}
+                                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 outline-none"
+                              />
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleSaveEdit(todo)}
+                                disabled={savingEdit || !editTitle.trim()}
+                                className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+                              >
+                                {savingEdit ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Check className="h-3.5 w-3.5" />
+                                )}
+                                <span>Simpan</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCancelEdit}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-slate-500 hover:bg-slate-200 text-xs font-medium transition-colors cursor-pointer"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                                <span>Batal</span>
+                              </button>
+                            </div>
+                          </div>
                         </div>
+                      ) : (
+                        /* Tampilan Normal Judul & Deskripsi */
+                        <>
+                          <div className="flex items-start justify-between gap-2">
+                            <div
+                              className={`text-xs sm:text-sm font-medium leading-relaxed whitespace-pre-wrap break-words ${
+                                todo.isCompleted
+                                  ? 'line-through text-slate-400'
+                                  : isOverdue
+                                  ? 'text-rose-950 font-bold'
+                                  : 'text-slate-800'
+                              }`}
+                            >
+                              {displayTitle}
+                            </div>
+                            {isToggling && (
+                              <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-100/70 px-2 py-0.5 rounded-full animate-pulse">
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                                Menyimpan...
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Deskripsi Tambahan Multi-line (Jika ada) */}
+                          {todo.description && (
+                            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 text-slate-600 text-xs whitespace-pre-wrap leading-relaxed">
+                              {todo.description}
+                            </div>
+                          )}
+                        </>
                       )}
 
                       {/* Metadata Badges & Tombol Sub-Task */}
@@ -737,7 +927,7 @@ export default function TodoListWidget({
                     </div>
                   </div>
 
-                  {/* Tombol Aksi Hapus */}
+                  {/* Tombol Aksi: Edit & Hapus */}
                   {deletingId === todo.id ? (
                     <div className="flex items-center gap-1.5 animate-in fade-in shrink-0">
                       <button
@@ -759,14 +949,26 @@ export default function TodoListWidget({
                       </button>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => setDeletingId(todo.id)}
-                      className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition-all cursor-pointer shrink-0"
-                      title="Hapus To-Do"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      {editingTodoId !== todo.id && (
+                        <button
+                          type="button"
+                          onClick={() => handleStartEdit(todo)}
+                          className="text-slate-400 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors cursor-pointer"
+                          title="Edit To-Do"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setDeletingId(todo.id)}
+                        className="text-slate-400 hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                        title="Hapus To-Do"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -799,46 +1001,122 @@ export default function TodoListWidget({
 
                     {/* Daftar Sub-Tugas */}
                     <div className="space-y-1.5">
-                      {subList.map((sub) => (
-                        <div
-                          key={sub.id}
-                          className={`flex items-start justify-between gap-2 p-2 rounded-xl border transition-all ${
-                            sub.isCompleted
-                              ? 'bg-white/50 border-slate-200/60 text-slate-400'
-                              : 'bg-white border-slate-200 text-slate-700 shadow-2xs'
-                          }`}
-                        >
-                          <div className="flex items-start gap-2 flex-1 min-w-0">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleSubTodo(todo, sub.id)}
-                              className="mt-0.5 shrink-0 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
-                            >
-                              {sub.isCompleted ? (
-                                <CheckSquare className="h-4 w-4 text-emerald-600" />
-                              ) : (
-                                <Square className="h-4 w-4 hover:text-indigo-600" />
-                              )}
-                            </button>
-                            <span
-                              className={`text-xs leading-relaxed whitespace-pre-wrap break-words ${
-                                sub.isCompleted ? 'line-through text-slate-400' : 'text-slate-800'
-                              }`}
-                            >
-                              {sub.title}
-                            </span>
-                          </div>
+                      {subList.map((sub) => {
+                        const isSubEditing = editingSubKey === `${todo.id}_${sub.id}`;
 
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteSubTodo(todo, sub.id)}
-                            className="text-slate-300 hover:text-rose-500 p-1 rounded-md transition-colors cursor-pointer shrink-0"
-                            title="Hapus Sub-Tugas"
+                        return (
+                          <div
+                            key={sub.id}
+                            className={`flex items-start justify-between gap-2 p-2 rounded-xl border transition-all ${
+                              sub.isCompleted
+                                ? 'bg-white/50 border-slate-200/60 text-slate-400'
+                                : 'bg-white border-slate-200 text-slate-700 shadow-2xs'
+                            }`}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ))}
+                            <div className="flex items-start gap-2 flex-1 min-w-0">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleSubTodo(todo, sub.id)}
+                                className="mt-0.5 shrink-0 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
+                              >
+                                {sub.isCompleted ? (
+                                  <CheckSquare className="h-4 w-4 text-emerald-600" />
+                                ) : (
+                                  <Square className="h-4 w-4 hover:text-indigo-600" />
+                                )}
+                              </button>
+
+                              {isSubEditing ? (
+                                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                  <input
+                                    type="text"
+                                    value={editSubTitle}
+                                    onChange={(e) => setEditSubTitle(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleSaveSubEdit(todo, sub.id);
+                                      } else if (e.key === 'Escape') {
+                                        handleCancelSubEdit();
+                                      }
+                                    }}
+                                    className="flex-1 rounded-lg border border-indigo-400 bg-white px-2 py-0.5 text-xs text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500"
+                                    placeholder="Edit sub-tugas..."
+                                    autoFocus
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveSubEdit(todo, sub.id)}
+                                    disabled={savingSubEdit || !editSubTitle.trim()}
+                                    className="p-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-xs transition-colors cursor-pointer"
+                                    title="Simpan"
+                                  >
+                                    {savingSubEdit ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <Check className="h-3.5 w-3.5" />
+                                    )}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleCancelSubEdit}
+                                    className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                                    title="Batal"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col min-w-0 flex-1">
+                                  <span
+                                    className={`text-xs leading-relaxed whitespace-pre-wrap break-words ${
+                                      sub.isCompleted ? 'line-through text-slate-400' : 'text-slate-800'
+                                    }`}
+                                  >
+                                    {sub.title}
+                                  </span>
+                                  {sub.isCompleted && sub.completedAt && (
+                                    <span className="text-[10px] text-emerald-600 font-medium mt-0.5 flex items-center gap-1">
+                                      ✓ Selesai:{' '}
+                                      {new Date(sub.completedAt).toLocaleDateString('id-ID', {
+                                        day: 'numeric',
+                                        month: 'short',
+                                        year: 'numeric',
+                                      })}{' '}
+                                      •{' '}
+                                      {new Date(sub.completedAt).toLocaleTimeString('id-ID', {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                      })}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {!isSubEditing && (
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartSubEdit(todo.id, sub)}
+                                  className="text-slate-400 hover:text-indigo-600 p-1 rounded-md hover:bg-indigo-50 transition-colors cursor-pointer"
+                                  title="Edit Sub-Tugas"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteSubTodo(todo, sub.id)}
+                                  className="text-slate-300 hover:text-rose-500 p-1 rounded-md hover:bg-rose-50 transition-colors cursor-pointer"
+                                  title="Hapus Sub-Tugas"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
 
                     {/* Input Tambah Sub-Tugas Baru */}

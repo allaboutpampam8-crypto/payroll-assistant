@@ -92,6 +92,7 @@ export interface SubTodoItem {
   title: string;
   isCompleted: boolean;
   createdAt: string;
+  completedAt?: string; // Tanggal / waktu penyelesaian sub-tugas otomatis
 }
 
 export interface PayrollTodo {
