@@ -78,20 +78,37 @@ function mapReportFromRow(row: any): PayrollReport {
   };
 }
 
+// Helper membersihkan prefix user di awal title: "[Izul] Title" atau "[Izul] [Dari Superintendent] Title"
+function cleanTodoUserPrefixes(title: string): { cleanTitle: string; extractedUser?: string } {
+  let curTitle = title;
+  let extractedUser: string | undefined = undefined;
+
+  while (curTitle.startsWith('[')) {
+    const match = curTitle.match(/^\[(Pampam|Wahid|Izul|Ucup)\]\s*([\s\S]*)$/i);
+    if (match) {
+      extractedUser = match[1];
+      curTitle = match[2];
+    } else {
+      break;
+    }
+  }
+
+  return { cleanTitle: curTitle, extractedUser };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapTodoFromRow(row: any): PayrollTodo {
   let title = row.title || '';
-  let userName: string | undefined = row.user_name || undefined;
+  let userName: string | undefined = row.user_name || row.userName || undefined;
   let description: string | undefined = row.description || undefined;
   let subTodos: any[] | undefined = undefined;
 
-  // Graceful fallback for userName encoded inside title: "[Pampam] Title"
-  if (!userName && title.startsWith('[')) {
-    const match = title.match(/^\[(Pampam|Wahid|Izul|Ucup)\]\s*(.*)$/);
-    if (match) {
-      userName = match[1];
-      title = match[2];
-    }
+  // Ekstraksi prioritas: jika di title terdapat prefix [Izul], [Wahid], dll,
+  // maka gunakan user tersebut karena prefix title adalah penanda eksplisit saat ditugaskan
+  const { cleanTitle, extractedUser } = cleanTodoUserPrefixes(title);
+  if (extractedUser) {
+    userName = extractedUser;
+    title = cleanTitle;
   }
 
   // Graceful extraction of structured payload metadata if encoded in title:
@@ -514,7 +531,9 @@ function buildDbTodoTitle(todo: {
   subTodos?: any[];
 }): string {
   const userName = todo.userName || 'Pampam';
-  let title = todo.title.trim();
+  // Bersihkan prefix user lama terlebih dahulu agar tidak menumpuk [Izul] [Pampam] ...
+  const { cleanTitle } = cleanTodoUserPrefixes(todo.title.trim());
+  let title = cleanTitle;
   const hasMeta = Boolean(todo.description?.trim()) || (Array.isArray(todo.subTodos) && todo.subTodos.length > 0);
 
   if (hasMeta) {
@@ -545,16 +564,26 @@ export async function createTodo(
   const dbTitle = buildDbTodoTitle(newTodo);
 
   if (isSupabaseConfigured && supabase) {
-    const { error } = await supabase.from('payroll_todos').insert({
+    const insertPayload: Record<string, any> = {
       id: newTodo.id,
       title: dbTitle,
+      user_name: newTodo.userName,
       is_completed: newTodo.isCompleted,
       due_date: newTodo.dueDate || '',
       priority: newTodo.priority || 'NORMAL',
       related_ticket_number: newTodo.relatedTicketNumber || '',
       created_at: newTodo.createdAt,
-    });
-    if (error) console.error('Error inserting todo in Supabase:', error);
+    };
+
+    const { error } = await supabase.from('payroll_todos').insert(insertPayload);
+    if (error) {
+      if (error.message?.includes('user_name') || (error as any).code === '42703') {
+        delete insertPayload.user_name;
+        await supabase.from('payroll_todos').insert(insertPayload);
+      } else {
+        console.error('Error inserting todo in Supabase:', error);
+      }
+    }
   }
 
   const local = getLocalDatabase();
@@ -591,6 +620,7 @@ export async function updateTodo(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rowUpdates: Record<string, any> = {
       title: dbTitle,
+      user_name: mergedTodo.userName,
     };
     if (updates.isCompleted !== undefined) {
       rowUpdates.is_completed = updates.isCompleted;
@@ -599,17 +629,29 @@ export async function updateTodo(
     if (updates.dueDate !== undefined) rowUpdates.due_date = updates.dueDate;
     if (updates.priority !== undefined) rowUpdates.priority = updates.priority;
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('payroll_todos')
       .update(rowUpdates)
       .eq('id', id)
       .select()
       .single();
 
+    if (error && (error.message?.includes('user_name') || (error as any).code === '42703')) {
+      delete rowUpdates.user_name;
+      const retry = await supabase
+        .from('payroll_todos')
+        .update(rowUpdates)
+        .eq('id', id)
+        .select()
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
+
     if (!error && data) {
       return mapTodoFromRow(data);
     }
-    console.error('Error updating todo in Supabase:', error);
+    if (error) console.error('Error updating todo in Supabase:', error);
   }
 
   const local = getLocalDatabase();

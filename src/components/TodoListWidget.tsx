@@ -257,7 +257,9 @@ export default function TodoListWidget({
   // Handler Mulai & Simpan Edit Tugas Utama
   const handleStartEdit = (todo: PayrollTodo) => {
     setEditingTodoId(todo.id);
-    const cleanTitle = todo.title.replace(/^\[Dari Superintendent\]\s*/i, '');
+    const cleanTitle = todo.title
+      .replace(/^\[(Pampam|Wahid|Izul|Ucup)\]\s*/i, '')
+      .replace(/^\[Dari Superintendent\]\s*/i, '');
     setEditTitle(cleanTitle);
     setEditDescription(todo.description || '');
     setEditPriority(todo.priority || 'NORMAL');
@@ -669,7 +671,9 @@ export default function TodoListWidget({
             const isDueToday = todo.dueDate === todayStr && !todo.isCompleted;
             const isToggling = togglingId === todo.id;
             const isSuperTask = todo.title.includes('[Dari Superintendent]');
-            const displayTitle = todo.title.replace(/^\[Dari Superintendent\]\s*/i, '');
+            const displayTitle = todo.title
+              .replace(/^\[(Pampam|Wahid|Izul|Ucup)\]\s*/i, '')
+              .replace(/^\[Dari Superintendent\]\s*/i, '');
 
             const subList = todo.subTodos || [];
             const subCompletedCount = subList.filter((s) => s.isCompleted).length;
