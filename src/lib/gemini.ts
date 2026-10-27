@@ -116,10 +116,17 @@ const toolDeclarations: FunctionDeclaration[] = [
   },
   {
     name: 'rekap_todo_asisten',
-    description: 'Melihat agenda to-do list tugas harian PIC Payroll yang aktif atau belum selesai.',
+    description:
+      'Melihat agenda to-do list tugas harian PIC Payroll yang aktif atau belum selesai. Defaultnya hanya menampilkan to-do list milik pengguna yang sedang aktif (Pampam atau Ucup), kecuali pengguna secara spesifik meminta melihat to-do list user lain atau semua.',
     parameters: {
       type: Type.OBJECT,
-      properties: {},
+      properties: {
+        user_name: {
+          type: Type.STRING,
+          description:
+            'Nama pemilik to-do list: Pampam, Ucup, atau ALL jika ingin melihat to-do list semua user. Jika tidak diisi, otomatis mengambil milik user yang sedang aktif.',
+        },
+      },
     },
   },
   {
@@ -258,7 +265,7 @@ const toolDeclarations: FunctionDeclaration[] = [
 
 // Eksekutor fungsi faktual dari database
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function executeTool(name: string, args: Record<string, any>): Promise<any> {
+async function executeTool(name: string, args: Record<string, any>, activeUser?: string): Promise<any> {
   try {
     if (name === 'cek_gaji_pegawai') {
       const q = String(args.query || '').trim();
@@ -437,15 +444,23 @@ async function executeTool(name: string, args: Record<string, any>): Promise<any
     }
 
     if (name === 'rekap_todo_asisten') {
-      const todos = await getAllTodos();
+      const rawUser = String(args.user_name || activeUser || 'Pampam').trim();
+      const isAll = rawUser.toUpperCase() === 'ALL' || rawUser.toUpperCase() === 'SEMUA';
+      const todos = await getAllTodos(isAll ? undefined : rawUser);
       const active = todos.filter((t) => !t.isCompleted);
       return {
+        filter_user: isAll ? 'SEMUA USER' : rawUser,
         total_todo_aktif: active.length,
         daftar: active.map((t) => ({
           title: t.title,
+          user: t.userName || 'Pampam',
           prioritas: t.priority,
           dueDate: t.dueDate || '-',
           relatedTicket: t.relatedTicketNumber || '-',
+          subTodos: (t.subTodos || []).map((s) => ({
+            title: s.title,
+            isCompleted: s.isCompleted,
+          })),
         })),
       };
     }
@@ -802,7 +817,12 @@ Aturan Khusus Rekap Pendapatan Multi-Bulan & Excel:
 3. Selalu tawarkan atau sertakan link jika ${userGreeting} membutuhkan file Excel detail matriks per komponen bulanan.
 4. Jika pengguna secara eksplisit meminta file Excel (misal: "buatkan excel rekap gaji pegawai X", "export excel rekap"), PANGGIL tool export_excel_rekap_pegawai dan sertakan link unduh HTML dalam jawaban Anda.
 5. Tools Pemecah File Excel HRIS (Batch Splitter): Aplikasi memiliki halaman khusus di "/tools/excel-splitter" untuk memotong file master payroll (hingga 100.000+ baris) menjadi pecahan per 1.000 baris secara offline di laptop tanpa merusak format tanggal dd/mm/yyyy atau teks NIK. Jika ${userGreeting} bertanya tentang pemecahan file Excel untuk HRIS baru, berikan panduan singkat dan sertakan tautan ke <a href="/tools/excel-splitter">✂️ Buka Pemecah File Excel HRIS</a>.
-6. Kalkulator Terbilang Nota Dinas: Jika pengguna bertanya tentang ejaan kalimat terbilang dari suatu nominal atau pembuatan kalimat nota dinas/kwitansi, PANGGIL tool konversi_terbilang dan berikan kalimat terbilang Title Case beserta format lengkap nota dinas siap pakai.`;
+6. Kalkulator Terbilang Nota Dinas: Jika pengguna bertanya tentang ejaan kalimat terbilang dari suatu nominal atau pembuatan kalimat nota dinas/kwitansi, PANGGIL tool konversi_terbilang dan berikan kalimat terbilang Title Case beserta format lengkap nota dinas siap pakai.
+
+Aturan Khusus Rekap To-Do List:
+1. Ketika ${userGreeting} meminta rekap to-do list ("rekap to-do list saya", "agenda saya", "to do list aktif", dll.), PANGGIL tool 'rekap_todo_asisten' dengan parameter user_name="${activeUser}".
+2. HANYA tampilkan to-do list milik ${userGreeting} (${activeUser}). JANGAN PERNAH mencampur atau menampilkan to-do list milik user lain, KECUALI jika pengguna secara eksplisit meminta melihat to-do list orang lain (misal: "lihat to do list Ucup") atau meminta melihat semua to-do list ("tampilkan semua to-do list").
+3. Format output daftar to-do dengan rapi (sebutkan judul, prioritas, batas waktu jika ada, nomor tiket terkait jika ada, serta sub-item to-do beserta status centangnya jika memiliki checklist lanjutan).`;
 
   try {
     // Primary model: gemini-3.5-flash-lite (kecepatan tinggi & kuota free tier besar)
@@ -854,7 +874,7 @@ Aturan Khusus Rekap Pendapatan Multi-Bulan & Excel:
       const call = functionCalls[0];
       if (call.name) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const toolResult = await executeTool(call.name, (call.args || {}) as Record<string, any>);
+        const toolResult = await executeTool(call.name, (call.args || {}) as Record<string, any>, activeUser);
         const modelParts = response.candidates?.[0]?.content?.parts || [{ functionCall: call }];
 
         // Step 3: Kirim balik hasil tool ke Gemini untuk diformulasikan menjadi jawaban ramah
