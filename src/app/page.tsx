@@ -751,15 +751,17 @@ export default function AssistantDashboard() {
 
         {/* Tab Content */}
         {activeTab === 'TODOS' ? (
-          <TodoListWidget
-            todos={todos}
-            initialFilter={todoFilter}
-            activeUser={activeProfile}
-            onRefresh={() => {
-              fetchTodos();
-              fetchDashboardData();
-            }}
-          />
+          <div id="todo-list-widget">
+            <TodoListWidget
+              todos={todos}
+              initialFilter={todoFilter}
+              activeUser={activeProfile}
+              onRefresh={() => {
+                fetchTodos();
+                fetchDashboardData();
+              }}
+            />
+          </div>
         ) : (
           /* Tampilan Laporan Payroll */
           <>
@@ -1117,6 +1119,11 @@ export default function AssistantDashboard() {
       {/* Floating AI Chat Assistant with Mascot */}
       <AiChatWidget
         activeUser={activeProfile}
+        todos={todos}
+        onOpenTodos={(filter) => {
+          if (filter) setTodoFilter(filter);
+          setActiveTab('TODOS');
+        }}
         onDataUpdated={() => {
           fetchDashboardData();
           fetchTodos();
