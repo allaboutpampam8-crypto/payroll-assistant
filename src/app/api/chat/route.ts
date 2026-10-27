@@ -1,15 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { askPayrollAI, ChatHistoryItem } from '@/lib/gemini';
+import { askPayrollAI, ChatHistoryItem, ChatAttachment } from '@/lib/gemini';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const message = typeof body.message === 'string' ? body.message.trim() : '';
+    let message = typeof body.message === 'string' ? body.message.trim() : '';
     const userName = typeof body.userName === 'string' ? body.userName.trim() : undefined;
 
-    if (!message) {
+    let attachment: ChatAttachment | undefined;
+    if (
+      body.attachment &&
+      typeof body.attachment === 'object' &&
+      typeof body.attachment.mimeType === 'string' &&
+      typeof body.attachment.data === 'string'
+    ) {
+      attachment = {
+        mimeType: body.attachment.mimeType,
+        data: body.attachment.data,
+      };
+      if (!message) {
+        message = 'Tolong analisa slip gaji terlampir ini secara mendalam.';
+      }
+    }
+
+    if (!message && !attachment) {
       return NextResponse.json(
-        { success: false, error: 'Pesan tidak boleh kosong.' },
+        { success: false, error: 'Pesan atau lampiran tidak boleh kosong.' },
         { status: 400 }
       );
     }
@@ -26,7 +42,7 @@ export async function POST(req: NextRequest) {
         .filter((item: ChatHistoryItem) => Boolean(item.text));
     }
 
-    const reply = await askPayrollAI(message, userName, history);
+    const reply = await askPayrollAI(message, userName, history, attachment);
 
     return NextResponse.json({
       success: true,

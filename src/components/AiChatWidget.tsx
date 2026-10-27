@@ -7,14 +7,24 @@ import {
   X,
   RotateCcw,
   Sparkles,
+  Paperclip,
+  FileText,
 } from 'lucide-react';
 import { sanitizeHtml } from '@/lib/sanitize';
+
+interface ChatAttachmentDisplay {
+  name: string;
+  mimeType: string;
+  dataUrl: string;
+  sizeText?: string;
+}
 
 interface ChatMessage {
   id: string;
   sender: 'user' | 'assistant';
   text: string;
   timestamp: string;
+  attachment?: ChatAttachmentDisplay;
 }
 
 let chatMsgCounter = 0;
@@ -66,8 +76,10 @@ export default function AiChatWidget({ onDataUpdated, activeUser }: AiChatWidget
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [attachment, setAttachment] = useState<ChatAttachmentDisplay | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentUser = activeUser || 'Pampam';
   const userGreeting = currentUser === 'Ucup' ? 'Pak Ucup' : `Pak ${currentUser}`;
@@ -114,9 +126,36 @@ export default function AiChatWidget({ onDataUpdated, activeUser }: AiChatWidget
     }
   }, [isOpen, messages, isLoading]);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 8 * 1024 * 1024) {
+      alert('Ukuran file maksimal 8 MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const sizeKB = Math.round(file.size / 1024);
+      const sizeText = sizeKB > 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
+
+      setAttachment({
+        name: file.name,
+        mimeType: file.type || (file.name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'),
+        dataUrl,
+        sizeText,
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   const handleSend = async (textToSend?: string) => {
     const text = (textToSend || inputMessage).trim();
-    if (!text || isLoading) return;
+    const currentAttachment = attachment;
+    if ((!text && !currentAttachment) || isLoading) return;
 
     // Siapkan riwayat percakapan sebelumnya untuk multi-turn context
     const historyPayload = messages
@@ -130,22 +169,35 @@ export default function AiChatWidget({ onDataUpdated, activeUser }: AiChatWidget
     const userMsg: ChatMessage = {
       id: createChatMessageId('usr'),
       sender: 'user',
-      text,
+      text: text || (currentAttachment ? `Analisa lampiran: ${currentAttachment.name}` : ''),
       timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+      attachment: currentAttachment || undefined,
     };
 
     setMessages((prev) => [...prev, userMsg]);
     setInputMessage('');
+    setAttachment(null);
     setIsLoading(true);
 
     try {
+      let attachmentPayload: { mimeType: string; data: string } | undefined;
+      if (currentAttachment) {
+        const parts = currentAttachment.dataUrl.split(',');
+        const base64 = parts.length > 1 ? parts[1] : parts[0];
+        attachmentPayload = {
+          mimeType: currentAttachment.mimeType,
+          data: base64,
+        };
+      }
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: text,
+          message: text || (currentAttachment ? 'Tolong analisa slip gaji terlampir ini.' : ''),
           userName: currentUser,
           history: historyPayload,
+          attachment: attachmentPayload,
         }),
       });
 
@@ -339,15 +391,6 @@ export default function AiChatWidget({ onDataUpdated, activeUser }: AiChatWidget
                     Asisten pintar payroll Anda. Tanyakan rincian gaji, komparasi selisih, tiket kendala, atau minta saya update status tiket.
                   </p>
 
-                  {/* Smart Memory Hint */}
-                  <div className="mt-3 w-full p-2.5 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/40 text-[11px] text-indigo-700 dark:text-indigo-300 text-left flex items-start gap-2 shadow-xs">
-                    <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mt-0.5 shrink-0" />
-                    <div className="leading-relaxed">
-                      <strong className="block font-bold">Fitur Smart Memory Aktif:</strong>
-                      Anda bisa bertanya secara bertahap seperti mengobrol biasa! Contoh: tanya <i>&quot;Cek gaji Ahmad Maulana&quot;</i>, lalu lanjut <i>&quot;Berapa upah lemburnya?&quot;</i> atau <i>&quot;Bandingkan dengan bulan lalu&quot;</i> tanpa perlu mengetik ulang nama atau NRP.
-                    </div>
-                  </div>
-
                   {/* Quick Prompts */}
                   <div className="mt-3.5 w-full flex flex-col gap-1.5 text-left">
                     <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-1">
@@ -394,6 +437,28 @@ export default function AiChatWidget({ onDataUpdated, activeUser }: AiChatWidget
                         : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700/80 rounded-tl-none'
                     }`}
                   >
+                    {msg.sender === 'user' && msg.attachment && (
+                      <div className="mb-2">
+                        {msg.attachment.mimeType.startsWith('image/') ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={msg.attachment.dataUrl}
+                            alt={msg.attachment.name}
+                            className="max-w-[220px] max-h-[160px] object-cover rounded-lg border border-white/30 shadow-xs cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => {
+                              const w = window.open('');
+                              w?.document.write(`<img src="${msg.attachment?.dataUrl}" style="max-width:100%;height:auto;"/>`);
+                            }}
+                          />
+                        ) : (
+                          <div className="flex items-center gap-2 p-2 bg-white/20 rounded-lg text-[11px] font-medium">
+                            <FileText className="w-4 h-4 text-white flex-shrink-0" />
+                            <span className="truncate max-w-[160px]">{msg.attachment.name}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {msg.sender === 'assistant' ? (
                       <div
                         className="prose prose-xs dark:prose-invert max-w-none space-y-1.5 text-xs [&>p]:leading-relaxed [&>ul]:list-disc [&>ul]:pl-4 [&>code]:bg-slate-100 dark:[&>code]:bg-slate-700 [&>code]:px-1 [&>code]:py-0.5 [&>code]:rounded [&_a]:inline-flex [&_a]:items-center [&_a]:gap-1.5 [&_a]:bg-emerald-50 dark:[&_a]:bg-emerald-950/60 [&_a]:text-emerald-700 dark:[&_a]:text-emerald-300 [&_a]:border [&_a]:border-emerald-300 dark:[&_a]:border-emerald-700/60 [&_a]:px-3 [&_a]:py-1.5 [&_a]:rounded-lg [&_a]:font-semibold [&_a]:shadow-xs hover:[&_a]:bg-emerald-100 dark:hover:[&_a]:bg-emerald-900/80 [&_a]:transition-colors [&_a]:no-underline"
@@ -436,7 +501,7 @@ export default function AiChatWidget({ onDataUpdated, activeUser }: AiChatWidget
                       <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-bounce [animation-delay:-0.15s]"></span>
                       <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-bounce"></span>
                     </span>
-                    <span>Mengecek database payroll...</span>
+                    <span>Menganalisa data payroll...</span>
                   </div>
                 </div>
               </div>
@@ -447,20 +512,73 @@ export default function AiChatWidget({ onDataUpdated, activeUser }: AiChatWidget
 
           {/* Input Footer */}
           <div className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
-            <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 rounded-xl px-3 py-1.5 border border-slate-200 dark:border-slate-700/70 focus-within:ring-2 focus-within:ring-indigo-500/30 focus-within:border-indigo-500 transition-all">
+            {/* Attachment Preview Chip */}
+            {attachment && (
+              <div className="mb-2 p-2 bg-indigo-50 dark:bg-slate-800 border border-indigo-200 dark:border-indigo-700/60 rounded-xl flex items-center justify-between gap-2 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  {attachment.mimeType.startsWith('image/') ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={attachment.dataUrl}
+                      alt="Preview"
+                      className="w-10 h-10 object-cover rounded-lg border border-indigo-300 dark:border-slate-600 flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center font-bold text-xs flex-shrink-0 border border-red-200">
+                      PDF
+                    </div>
+                  )}
+                  <div className="truncate text-xs">
+                    <div className="font-semibold text-slate-800 dark:text-slate-100 truncate">
+                      {attachment.name}
+                    </div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                      {attachment.sizeText} • Siap dianalisa
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAttachment(null)}
+                  className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                  title="Batal lampirkan"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 rounded-xl px-2.5 py-1.5 border border-slate-200 dark:border-slate-700/70 focus-within:ring-2 focus-within:ring-indigo-500/30 focus-within:border-indigo-500 transition-all">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/jpg,application/pdf"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading}
+                className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors cursor-pointer"
+                title="Lampirkan foto atau PDF slip gaji"
+              >
+                <Paperclip className="w-4 h-4" />
+              </button>
+
               <input
                 ref={inputRef}
                 type="text"
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Tanya gaji atau minta update tiket..."
+                placeholder={attachment ? 'Beri catatan atau langsung kirim...' : 'Tanya gaji atau lampirkan slip...'}
                 className="flex-1 bg-transparent text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden py-1"
                 disabled={isLoading}
               />
               <button
                 onClick={() => handleSend()}
-                disabled={!inputMessage.trim() || isLoading}
+                disabled={(!inputMessage.trim() && !attachment) || isLoading}
                 className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white transition-colors cursor-pointer disabled:cursor-not-allowed"
                 title="Kirim pesan"
               >
@@ -468,7 +586,7 @@ export default function AiChatWidget({ onDataUpdated, activeUser }: AiChatWidget
               </button>
             </div>
             <div className="flex justify-between items-center text-[10px] text-slate-400 dark:text-slate-500 mt-1.5 px-1">
-              <span>Tekan Enter untuk mengirim</span>
+              <span>Bisa upload foto / PDF slip gaji</span>
               <span className="flex items-center gap-1">
                 <Sparkles className="w-2.5 h-2.5 text-indigo-500" /> Powered by Gemini
               </span>

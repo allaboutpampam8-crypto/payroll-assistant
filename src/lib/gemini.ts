@@ -62,6 +62,41 @@ const toolDeclarations: FunctionDeclaration[] = [
     },
   },
   {
+    name: 'validasi_slip_gaji',
+    description:
+      'Memvalidasi data foto atau file slip gaji pegawai terhadap database master payroll dan riwayat bulan sebelumnya. Berguna untuk memverifikasi keaslian/kesesuaian angka slip dengan master data, mendeteksi indikasi prorate upah pokok (berdasarkan perbandingan dengan upah pokok bulan sebelumnya), mutasi jabatan, serta fluktuasi tunjangan atau upah lembur.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        nrp: {
+          type: Type.STRING,
+          description: 'NRP atau NIK pegawai yang tertera di slip (contoh: 19851205828)',
+        },
+        periode: {
+          type: Type.STRING,
+          description: 'Periode slip gaji (contoh: 2026-10 atau Oktober 2026)',
+        },
+        upah_pokok_slip: {
+          type: Type.NUMBER,
+          description: 'Nominal Upah Pokok atau Gaji Pokok yang tertera pada slip',
+        },
+        thp_slip: {
+          type: Type.NUMBER,
+          description: 'Nominal Take Home Pay atau Gaji Bersih yang tertera pada slip',
+        },
+        total_tunjangan_slip: {
+          type: Type.NUMBER,
+          description: 'Nominal total tunjangan atau pendapatan tambahan pada slip (opsional)',
+        },
+        total_potongan_slip: {
+          type: Type.NUMBER,
+          description: 'Nominal total potongan pada slip (opsional)',
+        },
+      },
+      required: ['nrp'],
+    },
+  },
+  {
     name: 'rekap_laporan_kendala',
     description:
       'Mengecek status tiket kendala payroll yang dilaporkan pegawai atau PIC (misal: jumlah tiket OPEN, tiket URGENT, kendala lembur, atau riwayat tiket).',
@@ -252,13 +287,124 @@ async function executeTool(name: string, args: Record<string, any>): Promise<any
         pegawai: comp.current.employeeName,
         nrp: comp.current.employeeNik,
         project: comp.current.department,
+        jabatan: comp.current.positionTitle || '-',
+        project_sebelumnya: comp.previous?.department || comp.current.department,
+        jabatan_sebelumnya: comp.previous?.positionTitle || comp.current.positionTitle || '-',
         periode_baru: comp.current.period,
         periode_lama: comp.previous?.period || 'Bulan sebelumnya',
+        gaji_pokok_periode_ini: comp.current.basicSalary,
+        gaji_pokok_periode_sebelumnya: comp.previous?.basicSalary ?? comp.current.basicSalary,
         selisih_thp: comp.diff.takeHomePay,
         selisih_gapok: comp.diff.basicSalary,
         selisih_lembur: comp.diff.overtimeAmount,
         rincian_selisih_tunjangan: comp.diff.allowanceDiffs,
         rincian_selisih_potongan: comp.diff.deductionDiffs,
+      };
+    }
+
+    if (name === 'validasi_slip_gaji') {
+      const nrp = String(args.nrp || '').trim();
+      const periode = args.periode ? String(args.periode) : undefined;
+      const comp = await comparePayrollResults(nrp, undefined, periode);
+
+      if (!comp) {
+        const single = await getPayrollResultByNik(nrp, periode);
+        if (!single) {
+          return {
+            status: 'not_found',
+            message: `Data pegawai dengan NRP ${nrp} tidak ditemukan di master database payroll.`,
+          };
+        }
+        return {
+          status: 'single_period_only',
+          pegawai: single.employeeName,
+          nrp: single.employeeNik,
+          project: single.department,
+          jabatan: single.positionTitle || '-',
+          periode: single.period,
+          upah_pokok_db: single.basicSalary,
+          thp_db: single.takeHomePay,
+          tunjangan_db: single.allowances,
+          potongan_db: single.totalDeductions,
+          catatan: 'Hanya ditemukan 1 periode data di database, belum ada data pembanding bulan sebelumnya.',
+        };
+      }
+
+      const curr = comp.current;
+      const prev = comp.previous;
+      const upahSlip = typeof args.upah_pokok_slip === 'number' ? args.upah_pokok_slip : undefined;
+      const thpSlip = typeof args.thp_slip === 'number' ? args.thp_slip : undefined;
+
+      // 1. Kesesuaian angka slip dengan master data periode berjalan
+      const isUpahMatch = upahSlip !== undefined ? Math.abs(upahSlip - curr.basicSalary) < 1 : true;
+      const isThpMatch = thpSlip !== undefined ? Math.abs(thpSlip - curr.takeHomePay) < 1 : true;
+      const isMasterIdentik = isUpahMatch && isThpMatch;
+
+      // 2. Evaluasi Upah Pokok vs Bulan Sebelumnya (Aturan Faktual User: Dicek berdasarkan upah pokok bulan lalu)
+      let evaluasiUpahPokok = 'NORMAL_TIDAK_BERUBAH';
+      let catatanUpahPokok = 'Upah pokok sama persis dengan bulan sebelumnya. Tidak ada penyesuaian prorate upah pokok.';
+
+      if (prev && prev.basicSalary > 0) {
+        const gapokTarget = upahSlip !== undefined ? upahSlip : curr.basicSalary;
+        if (gapokTarget < prev.basicSalary) {
+          const isSameDept = curr.department === prev.department;
+          const isSameJob = curr.positionTitle === prev.positionTitle;
+          if (isSameDept && isSameJob) {
+            evaluasiUpahPokok = 'INDIKASI_PRORATE';
+            catatanUpahPokok = `Upah pokok (Rp ${gapokTarget.toLocaleString('id-ID')}) lebih rendah dibanding bulan sebelumnya (Rp ${prev.basicSalary.toLocaleString('id-ID')}) dengan cost center dan jabatan tetap. Terindikasi kuat adanya penyesuaian prorate (masuk pertengahan bulan, unpaid leave, atau pemotongan hari kerja).`;
+          } else {
+            evaluasiUpahPokok = 'MUTASI_JABATAN';
+            catatanUpahPokok = `Perubahan upah pokok berkaitan dengan perpindahan cost center atau jabatan (${prev.positionTitle || prev.department} -> ${curr.positionTitle || curr.department}).`;
+          }
+        } else if (gapokTarget > prev.basicSalary) {
+          evaluasiUpahPokok = 'KENAIKAN_UPAH';
+          catatanUpahPokok = `Upah pokok mengalami kenaikan dari Rp ${prev.basicSalary.toLocaleString('id-ID')} menjadi Rp ${gapokTarget.toLocaleString('id-ID')}.`;
+        }
+      }
+
+      return {
+        status: 'success',
+        pegawai: curr.employeeName,
+        nrp: curr.employeeNik,
+        project: curr.department,
+        jabatan: curr.positionTitle || '-',
+        periode_slip: curr.period,
+        periode_pembanding: prev?.period || 'Bulan sebelumnya',
+        master_db: {
+          upah_pokok: curr.basicSalary,
+          tunjangan: curr.allowances,
+          potongan: curr.totalDeductions,
+          take_home_pay: curr.takeHomePay,
+        },
+        bulan_sebelumnya: prev
+          ? {
+              periode: prev.period,
+              upah_pokok: prev.basicSalary,
+              tunjangan: prev.allowances,
+              potongan: prev.totalDeductions,
+              take_home_pay: prev.takeHomePay,
+              cost_center: prev.department,
+              jabatan: prev.positionTitle || '-',
+            }
+          : null,
+        validasi_slip_vs_master: {
+          is_identik: isMasterIdentik,
+          selisih_upah_pokok_slip_vs_db: upahSlip !== undefined ? upahSlip - curr.basicSalary : 0,
+          selisih_thp_slip_vs_db: thpSlip !== undefined ? thpSlip - curr.takeHomePay : 0,
+        },
+        analisa_upah_pokok: {
+          status: evaluasiUpahPokok,
+          catatan: catatanUpahPokok,
+          upah_pokok_bulan_ini: curr.basicSalary,
+          upah_pokok_bulan_lalu: prev?.basicSalary ?? curr.basicSalary,
+          selisih_gapok_antar_bulan: comp.diff.basicSalary,
+        },
+        analisa_thp_antar_bulan: {
+          selisih_thp: comp.diff.takeHomePay,
+          selisih_lembur: comp.diff.overtimeAmount,
+          rincian_perubahan_tunjangan: comp.diff.allowanceDiffs,
+          rincian_perubahan_potongan: comp.diff.deductionDiffs,
+        },
       };
     }
 
@@ -563,13 +709,19 @@ export interface ChatHistoryItem {
   text: string;
 }
 
+export interface ChatAttachment {
+  mimeType: string;
+  data: string; // Base64 encoded string
+}
+
 /**
- * Memproses pertanyaan teks bebas dari user menggunakan Google Gemini dengan Tool Execution dan Multi-Turn Memory
+ * Memproses pertanyaan teks bebas dari user menggunakan Google Gemini dengan Tool Execution, Multi-Turn Memory, dan Analisis Dokumen/Slip Multimodal
  */
 export async function askPayrollAI(
   userMessage: string,
   userName?: string,
-  history?: ChatHistoryItem[]
+  history?: ChatHistoryItem[],
+  attachment?: ChatAttachment
 ): Promise<string> {
   if (!apiKey) {
     return (
@@ -613,6 +765,37 @@ Aturan Memori Konteks Percakapan (Smart Memory / Multi-Turn Context):
   * "Berapa take home pay-nya?" -> Rujuk ke subjek pegawai terakhir.
 - JANGAN PERNAH meminta ${userGreeting} mengulang menyebutkan nama, NRP, atau nomor tiket jika informasinya sudah ada di percakapan sebelumnya.
 
+Aturan Khusus Analisis Foto / File Slip Gaji (Slip Analyzer):
+Ketika pengguna mengirim foto/screenshot/file PDF slip gaji atau meminta analisa slip gaji:
+1. EKSTRAK DATA SLIP: Baca teks pada slip secara akurat:
+   - Nama Pegawai & NRP / NIK
+   - Periode Slip (contoh: Oktober 2026 atau 2026-10)
+   - Jabatan & Cost Center / Departemen / Unit Kerja
+   - Upah Pokok (Gaji Pokok)
+   - Total Tunjangan / Upah Lembur
+   - Total Potongan
+   - Take Home Pay (Gaji Bersih Diterima)
+2. PANGGIL TOOL DATABASE (MANDATORI):
+   - PANGGIL tool 'validasi_slip_gaji' dengan NRP dan nominal upah pokok serta THP yang terbaca di slip.
+3. ATURAN PENILAIAN UPAH POKOK & PRORATE (SANGAT KRUSIAL):
+   - JANGAN PERNAH menyimpulkan prorate berdasarkan standar rata-rata jabatan lain atau perkiraan sendiri.
+   - Pengecekan Upah Pokok HARUS diverifikasi terhadap UPAH POKOK BULAN SEBELUMNYA milik pegawai tersebut di database master:
+     * Jika Upah Pokok di slip = Upah Pokok bulan sebelumnya (selisih gapok = Rp 0):
+       Kesimpulan: <b>Upah Pokok Normal / Tidak Ada Prorate</b>. Upah pokok tetap konsisten dengan bulan sebelumnya.
+     * Jika Upah Pokok di slip LEBIH RENDAH dibanding bulan sebelumnya dan Cost Center/Jabatan TIDAK berubah:
+       Kesimpulan: <b>Terindikasi Penyesuaian Prorate Upah Pokok</b> (misal: masuk pertengahan bulan, unpaid leave / mangkir, atau pengurangan hari kerja efektif).
+     * Jika Cost Center atau Jabatan berubah:
+       Kesimpulan: <b>Perubahan Terkait Mutasi / Promosi / Rotasi Jabatan</b>.
+4. ANALISIS FLUKTUASI TAKE HOME PAY:
+   - Jika Upah Pokok tidak berubah namun THP berbeda dibanding bulan lalu, jelaskan secara transparan komponen apa yang menyebabkan perubahan tersebut (misal: fluktuasi Upah Lembur Operasional, Tunjangan Kehadiran, atau potongan tertentu).
+5. FORMAT LAPORAN ANALISA SLIP:
+   Sajikan hasil analisa secara elegan dengan struktur:
+   - 🧾 <b>Identitas Slip</b>: Nama, NRP, Periode, Jabatan, Cost Center.
+   - 🔍 <b>Kesesuaian Master Data</b>: Apakah nominal slip identik / sesuai dengan master payroll perusahaan.
+   - 💡 <b>Analisa Upah Pokok</b>: Penjelasan status prorate vs upah pokok bulan sebelumnya.
+   - 📈 <b>Faktor Selisih THP</b>: Rincian komponen tunjangan / lembur / potongan yang naik atau turun.
+   - 🎯 <b>Kesimpulan & Rekomendasi</b>: Pernyataan akhir apakah slip valid atau memerlukan crosscheck.
+
 Aturan Khusus Rekap Pendapatan Multi-Bulan & Excel:
 1. Komponen Upah Lembur BUKAN lembur terpisah, melainkan komponen penggajian bulanan yang dikategorikan ke dalam Tunjangan.
 2. Ketika pengguna meminta rekap gaji beberapa bulan (misal Jan - Okt): Secara DEFAULT di chat, tampilkan ringkasan TOTAL saja (Total Take Home Pay, Total Gaji Pokok, Total Tunjangan [termasuk lembur], Total Potongan, serta Rata-rata THP per bulan) agar ringkas dan cepat dibaca oleh ${userGreeting}.
@@ -634,9 +817,28 @@ Aturan Khusus Rekap Pendapatan Multi-Bulan & Excel:
         parts: [{ text: m.text.replace(/<[^>]*>/g, '').trim() }],
       }));
 
-    const currentTurnContent = { role: 'user' as const, parts: [{ text: userMessage }] };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const currentParts: any[] = [];
+    if (attachment && attachment.data && attachment.mimeType) {
+      currentParts.push({
+        inlineData: {
+          mimeType: attachment.mimeType,
+          data: attachment.data,
+        },
+      });
+    }
 
-    // Step 1: Panggil model dengan riwayat percakapan + pertanyaan saat ini
+    const promptText =
+      userMessage.trim() ||
+      (attachment
+        ? 'Tolong analisa slip gaji terlampir ini secara menyeluruh, cocokkan dengan master data payroll dan evaluasi upah pokoknya terhadap bulan sebelumnya.'
+        : 'Halo Si PALI');
+
+    currentParts.push({ text: promptText });
+
+    const currentTurnContent = { role: 'user' as const, parts: currentParts };
+
+    // Step 1: Panggil model dengan riwayat percakapan + pertanyaan saat ini (termasuk attachment jika ada)
     const response = await ai.models.generateContent({
       model: modelName,
       contents: [...previousContents, currentTurnContent],
@@ -693,6 +895,24 @@ Aturan Khusus Rekap Pendapatan Multi-Bulan & Excel:
     if (err.message?.includes('429') || err.status === 429) {
       try {
         const fallbackAi = new GoogleGenAI({ apiKey });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const fallbackParts: any[] = [];
+        if (attachment && attachment.data && attachment.mimeType) {
+          fallbackParts.push({
+            inlineData: {
+              mimeType: attachment.mimeType,
+              data: attachment.data,
+            },
+          });
+        }
+        fallbackParts.push({
+          text:
+            userMessage.trim() ||
+            (attachment
+              ? 'Tolong analisa slip gaji terlampir ini.'
+              : 'Halo Si PALI'),
+        });
+
         const res = await fallbackAi.models.generateContent({
           model: 'gemini-3.5-flash',
           contents: [
@@ -700,7 +920,7 @@ Aturan Khusus Rekap Pendapatan Multi-Bulan & Excel:
               role: m.role,
               parts: [{ text: m.text.replace(/<[^>]*>/g, '').trim() }],
             }))),
-            { role: 'user', parts: [{ text: userMessage }] },
+            { role: 'user', parts: fallbackParts },
           ],
           config: {
             systemInstruction,
