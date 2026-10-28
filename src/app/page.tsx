@@ -153,8 +153,10 @@ export default function AssistantDashboard() {
     }
   }, []);
 
-  const fetchDashboardData = useCallback(() => {
-    return fetch('/api/reports')
+  const fetchDashboardData = useCallback((targetUser?: string) => {
+    const userToFetch = targetUser || activeProfile;
+    const query = userToFetch === 'Ucup' ? '' : `?user=${encodeURIComponent(userToFetch)}`;
+    return fetch(`/api/reports${query}`)
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.data) {
@@ -166,7 +168,7 @@ export default function AssistantDashboard() {
       .catch((err) => {
         console.error('Failed to load reports:', err);
       });
-  }, []);
+  }, [activeProfile]);
 
   const fetchTodos = useCallback((targetUser?: string) => {
     const userToFetch = targetUser || activeProfile;
@@ -188,6 +190,7 @@ export default function AssistantDashboard() {
     setActiveProfile(prof);
     localStorage.setItem('lapor_payroll_active_user', prof);
     setIsProfileDropdownOpen(false);
+    fetchDashboardData(prof);
     fetchTodos(prof);
     if (prof === 'Ucup') {
       setPicFilter('ALL');
@@ -435,9 +438,7 @@ export default function AssistantDashboard() {
 
   // Dynamic Metrics: Menyesuaikan saat filter "Tiket Saya" atau "Semua PIC" aktif
   const displayMetrics = useMemo<DashboardMetrics>(() => {
-    if (picFilter === 'ALL' && periodFilter === 'ALL') {
-      return metrics;
-    }
+    const todayStr = new Date().toISOString().split('T')[0];
 
     const targetReports = reports.filter((r) => {
       if (periodFilter !== 'ALL' && r.period !== periodFilter) return false;
@@ -448,7 +449,6 @@ export default function AssistantDashboard() {
       return true;
     });
 
-    const todayStr = new Date().toISOString().split('T')[0];
     const totalReports = targetReports.length;
     const openReports = targetReports.filter((r) => r.actionStatus === 'OPEN').length;
     const crosscheckReports = targetReports.filter((r) => r.actionStatus === 'CROSSCHECK').length;
@@ -460,8 +460,21 @@ export default function AssistantDashboard() {
       (r) => r.priority === 'URGENT' && r.actionStatus !== 'CLOSE'
     ).length;
 
-    const activeTodos = todos.filter((t) => !t.isCompleted);
-    const overdueTodosCount = activeTodos.filter(
+    // Filter To-Do: Khusus PIC hanya menghitung to-do mandiri miliknya.
+    // Hanya Ucup (Superintendent) yang memantau to-do seluruh tim jika mode pantauan tim aktif.
+    const relevantTodos = todos.filter((t) => {
+      if (t.isCompleted) return false;
+      if (activeProfile === 'Ucup') {
+        if (picFilter === 'MY_TICKETS') {
+          return (t.userName || 'Ucup') === 'Ucup';
+        }
+        return true;
+      }
+      return (t.userName || 'Pampam') === activeProfile;
+    });
+
+    const activeTodosCount = relevantTodos.length;
+    const overdueTodosCount = relevantTodos.filter(
       (t) => t.dueDate && t.dueDate < todayStr
     ).length;
 
@@ -472,9 +485,10 @@ export default function AssistantDashboard() {
       closeReports,
       overdueCount,
       urgentCount,
+      activeTodosCount,
       overdueTodosCount,
     };
-  }, [picFilter, periodFilter, reports, activeProfile, metrics, todos]);
+  }, [picFilter, periodFilter, reports, activeProfile, todos]);
 
   // Sorting (Rekomendasi 2)
   const handleSort = (field: SortField) => {
@@ -670,7 +684,7 @@ export default function AssistantDashboard() {
           settings={settings}
           reports={reports}
           todos={todos}
-          activeTodosCount={todos.filter((t) => !t.isCompleted).length}
+          activeTodosCount={displayMetrics.activeTodosCount || 0}
           activeUser={activeProfile}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onRefresh={fetchDashboardData}
@@ -733,9 +747,9 @@ export default function AssistantDashboard() {
               <ListTodo className="h-4 w-4 shrink-0" />
               <span className="sm:hidden">To-Do ({activeProfile})</span>
               <span className="hidden sm:inline">To-Do List Mandiri ({activeProfile})</span>
-              {todos.filter((t) => !t.isCompleted).length > 0 && (
+              {(displayMetrics.activeTodosCount || 0) > 0 && (
                 <span className="rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-extrabold px-1.5 py-0.2 shrink-0">
-                  {todos.filter((t) => !t.isCompleted).length}
+                  {displayMetrics.activeTodosCount}
                 </span>
               )}
             </button>

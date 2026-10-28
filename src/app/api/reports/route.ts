@@ -7,10 +7,12 @@ import {
   getSettings,
 } from '@/lib/db';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const user = searchParams.get('user') || undefined;
     const reports = await getAllReports();
-    const metrics = await getDashboardMetrics();
+    const metrics = await getDashboardMetrics(user);
     const settings = await getSettings();
 
     return NextResponse.json({

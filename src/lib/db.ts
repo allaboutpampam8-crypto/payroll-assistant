@@ -807,9 +807,9 @@ export async function updateSettings(
 // METRICS
 // -------------------------------------------------------------
 
-export async function getDashboardMetrics(): Promise<DashboardMetrics> {
+export async function getDashboardMetrics(userName?: string): Promise<DashboardMetrics> {
   const reports = await getAllReports();
-  const todos = await getAllTodos();
+  const todos = await getAllTodos(userName);
 
   const openReports = reports.filter((r) => r.actionStatus === 'OPEN').length;
   const crosscheckReports = reports.filter((r) => r.actionStatus === 'CROSSCHECK').length;

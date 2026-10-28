@@ -134,7 +134,7 @@ export default function DailyBriefing({
 
   const scopedTodos = isSuperintendent
     ? todos
-    : todos.filter((t) => !t.userName || t.userName === (activeUser || 'Pampam'));
+    : todos.filter((t) => (t.userName || 'Pampam') === (activeUser || 'Pampam'));
 
   // Analisis laporan
   const openCount = scopedReports.filter((r) => r.actionStatus === 'OPEN').length;

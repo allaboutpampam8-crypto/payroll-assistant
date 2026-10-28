@@ -363,7 +363,7 @@ export default function TodoListWidget({
       if (viewUserFilter === 'ALL') return true;
       return (t.userName || 'Pampam') === viewUserFilter;
     }
-    return !t.userName || t.userName === activeUser;
+    return (t.userName || 'Pampam') === activeUser;
   });
 
   const filteredTodos = userTodos.filter((t) => {
