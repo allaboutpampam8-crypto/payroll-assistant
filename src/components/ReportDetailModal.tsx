@@ -18,6 +18,9 @@ import {
   Upload,
   Maximize2,
   FileText,
+  Clipboard,
+  RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 import {
   PayrollReport,
@@ -78,7 +81,89 @@ function ReportDetailModalContent({
   const [attachmentUrl, setAttachmentUrl] = useState(report.attachmentUrl || '');
   const [attachmentName, setAttachmentName] = useState(report.attachmentName || '');
   const [isViewingFullImage, setIsViewingFullImage] = useState(false);
+  const [isPasteMode, setIsPasteMode] = useState(false);
   const detailFileInputRef = useRef<HTMLInputElement>(null);
+
+  const hasReplacedAttachment = attachmentUrl !== (report.attachmentUrl || '');
+
+  const handleRevertAttachment = () => {
+    setAttachmentUrl(report.attachmentUrl || '');
+    setAttachmentName(report.attachmentName || '');
+    if (detailFileInputRef.current) detailFileInputRef.current.value = '';
+    setIsPasteMode(false);
+  };
+
+  const handlePasteClipboard = async () => {
+    setErrorMsg('');
+    // 1. Coba baca langsung gambar dari Clipboard API (bekerja instan di browser modern saat diklik)
+    if (navigator?.clipboard && typeof navigator.clipboard.read === 'function') {
+      try {
+        const clipboardItems = await navigator.clipboard.read();
+        for (const item of clipboardItems) {
+          const imageType = item.types.find((t) => t.startsWith('image/'));
+          if (imageType) {
+            const blob = await item.getType(imageType);
+            if (blob.size > 5 * 1024 * 1024) {
+              alert('Ukuran gambar screenshot maksimal 5 MB.');
+              return;
+            }
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              const base64 = event.target?.result as string;
+              setAttachmentUrl(base64);
+              const timestamp = new Date().toISOString().slice(0, 10);
+              setAttachmentName(`screenshot-paste-${timestamp}.png`);
+              setIsPasteMode(false);
+            };
+            reader.readAsDataURL(blob);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Clipboard read fallback to listener:', err);
+      }
+    }
+
+    // 2. Aktifkan mode siap tempel (Focus mode)
+    setIsPasteMode(true);
+  };
+
+  // Keyboard paste listener saat mode tempel aktif
+  React.useEffect(() => {
+    if (!isPasteMode) return;
+
+    const handleWindowPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const blob = items[i].getAsFile();
+          if (!blob) continue;
+
+          if (blob.size > 5 * 1024 * 1024) {
+            alert('Ukuran gambar screenshot maksimal 5 MB.');
+            return;
+          }
+
+          const reader = new FileReader();
+          reader.onload = (uploadEvent) => {
+            const base64 = uploadEvent.target?.result as string;
+            setAttachmentUrl(base64);
+            const timestamp = new Date().toISOString().slice(0, 10);
+            setAttachmentName(`screenshot-paste-${timestamp}.png`);
+            setIsPasteMode(false);
+          };
+          reader.readAsDataURL(blob);
+          e.preventDefault();
+          break;
+        }
+      }
+    };
+
+    window.addEventListener('paste', handleWindowPaste);
+    return () => window.removeEventListener('paste', handleWindowPaste);
+  }, [isPasteMode]);
 
   const handleDetailFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -353,18 +438,39 @@ function ReportDetailModalContent({
 
           {/* Lampiran Bukti / Slip */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1.5">
               <label className="block text-xs font-semibold text-slate-700">
                 Lampiran Bukti (Slip / Timesheet):
               </label>
-              <button
-                type="button"
-                onClick={() => detailFileInputRef.current?.click()}
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer"
-              >
-                <Upload className="h-3 w-3" />
-                <span>{attachmentUrl ? 'Ganti Berkas' : '+ Unggah Bukti'}</span>
-              </button>
+
+              <div className="flex items-center gap-1.5">
+                {/* Tombol Khusus Paste dari Clipboard (Aman & Tidak Terpencet Liar) */}
+                <button
+                  type="button"
+                  onClick={handlePasteClipboard}
+                  className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                    isPasteMode
+                      ? 'bg-amber-100 border-amber-400 text-amber-950 ring-2 ring-amber-400/50 animate-pulse'
+                      : 'bg-indigo-50/80 hover:bg-indigo-100 border-indigo-200/80 text-indigo-700 shadow-2xs'
+                  }`}
+                  title="Klik untuk menempelkan gambar screenshot langsung dari clipboard"
+                >
+                  <Clipboard className="h-3 w-3" />
+                  <span>{isPasteMode ? 'Siap: Tekan Ctrl + V' : 'Paste Screenshot'}</span>
+                </button>
+
+                {/* Tombol Pilih File Biasa */}
+                <button
+                  type="button"
+                  onClick={() => detailFileInputRef.current?.click()}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 px-2 py-1 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer"
+                  title="Pilih file dari komputer"
+                >
+                  <Upload className="h-3 w-3" />
+                  <span>{attachmentUrl ? 'Pilih File' : '+ Unggah File'}</span>
+                </button>
+              </div>
+
               <input
                 ref={detailFileInputRef}
                 type="file"
@@ -373,6 +479,42 @@ function ReportDetailModalContent({
                 className="hidden"
               />
             </div>
+
+            {/* Banner Mode Siap Tempel */}
+            {isPasteMode && (
+              <div className="mb-2 p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-center justify-between gap-2 animate-in fade-in duration-200">
+                <span className="flex items-center gap-1.5 font-medium text-[11px]">
+                  <Sparkles className="h-3.5 w-3.5 text-amber-600 shrink-0 animate-bounce" />
+                  Mode siap tempel aktif: Tekan <strong>Ctrl + V</strong> sekarang untuk menempelkan gambar.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsPasteMode(false)}
+                  className="text-amber-800 hover:text-amber-950 text-[11px] font-bold hover:underline shrink-0 cursor-pointer"
+                >
+                  Batal
+                </button>
+              </div>
+            )}
+
+            {/* Banner Pengaman: Berkas telah digantikan (Bisa dibatalkan) */}
+            {hasReplacedAttachment && Boolean(report.attachmentUrl) && (
+              <div className="mb-2 p-2 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs flex items-center justify-between gap-2 animate-in fade-in duration-200">
+                <span className="flex items-center gap-1.5 text-[11px] font-medium">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                  Berkas diganti dengan yang baru (belum disimpan).
+                </span>
+                <button
+                  type="button"
+                  onClick={handleRevertAttachment}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 hover:underline cursor-pointer shrink-0"
+                  title="Kembalikan ke berkas lampiran awal laporan"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  <span>Kembalikan Berkas Asli</span>
+                </button>
+              </div>
+            )}
 
             {attachmentUrl ? (
               <div className="rounded-xl border border-slate-200 p-2.5 bg-slate-50 space-y-2">
@@ -441,7 +583,7 @@ function ReportDetailModalContent({
                 className="border border-dashed border-slate-200 hover:border-indigo-300 rounded-xl p-3 text-center cursor-pointer transition-all bg-slate-50/50 hover:bg-indigo-50/30 text-xs text-slate-400 hover:text-indigo-600 flex items-center justify-center gap-1.5"
               >
                 <Paperclip className="h-3.5 w-3.5" />
-                <span>Belum ada berkas bukti dilampirkan. Klik untuk mengunggah.</span>
+                <span>Belum ada berkas bukti dilampirkan. Klik untuk memilih file atau klik Paste Screenshot di atas.</span>
               </div>
             )}
           </div>
