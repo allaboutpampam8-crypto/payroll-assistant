@@ -905,12 +905,20 @@ function ReportDetailModalContent({
                 </div>
               </div>
               <div className="p-2 overflow-auto flex items-center justify-center bg-slate-950">
-                {attachmentUrl.startsWith('data:application/pdf') ? (
-                  <iframe
-                    src={attachmentUrl}
-                    className="w-full h-[75vh] rounded-lg"
-                    title="PDF Preview"
-                  />
+                {attachmentUrl.startsWith('data:application/pdf') || attachmentName?.toLowerCase().endsWith('.pdf') ? (
+                  <div className="w-full h-[75vh] flex flex-col items-center justify-center">
+                    <object
+                      data={report?.id ? `/api/reports/${report.id}/attachment` : attachmentUrl}
+                      type="application/pdf"
+                      className="w-full h-full rounded-lg border-0"
+                    >
+                      <iframe
+                        src={report?.id ? `/api/reports/${report.id}/attachment` : attachmentUrl}
+                        className="w-full h-full rounded-lg border-0"
+                        title="PDF Preview"
+                      />
+                    </object>
+                  </div>
                 ) : (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img

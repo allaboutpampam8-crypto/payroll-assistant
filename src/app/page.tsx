@@ -224,12 +224,12 @@ export default function AssistantDashboard() {
       setIsInitialLoading(false);
     });
 
-    // Smart Polling: Hemat baterai & kuota saat browser di HP diminimalkan
+    // Smart Polling Hemat Kuota: Polling setiap 90 detik saat tab aktif (hemat 80% kuota egress)
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
       fetchDashboardData();
       fetchTodos();
-    }, 15000);
+    }, 90000);
 
     const handleVisibilityChange = () => {
       if (typeof document !== 'undefined' && !document.hidden) {
@@ -1312,13 +1312,21 @@ export default function AssistantDashboard() {
             </div>
 
             {/* Content Preview */}
-            <div className="p-3 overflow-auto flex items-center justify-center bg-slate-950 min-h-[300px]">
-              {previewAttachment.url.startsWith('data:application/pdf') ? (
-                <iframe
-                  src={previewAttachment.url}
-                  className="w-full h-[75vh] rounded-lg border-0"
-                  title="PDF Preview"
-                />
+            <div className="p-3 overflow-auto flex items-center justify-center bg-slate-950 min-h-[400px]">
+              {previewAttachment.url.startsWith('data:application/pdf') || previewAttachment.name?.toLowerCase().endsWith('.pdf') ? (
+                <div className="w-full h-[75vh] flex flex-col items-center justify-center">
+                  <object
+                    data={previewAttachment.report?.id ? `/api/reports/${previewAttachment.report.id}/attachment` : previewAttachment.url}
+                    type="application/pdf"
+                    className="w-full h-full rounded-lg border-0"
+                  >
+                    <iframe
+                      src={previewAttachment.report?.id ? `/api/reports/${previewAttachment.report.id}/attachment` : previewAttachment.url}
+                      className="w-full h-full rounded-lg border-0"
+                      title="PDF Preview"
+                    />
+                  </object>
+                </div>
               ) : (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img

@@ -12,6 +12,7 @@ import {
   Lock,
   ChevronDown,
   CheckCircle2,
+  HardDriveDownload,
 } from 'lucide-react';
 import { PayrollSettings, AppUserProfile, APP_USER_PROFILES } from '@/lib/types';
 
@@ -254,6 +255,21 @@ export default function DashboardNavbar({
                       <p className="text-[11px] text-slate-500">Export laporan kendala ke Excel</p>
                     </div>
                   </button>
+
+                  <a
+                    href="/api/backup"
+                    download
+                    onClick={() => setIsToolsDropdownOpen(false)}
+                    className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-purple-50/70 text-left transition-colors cursor-pointer group"
+                  >
+                    <div className="p-2 rounded-lg bg-purple-100 text-purple-700 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                      <HardDriveDownload className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Cadangkan Data (JSON)</p>
+                      <p className="text-[11px] text-slate-500">Backup 1-klik tiket & to-do list</p>
+                    </div>
+                  </a>
                 </div>
               </>
             )}
