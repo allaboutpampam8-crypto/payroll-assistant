@@ -24,8 +24,8 @@ export function exportReportsToExcel(reports: PayrollReport[], periodName: strin
       'Catatan Solusi / Crosscheck': r.resolutionNotes || '-',
       'Sumber Laporan': r.source === 'FORM_KARYAWAN' ? 'Form Mandiri' : 'Dicatat PIC',
       'Pelapor / Catatan Sumber': r.reportedBy || '-',
-      'Tanggal Selesai': r.resolvedAt
-        ? new Date(r.resolvedAt).toLocaleDateString('id-ID', {
+      'Tanggal Selesai': (r.resolvedAt || (r.actionStatus === 'CLOSE' ? r.updatedAt : null))
+        ? new Date(r.resolvedAt || r.updatedAt).toLocaleDateString('id-ID', {
             day: '2-digit',
             month: 'short',
             year: 'numeric',

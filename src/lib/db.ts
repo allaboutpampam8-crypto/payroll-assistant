@@ -52,6 +52,9 @@ function mapReportFromRow(row: any): PayrollReport {
     }
   }
 
+  // Resolving completion timestamp: prioritaskan resolved_at, fallback ke updated_at jika status CLOSE
+  const resolvedAt = row.resolved_at || (row.action_status === 'CLOSE' ? row.updated_at : undefined);
+
   return {
     id: row.id,
     ticketNumber: row.ticket_number,
@@ -73,7 +76,7 @@ function mapReportFromRow(row: any): PayrollReport {
     reportedBy: reportedBy || undefined,
     attachmentUrl: row.attachment_url || undefined,
     attachmentName: row.attachment_name || undefined,
-    resolvedAt: row.resolved_at || undefined,
+    resolvedAt: resolvedAt || undefined,
     picName: picName || undefined,
   };
 }
