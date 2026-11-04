@@ -25,6 +25,7 @@ import {
 import * as XLSX from 'xlsx';
 import { PayrollResult, PayrollComparison, PayrollPeriodSummary } from '@/lib/types';
 import { formatPeriodToIso } from '@/lib/periodUtils';
+import { useToast } from '@/components/ToastProvider';
 
 interface PayrollResultsModalProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export default function PayrollResultsModal({
   onClose,
   defaultPeriod,
 }: PayrollResultsModalProps) {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'UPLOAD' | 'SEARCH' | 'SUMMARY'>('UPLOAD');
 
   // Upload States
@@ -182,9 +184,10 @@ export default function PayrollResultsModal({
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
+      toast.success('Berkas Excel ringkasan berhasil diunduh!');
     } catch (error: unknown) {
       console.error('Download error:', error);
-      alert(error instanceof Error ? error.message : 'Terjadi kendala saat mengunduh file Excel.');
+      toast.error(error instanceof Error ? error.message : 'Terjadi kendala saat mengunduh file Excel.');
     } finally {
       setIsExporting(false);
       setExportingLabel('');
@@ -237,9 +240,10 @@ export default function PayrollResultsModal({
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
+      toast.success('Berkas Master Pegawai berhasil diunduh!');
     } catch (error: unknown) {
       console.error('Download unique employees error:', error);
-      alert(error instanceof Error ? error.message : 'Terjadi kendala saat mengunduh data pegawai unik.');
+      toast.error(error instanceof Error ? error.message : 'Terjadi kendala saat mengunduh data pegawai unik.');
     } finally {
       setIsExportingUnique(false);
       setExportingLabel('');
@@ -292,6 +296,26 @@ export default function PayrollResultsModal({
       handleFetchSummary(summaryPeriod);
     }
   }, [activeTab]);
+
+  // Kunci Scroll Layar Utama saat modal terbuka
+  useEffect(() => {
+    if (!isOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isOpen]);
+
+  // Tutup modal saat menekan Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -720,39 +744,54 @@ export default function PayrollResultsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="w-full max-w-4xl max-h-[92vh] flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
-        {/* Header Modal */}
-        <div className="px-5 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-4xl max-h-[92vh] flex flex-col bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden"
+      >
+        {/* Header Modal Harmonis */}
+        <div className="px-5 sm:px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-indigo-50/50 via-white to-sky-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-indigo-100 text-indigo-700">
+            <div className="p-2.5 rounded-2xl bg-indigo-600 text-white shadow-md shadow-indigo-600/25">
               <Database className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
-                Pusat Data & Hasil Payroll Bulanan
-              </h3>
-              <p className="text-xs text-slate-500">
-                Kelola hasil payroll 17.000+ pegawai, analisis komparasi gaji, dan data bot.
+              <div className="flex items-center gap-2">
+                <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-slate-100 leading-tight">
+                  Pusat Data & Hasil Payroll Bulanan
+                </h3>
+                <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                  Database Gaji
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Kelola hasil payroll 17.000+ pegawai, analisis komparasi gaji, dan rekap master data.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 rounded-xl transition-all cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex border-b border-slate-200 bg-white px-5 sm:px-6 gap-2 text-xs font-semibold overflow-x-auto">
+        <div className="flex border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 sm:px-6 gap-2 text-xs font-semibold overflow-x-auto">
           <button
             onClick={() => setActiveTab('UPLOAD')}
             className={`py-3 px-3 border-b-2 transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
               activeTab === 'UPLOAD'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
             <Upload className="h-4 w-4" />
@@ -762,8 +801,8 @@ export default function PayrollResultsModal({
             onClick={() => setActiveTab('SEARCH')}
             className={`py-3 px-3 border-b-2 transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
               activeTab === 'SEARCH'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
             <Search className="h-4 w-4" />
@@ -776,8 +815,8 @@ export default function PayrollResultsModal({
             }}
             className={`py-3 px-3 border-b-2 transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
               activeTab === 'SUMMARY'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
             <Database className="h-4 w-4" />
@@ -815,7 +854,7 @@ export default function PayrollResultsModal({
               {/* Form Input Periode & File */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                     Periode Gaji (YYYY-MM):
                   </label>
                   <input
@@ -823,12 +862,12 @@ export default function PayrollResultsModal({
                     value={uploadPeriod}
                     onChange={(e) => setUploadPeriod(e.target.value)}
                     placeholder="Contoh: 2026-10"
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs sm:text-sm font-semibold font-mono outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-xs sm:text-sm font-semibold font-mono text-slate-900 dark:text-slate-100 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
                   />
-                  <div className="text-[10px] text-slate-500 mt-1 flex flex-col gap-1">
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 flex flex-col gap-1">
                     <span>Format standar: YYYY-MM (misal: 2026-10)</span>
                     {uploadPeriod && formatPeriodToIso(uploadPeriod) !== uploadPeriod && (
-                      <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-block self-start">
+                      <span className="text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 inline-block self-start">
                         ✓ Disimpan otomatis sebagai: {formatPeriodToIso(uploadPeriod)}
                       </span>
                     )}
@@ -836,17 +875,17 @@ export default function PayrollResultsModal({
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                     Pilih File Excel / CSV Hasil Payroll:
                   </label>
-                  <label className="flex items-center justify-between border-2 border-dashed border-slate-300 hover:border-indigo-500 rounded-2xl p-2.5 px-4 cursor-pointer bg-slate-50/50 hover:bg-indigo-50/20 transition-all">
+                  <label className="flex items-center justify-between border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-400 rounded-2xl p-2.5 px-4 cursor-pointer bg-slate-50/50 dark:bg-slate-950/50 hover:bg-indigo-50/20 dark:hover:bg-slate-800/40 transition-all">
                     <div className="flex items-center gap-2 truncate">
-                      <FileSpreadsheet className="h-5 w-5 text-indigo-600 shrink-0" />
-                      <span className="text-xs font-medium text-slate-600 truncate">
+                      <FileSpreadsheet className="h-5 w-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                      <span className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate">
                         {fileName || 'Klik untuk pilih file (.xlsx / .csv)...'}
                       </span>
                     </div>
-                    <span className="shrink-0 text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200">
+                    <span className="shrink-0 text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800">
                       Pilih File
                     </span>
                     <input
@@ -856,7 +895,7 @@ export default function PayrollResultsModal({
                       className="hidden"
                     />
                   </label>
-                  <p className="text-[10px] text-slate-400 mt-1">
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
                     Mendukung file hasil export sistem kantor hingga 20.000+ baris data.
                   </p>
                 </div>
@@ -864,7 +903,7 @@ export default function PayrollResultsModal({
 
               {/* Status Parsing File */}
               {isProcessingFile && (
-                <div className="flex items-center justify-center gap-2 p-6 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600 font-medium">
+                <div className="flex items-center justify-center gap-2 p-6 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 font-medium">
                   <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />
                   <span>Membaca dan memverifikasi kolom spreadsheet...</span>
                 </div>
@@ -872,14 +911,14 @@ export default function PayrollResultsModal({
 
               {/* Preview Data & Tombol Eksekusi Upload */}
               {parsedRows.length > 0 && !uploadProgress && (
-                <div className="space-y-3.5 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <div className="space-y-3.5 bg-slate-50 dark:bg-slate-950/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
-                      <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100">
                         File Siap Diunggah: {parsedRows.length.toLocaleString('id-ID')} Data Pegawai Terdeteksi
                       </h4>
-                      <p className="text-[11px] text-slate-500">
-                        Periode: <strong className="text-indigo-600">{uploadPeriod}</strong> • Sistem akan melakukan batch upsert per 1.000 baris.
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Periode: <strong className="text-indigo-600 dark:text-indigo-400">{uploadPeriod}</strong> • Sistem akan melakukan batch upsert per 1.000 baris.
                       </p>
                     </div>
 
@@ -893,9 +932,9 @@ export default function PayrollResultsModal({
                   </div>
 
                   {/* Preview 3 baris teratas */}
-                  <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                  <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
                     <table className="w-full text-[11px] text-left">
-                      <thead className="bg-slate-100 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                      <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px]">
                         <tr>
                           <th className="p-2">NRP</th>
                           <th className="p-2">Nama Pegawai</th>
@@ -906,22 +945,22 @@ export default function PayrollResultsModal({
                           <th className="p-2 text-right">THP (Gaji Bersih)</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {parsedRows.slice(0, 3).map((r, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50">
-                            <td className="p-2 font-mono font-semibold text-slate-700">{r.employeeNik}</td>
-                            <td className="p-2 font-medium text-slate-900">{r.employeeName}</td>
-                            <td className="p-2 text-slate-600">{r.department || '-'}</td>
-                            <td className="p-2 text-right">{formatRupiah(r.basicSalary)}</td>
-                            <td className="p-2 text-right">{formatRupiah(r.overtimeAmount)}</td>
-                            <td className="p-2 text-right text-rose-600">-{formatRupiah(r.totalDeductions)}</td>
-                            <td className="p-2 text-right font-bold text-emerald-700">{formatRupiah(r.takeHomePay)}</td>
+                          <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                            <td className="p-2 font-mono font-semibold text-slate-700 dark:text-slate-200">{r.employeeNik}</td>
+                            <td className="p-2 font-medium text-slate-900 dark:text-slate-100">{r.employeeName}</td>
+                            <td className="p-2 text-slate-600 dark:text-slate-400">{r.department || '-'}</td>
+                            <td className="p-2 text-right text-slate-700 dark:text-slate-300">{formatRupiah(r.basicSalary)}</td>
+                            <td className="p-2 text-right text-slate-700 dark:text-slate-300">{formatRupiah(r.overtimeAmount)}</td>
+                            <td className="p-2 text-right text-rose-600 dark:text-rose-400">-{formatRupiah(r.totalDeductions)}</td>
+                            <td className="p-2 text-right font-bold text-emerald-700 dark:text-emerald-400">{formatRupiah(r.takeHomePay)}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                  <p className="text-[10px] text-slate-400 text-center">
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center">
                     Menampilkan contoh 3 dari {parsedRows.length.toLocaleString('id-ID')} baris data.
                   </p>
                 </div>
@@ -929,61 +968,61 @@ export default function PayrollResultsModal({
 
               {/* Progress Bar Sedang Berjalan */}
               {uploadProgress && (
-                <div className="space-y-2 p-5 bg-indigo-50/70 border border-indigo-200 rounded-2xl">
-                  <div className="flex items-center justify-between text-xs font-bold text-indigo-900">
+                <div className="space-y-2 p-5 bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-2xl">
+                  <div className="flex items-center justify-between text-xs font-bold text-indigo-900 dark:text-indigo-200">
                     <span className="flex items-center gap-1.5">
-                      <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                      <Loader2 className="h-4 w-4 animate-spin text-indigo-600 dark:text-indigo-400" />
                       Sedang Mengunggah ke Cloud Supabase...
                     </span>
                     <span>
                       {uploadProgress.current.toLocaleString('id-ID')} / {uploadProgress.total.toLocaleString('id-ID')} ({Math.round((uploadProgress.current / uploadProgress.total) * 100)}%)
                     </span>
                   </div>
-                  <div className="w-full bg-indigo-200 rounded-full h-3 overflow-hidden">
+                  <div className="w-full bg-indigo-200 dark:bg-slate-700 rounded-full h-3 overflow-hidden">
                     <div
-                      className="bg-indigo-600 h-full transition-all duration-300 rounded-full"
+                      className="bg-indigo-600 dark:bg-indigo-500 h-full transition-all duration-300 rounded-full"
                       style={{
                         width: `${Math.round((uploadProgress.current / uploadProgress.total) * 100)}%`,
                       }}
                     />
                   </div>
-                  <p className="text-[11px] text-indigo-700">
+                  <p className="text-[11px] text-indigo-700 dark:text-indigo-300">
                     Mohon tunggu beberapa detik, proses batching berjalan tanpa membebani server Vercel.
                   </p>
                 </div>
               )}
 
               {/* Info Panduan Kolom */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-2">
-                <h5 className="font-bold text-slate-800 flex items-center gap-1.5">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 space-y-2">
+                <h5 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                   💡 Panduan Header Kolom Spreadsheet:
                 </h5>
-                <p className="text-[11px] leading-relaxed">
+                <p className="text-[11px] leading-relaxed dark:text-slate-400">
                   Sistem kami otomatis mengenali kolom-kolom standar berikut tanpa harus mengubah urutan:
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-                  <span className="p-1.5 bg-white rounded-lg border border-slate-200">
+                  <span className="p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
                     • <strong>NRP / NIK</strong>
                   </span>
-                  <span className="p-1.5 bg-white rounded-lg border border-slate-200">
+                  <span className="p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
                     • <strong>Nama Pegawai</strong>
                   </span>
-                  <span className="p-1.5 bg-white rounded-lg border border-slate-200">
+                  <span className="p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
                     • <strong>Project / Unit</strong>
                   </span>
-                  <span className="p-1.5 bg-white rounded-lg border border-slate-200">
+                  <span className="p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
                     • <strong>Gaji Pokok</strong>
                   </span>
-                  <span className="p-1.5 bg-white rounded-lg border border-slate-200">
+                  <span className="p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
                     • <strong>Upah Lembur</strong>
                   </span>
-                  <span className="p-1.5 bg-white rounded-lg border border-slate-200">
+                  <span className="p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
                     • <strong>Tunjangan</strong>
                   </span>
-                  <span className="p-1.5 bg-white rounded-lg border border-slate-200">
+                  <span className="p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
                     • <strong>Total Potongan</strong>
                   </span>
-                  <span className="p-1.5 bg-white rounded-lg border border-slate-200">
+                  <span className="p-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
                     • <strong>THP / Gaji Bersih</strong>
                   </span>
                 </div>
@@ -1006,7 +1045,7 @@ export default function PayrollResultsModal({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Ketik NRP atau Nama Pegawai (contoh: 98123 atau Budi)..."
-                    className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-xs sm:text-sm font-medium outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 pl-10 pr-4 py-2.5 text-xs sm:text-sm font-medium text-slate-900 dark:text-slate-100 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
                   />
                 </div>
                 <button
@@ -1021,9 +1060,9 @@ export default function PayrollResultsModal({
 
               {/* Hasil Pencarian Kosong */}
               {hasSearched && !searchLoading && searchResults.length === 0 && (
-                <div className="p-8 text-center rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-500 space-y-1.5 animate-in fade-in">
+                <div className="p-8 text-center rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 space-y-1.5 animate-in fade-in">
                   <AlertCircle className="h-6 w-6 text-slate-400 mx-auto" />
-                  <p className="font-bold text-slate-800">Data Pegawai Tidak Ditemukan</p>
+                  <p className="font-bold text-slate-800 dark:text-slate-200">Data Pegawai Tidak Ditemukan</p>
                   <p className="max-w-md mx-auto">
                     Tidak ditemukan data payroll untuk kata kunci <strong>&quot;{searchQuery}&quot;</strong>. Pastikan NRP atau Nama sudah tepat dan file payroll periode terkait telah diunggah.
                   </p>
@@ -1033,26 +1072,26 @@ export default function PayrollResultsModal({
               {/* Hasil Pencarian List */}
               {searchResults.length > 1 && !selectedResult && (
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold text-slate-500">
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                     Ditemukan {searchResults.length} pegawai. Pilih salah satu untuk melihat rincian:
                   </p>
-                  <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 overflow-hidden bg-white">
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900">
                     {searchResults.map((item) => (
                       <div
                         key={item.id}
                         onClick={() => handleSelectResult(item)}
-                        className="p-3 hover:bg-indigo-50/50 cursor-pointer flex items-center justify-between transition-all"
+                        className="p-3 hover:bg-indigo-50/50 dark:hover:bg-slate-800/60 cursor-pointer flex items-center justify-between transition-all"
                       >
                         <div>
-                          <p className="text-xs sm:text-sm font-bold text-slate-900">{item.employeeName}</p>
-                          <p className="text-[11px] text-slate-500">
+                          <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100">{item.employeeName}</p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
                             NRP: {item.employeeNik} • {item.department} • Periode: {item.period}
                           </p>
                         </div>
                         <div className="text-right flex items-center gap-2">
                           <div>
                             <span className="text-[10px] text-slate-400 block">THP</span>
-                            <span className="text-xs font-bold text-slate-900">{formatRupiah(item.takeHomePay)}</span>
+                            <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{formatRupiah(item.takeHomePay)}</span>
                           </div>
                           <ArrowRight className="h-4 w-4 text-slate-400" />
                         </div>
@@ -1068,7 +1107,7 @@ export default function PayrollResultsModal({
                   {searchResults.length > 1 && (
                     <button
                       onClick={() => setSelectedResult(null)}
-                      className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer transition-all"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline cursor-pointer transition-all"
                     >
                       <ArrowLeft className="h-3.5 w-3.5" />
                       <span>Kembali ke daftar {searchResults.length} hasil pencarian</span>
@@ -1076,27 +1115,27 @@ export default function PayrollResultsModal({
                   )}
 
                   {/* Kartu Profil Pegawai */}
-                  <div className="p-4 sm:p-5 rounded-2xl bg-indigo-50/60 border border-indigo-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="p-4 sm:p-5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h4 className="text-sm sm:text-base font-bold text-slate-900">
+                        <h4 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">
                           {selectedResult.employeeName}
                         </h4>
-                        <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-white text-indigo-700 border border-indigo-200">
+                        <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
                           NRP: {selectedResult.employeeNik}
                         </span>
                         {comparison?.hasMutation && (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
                             <RefreshCw className="h-3 w-3" />
                             <span>Ada Mutasi / Rotasi</span>
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-600">
+                      <p className="text-xs text-slate-600 dark:text-slate-300">
                         {selectedResult.department} {selectedResult.positionTitle ? `• ${selectedResult.positionTitle}` : ''}
                       </p>
                       {comparison?.hasMutation && (
-                        <p className="text-[11px] font-medium text-amber-700 pt-0.5">
+                        <p className="text-[11px] font-medium text-amber-700 dark:text-amber-400 pt-0.5">
                           💡 Terdeteksi perubahan dari periode sebelumnya: {comparison.previousDepartment || '-'} ({comparison.previousPosition || '-'}) ➔ {selectedResult.department} ({selectedResult.positionTitle || '-'})
                         </p>
                       )}
@@ -1104,8 +1143,8 @@ export default function PayrollResultsModal({
 
                     <div className="flex flex-col sm:items-end gap-2 shrink-0">
                       <div className="text-left sm:text-right">
-                        <span className="text-[10px] uppercase font-bold text-indigo-700">Periode Terpilih</span>
-                        <p className="text-xs font-bold text-slate-900">{selectedResult.period}</p>
+                        <span className="text-[10px] uppercase font-bold text-indigo-700 dark:text-indigo-400">Periode Terpilih</span>
+                        <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{selectedResult.period}</p>
                       </div>
 
                       {/* Tombol 1-Click Download Excel Rekap Kumulatif */}
@@ -1123,24 +1162,24 @@ export default function PayrollResultsModal({
 
                   {/* Komparasi Multi-Bulan */}
                   {compareLoading ? (
-                    <div className="p-8 text-center text-slate-500 text-xs flex items-center justify-center gap-2">
+                    <div className="p-8 text-center text-slate-500 dark:text-slate-400 text-xs flex items-center justify-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
                       <span>Memuat histori perbandingan bulan sebelumnya...</span>
                     </div>
                   ) : comparison ? (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <h5 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                        <h5 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                           ⚖️ Analisis Perbandingan: {comparison.previous ? `${comparison.previous.period} ➔ ${comparison.current.period}` : `Periode ${comparison.current.period}`}
                         </h5>
                         {comparison.previous && (
                           <span
                             className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${
                               comparison.diff.takeHomePay > 0
-                                ? 'bg-emerald-100 text-emerald-800'
+                                ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300'
                                 : comparison.diff.takeHomePay < 0
-                                ? 'bg-rose-100 text-rose-800'
-                                : 'bg-slate-100 text-slate-700'
+                                ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                             }`}
                           >
                             {comparison.diff.takeHomePay > 0 ? (
@@ -1156,33 +1195,33 @@ export default function PayrollResultsModal({
                       </div>
 
                       {/* Tabel Komponen Gaji */}
-                      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+                      <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
                         <table className="w-full text-xs text-left">
-                          <thead className="bg-slate-50 text-slate-500 font-semibold text-[11px] border-b border-slate-100">
+                          <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 font-semibold text-[11px] border-b border-slate-100 dark:border-slate-800">
                             <tr>
                               <th className="p-3">Komponen Payroll</th>
                               <th className="p-3 text-right">
                                 {comparison.previous ? comparison.previous.period : 'Sebelumnya'}
                               </th>
-                              <th className="p-3 text-right font-bold text-indigo-900">
+                              <th className="p-3 text-right font-bold text-indigo-900 dark:text-indigo-300">
                                 {comparison.current.period} (Sekarang)
                               </th>
                               <th className="p-3 text-right font-semibold">Selisih</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100">
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {/* Gaji Pokok */}
                             <tr>
-                              <td className="p-3 font-medium text-slate-800">Gaji Pokok</td>
-                              <td className="p-3 text-right text-slate-500">
+                              <td className="p-3 font-medium text-slate-800 dark:text-slate-200">Gaji Pokok</td>
+                              <td className="p-3 text-right text-slate-500 dark:text-slate-400">
                                 {comparison.previous ? formatRupiah(comparison.previous.basicSalary) : '-'}
                               </td>
-                              <td className="p-3 text-right font-semibold text-slate-900">
+                              <td className="p-3 text-right font-semibold text-slate-900 dark:text-slate-100">
                                 {formatRupiah(comparison.current.basicSalary)}
                               </td>
                               <td className="p-3 text-right">
                                 {comparison.previous ? (
-                                  <span className={comparison.diff.basicSalary !== 0 ? 'font-bold text-indigo-600' : 'text-slate-400'}>
+                                  <span className={comparison.diff.basicSalary !== 0 ? 'font-bold text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}>
                                     {comparison.diff.basicSalary >= 0 ? '+' : ''}{formatRupiah(comparison.diff.basicSalary)}
                                   </span>
                                 ) : '-'}
@@ -1191,7 +1230,7 @@ export default function PayrollResultsModal({
 
                             {/* Penerimaan: Tunjangan & Lembur */}
                             <tr>
-                              <td className="p-3 font-medium text-slate-800">
+                              <td className="p-3 font-medium text-slate-800 dark:text-slate-200">
                                 <div>Total Penerimaan (Tunjangan & Lembur)</div>
                                 {comparison.current.overtimeAmount > 0 && (
                                   <div className="text-[10px] text-slate-400 font-normal">
@@ -1199,15 +1238,15 @@ export default function PayrollResultsModal({
                                   </div>
                                 )}
                               </td>
-                              <td className="p-3 text-right text-slate-500">
+                              <td className="p-3 text-right text-slate-500 dark:text-slate-400">
                                 {comparison.previous ? formatRupiah(comparison.previous.allowances) : '-'}
                               </td>
-                              <td className="p-3 text-right font-semibold text-slate-900">
+                              <td className="p-3 text-right font-semibold text-slate-900 dark:text-slate-100">
                                 {formatRupiah(comparison.current.allowances)}
                               </td>
                               <td className="p-3 text-right">
                                 {comparison.previous ? (
-                                  <span className={comparison.diff.allowances !== 0 ? 'font-bold text-indigo-600' : 'text-slate-400'}>
+                                  <span className={comparison.diff.allowances !== 0 ? 'font-bold text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}>
                                     {comparison.diff.allowances >= 0 ? '+' : ''}{formatRupiah(comparison.diff.allowances)}
                                   </span>
                                 ) : '-'}
@@ -1215,17 +1254,17 @@ export default function PayrollResultsModal({
                             </tr>
 
                             {/* Jumlah Kotor (Bruto) */}
-                            <tr className="bg-slate-50/40">
-                              <td className="p-3 font-semibold text-slate-800">Jumlah Kotor (Bruto)</td>
-                              <td className="p-3 text-right text-slate-500 font-medium">
+                            <tr className="bg-slate-50/40 dark:bg-slate-850">
+                              <td className="p-3 font-semibold text-slate-800 dark:text-slate-200">Jumlah Kotor (Bruto)</td>
+                              <td className="p-3 text-right text-slate-500 dark:text-slate-400 font-medium">
                                 {comparison.previous ? formatRupiah(comparison.previous.grossSalary || (comparison.previous.basicSalary + comparison.previous.allowances)) : '-'}
                               </td>
-                              <td className="p-3 text-right font-bold text-slate-900">
+                              <td className="p-3 text-right font-bold text-slate-900 dark:text-slate-100">
                                 {formatRupiah(comparison.current.grossSalary || (comparison.current.basicSalary + comparison.current.allowances))}
                               </td>
                               <td className="p-3 text-right">
                                 {comparison.previous ? (
-                                  <span className={comparison.diff.grossSalary && comparison.diff.grossSalary !== 0 ? 'font-bold text-indigo-700' : 'text-slate-400'}>
+                                  <span className={comparison.diff.grossSalary && comparison.diff.grossSalary !== 0 ? 'font-bold text-indigo-700 dark:text-indigo-400' : 'text-slate-400'}>
                                     {(comparison.diff.grossSalary || 0) >= 0 ? '+' : ''}{formatRupiah(comparison.diff.grossSalary || 0)}
                                   </span>
                                 ) : '-'}
@@ -1234,16 +1273,16 @@ export default function PayrollResultsModal({
 
                             {/* Total Potongan */}
                             <tr>
-                              <td className="p-3 font-medium text-rose-700">Total Potongan (BPJS/TGR/Lain)</td>
-                              <td className="p-3 text-right text-slate-500">
+                              <td className="p-3 font-medium text-rose-700 dark:text-rose-400">Total Potongan (BPJS/TGR/Lain)</td>
+                              <td className="p-3 text-right text-slate-500 dark:text-slate-400">
                                 {comparison.previous ? `-${formatRupiah(comparison.previous.totalDeductions)}` : '-'}
                               </td>
-                              <td className="p-3 text-right font-semibold text-rose-700">
+                              <td className="p-3 text-right font-semibold text-rose-700 dark:text-rose-400">
                                 -{formatRupiah(comparison.current.totalDeductions)}
                               </td>
                               <td className="p-3 text-right">
                                 {comparison.previous ? (
-                                  <span className={comparison.diff.totalDeductions > 0 ? 'font-bold text-rose-600' : comparison.diff.totalDeductions < 0 ? 'font-bold text-emerald-600' : 'text-slate-400'}>
+                                  <span className={comparison.diff.totalDeductions > 0 ? 'font-bold text-rose-600 dark:text-rose-400' : comparison.diff.totalDeductions < 0 ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}>
                                     {comparison.diff.totalDeductions > 0 ? 'Naik ' : 'Turun '}
                                     {formatRupiah(Math.abs(comparison.diff.totalDeductions))}
                                   </span>
@@ -1252,17 +1291,17 @@ export default function PayrollResultsModal({
                             </tr>
 
                             {/* Take Home Pay */}
-                            <tr className="bg-slate-50/80 font-bold">
-                              <td className="p-3 text-slate-900">Take Home Pay (THP Bersih)</td>
-                              <td className="p-3 text-right text-slate-600">
+                            <tr className="bg-slate-50/80 dark:bg-slate-800/60 font-bold">
+                              <td className="p-3 text-slate-900 dark:text-slate-100">Take Home Pay (THP Bersih)</td>
+                              <td className="p-3 text-right text-slate-600 dark:text-slate-400">
                                 {comparison.previous ? formatRupiah(comparison.previous.takeHomePay) : '-'}
                               </td>
-                              <td className="p-3 text-right text-indigo-700 text-sm">
+                              <td className="p-3 text-right text-indigo-700 dark:text-indigo-400 text-sm">
                                 {formatRupiah(comparison.current.takeHomePay)}
                               </td>
                               <td className="p-3 text-right">
                                 {comparison.previous ? (
-                                  <span className={comparison.diff.takeHomePay > 0 ? 'text-emerald-700' : comparison.diff.takeHomePay < 0 ? 'text-rose-700' : 'text-slate-500'}>
+                                  <span className={comparison.diff.takeHomePay > 0 ? 'text-emerald-700 dark:text-emerald-400' : comparison.diff.takeHomePay < 0 ? 'text-rose-700 dark:text-rose-400' : 'text-slate-500'}>
                                     {comparison.diff.takeHomePay >= 0 ? '+' : ''}{formatRupiah(comparison.diff.takeHomePay)}
                                   </span>
                                 ) : '-'}
@@ -1274,8 +1313,8 @@ export default function PayrollResultsModal({
 
                       {/* Rincian Komponen Tunjangan Terinci (92 Jenis) */}
                       {selectedResult.allowanceDetails && Object.keys(selectedResult.allowanceDetails).length > 0 && (
-                        <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
-                          <h6 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-3">
+                          <h6 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                             🎁 Rincian Komponen Tunjangan yang Diterima ({Object.keys(selectedResult.allowanceDetails).length} jenis)
                           </h6>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
@@ -1284,17 +1323,17 @@ export default function PayrollResultsModal({
                               return (
                                 <div
                                   key={name}
-                                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100"
+                                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800"
                                 >
-                                  <span className="font-medium text-slate-700 truncate pr-2" title={name}>
+                                  <span className="font-medium text-slate-700 dark:text-slate-300 truncate pr-2" title={name}>
                                     {name}
                                   </span>
                                   <div className="text-right shrink-0">
-                                    <span className="font-bold text-slate-900">{formatRupiah(val)}</span>
+                                    <span className="font-bold text-slate-900 dark:text-slate-100">{formatRupiah(val)}</span>
                                     {diffInfo && diffInfo.diff !== 0 && (
                                       <span
                                         className={`ml-1.5 text-[10px] font-bold ${
-                                          diffInfo.diff > 0 ? 'text-emerald-600' : 'text-rose-600'
+                                          diffInfo.diff > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                                         }`}
                                       >
                                         {diffInfo.diff > 0 ? '+' : ''}{formatRupiah(diffInfo.diff)}
@@ -1310,8 +1349,8 @@ export default function PayrollResultsModal({
 
                       {/* Rincian Komponen Potongan Terinci */}
                       {selectedResult.deductionDetails && Object.keys(selectedResult.deductionDetails).length > 0 && (
-                        <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
-                          <h6 className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+                        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-3">
+                          <h6 className="text-xs font-bold text-rose-800 dark:text-rose-400 flex items-center gap-1.5">
                             ✂️ Rincian Komponen Potongan ({Object.keys(selectedResult.deductionDetails).length} jenis)
                           </h6>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
@@ -1320,17 +1359,17 @@ export default function PayrollResultsModal({
                               return (
                                 <div
                                   key={name}
-                                  className="flex items-center justify-between p-2.5 rounded-xl bg-rose-50/50 border border-rose-100"
+                                  className="flex items-center justify-between p-2.5 rounded-xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40"
                                 >
-                                  <span className="font-medium text-slate-700 truncate pr-2" title={name}>
+                                  <span className="font-medium text-slate-700 dark:text-slate-300 truncate pr-2" title={name}>
                                     {name}
                                   </span>
                                   <div className="text-right shrink-0">
-                                    <span className="font-bold text-rose-700">-{formatRupiah(val)}</span>
+                                    <span className="font-bold text-rose-700 dark:text-rose-400">-{formatRupiah(val)}</span>
                                     {diffInfo && diffInfo.diff !== 0 && (
                                       <span
                                         className={`ml-1.5 text-[10px] font-bold ${
-                                          diffInfo.diff > 0 ? 'text-rose-600' : 'text-emerald-600'
+                                          diffInfo.diff > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
                                         }`}
                                       >
                                         {diffInfo.diff > 0 ? 'Naik ' : 'Turun '}{formatRupiah(Math.abs(diffInfo.diff))}
@@ -1356,24 +1395,24 @@ export default function PayrollResultsModal({
           {activeTab === 'SUMMARY' && (
             <div className="space-y-5">
               {/* FILTER BAR PERIODE REKAPITULASI (DROPDOWN + FILTER TAHUN) */}
-              <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-slate-50 via-white to-indigo-50/30 border border-slate-200 shadow-2xs space-y-3">
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-slate-50 via-white to-indigo-50/30 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="text-xs font-extrabold text-slate-700 flex items-center gap-1.5 shrink-0">
-                      <Filter className="h-3.5 w-3.5 text-indigo-600" />
+                    <span className="text-xs font-extrabold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 shrink-0">
+                      <Filter className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                       <span>Filter Periode:</span>
                     </span>
 
                     {/* Filter Tahun jika ada lebih dari 1 tahun */}
                     {availableYears.length > 1 && (
-                      <div className="inline-flex p-0.5 rounded-xl bg-slate-100 border border-slate-200/90 shrink-0">
+                      <div className="inline-flex p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 shrink-0">
                         <button
                           type="button"
                           onClick={() => setSelectedSummaryYear('ALL')}
                           className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                             selectedSummaryYear === 'ALL'
-                              ? 'bg-white text-indigo-700 shadow-2xs font-extrabold'
-                              : 'text-slate-600 hover:text-slate-900'
+                              ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-300 shadow-2xs font-extrabold'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                           }`}
                         >
                           Semua ({availablePeriods.length})
@@ -1393,8 +1432,8 @@ export default function PayrollResultsModal({
                               }}
                               className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                                 selectedSummaryYear === yr
-                                  ? 'bg-white text-indigo-700 shadow-2xs font-extrabold'
-                                  : 'text-slate-600 hover:text-slate-900'
+                                  ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-300 shadow-2xs font-extrabold'
+                                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                               }`}
                             >
                               {yr} ({count})
@@ -1410,7 +1449,7 @@ export default function PayrollResultsModal({
                         value={summaryPeriod}
                         onChange={(e) => handleFetchSummary(e.target.value)}
                         disabled={summaryLoading}
-                        className="appearance-none bg-white border border-slate-300 hover:border-indigo-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 rounded-xl pl-9 pr-9 py-2 text-xs sm:text-sm font-bold text-slate-800 shadow-2xs outline-none cursor-pointer transition-all disabled:opacity-50"
+                        className="appearance-none bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 hover:border-indigo-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 rounded-xl pl-9 pr-9 py-2 text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 shadow-2xs outline-none cursor-pointer transition-all disabled:opacity-50"
                       >
                         {availableYears.length > 1 && selectedSummaryYear === 'ALL' ? (
                           availableYears.map((yr) => (
@@ -1432,7 +1471,7 @@ export default function PayrollResultsModal({
                           ))
                         )}
                       </select>
-                      <Calendar className="h-4 w-4 text-indigo-600 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <Calendar className="h-4 w-4 text-indigo-600 dark:text-indigo-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <ChevronDown className="h-4 w-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     </div>
                   </div>
@@ -1444,7 +1483,7 @@ export default function PayrollResultsModal({
                       value={summaryPeriod}
                       onChange={(e) => setSummaryPeriod(e.target.value)}
                       placeholder="YYYY-MM"
-                      className="w-28 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-mono font-semibold text-slate-700 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-200"
+                      className="w-28 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-1.5 text-xs font-mono font-semibold text-slate-700 dark:text-slate-200 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-200"
                     />
                     <button
                       onClick={() => handleFetchSummary()}
@@ -1460,8 +1499,8 @@ export default function PayrollResultsModal({
 
                 {/* Quick Select Buttons per Bulan (Berdasarkan Tahun yang difilter) */}
                 {filteredSummaryPeriods.length > 0 && (
-                  <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-slate-200/70">
-                    <span className="text-[11px] font-semibold text-slate-500 shrink-0">Bulan:</span>
+                  <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-slate-200/70 dark:border-slate-800">
+                    <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 shrink-0">Bulan:</span>
                     {filteredSummaryPeriods.map((p) => {
                       const isActive = summaryPeriod === p;
                       const monthName = formatPeriodLabel(p).split(' ')[0];
@@ -1474,7 +1513,7 @@ export default function PayrollResultsModal({
                           className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
                             isActive
                               ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs font-extrabold'
-                              : 'bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700'
+                              : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-800 hover:border-indigo-200 hover:text-indigo-700'
                           }`}
                           title={`Tampilkan rekap ${formatPeriodLabel(p)}`}
                         >
@@ -1500,53 +1539,53 @@ export default function PayrollResultsModal({
                 <div className="space-y-4">
                   {/* Kartu Metrik Ringkasan */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                      <span className="text-[10px] uppercase font-bold text-slate-500">Total Pegawai Dibayar</span>
-                      <h4 className="text-xl font-bold text-slate-900 mt-1">
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Total Pegawai Dibayar</span>
+                      <h4 className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">
                         {summaryData.totalEmployees.toLocaleString('id-ID')} orang
                       </h4>
                     </div>
-                    <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-200">
-                      <span className="text-[10px] uppercase font-bold text-indigo-600">Total Take Home Pay (THP)</span>
-                      <h4 className="text-xl font-bold text-indigo-900 mt-1">
+                    <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/60">
+                      <span className="text-[10px] uppercase font-bold text-indigo-600 dark:text-indigo-400">Total Take Home Pay (THP)</span>
+                      <h4 className="text-xl font-bold text-indigo-900 dark:text-indigo-200 mt-1">
                         {formatRupiah(summaryData.totalTakeHomePay)}
                       </h4>
                     </div>
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                      <span className="text-[10px] uppercase font-bold text-slate-500">Total Gaji Pokok</span>
-                      <h4 className="text-xl font-bold text-slate-900 mt-1">
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Total Gaji Pokok</span>
+                      <h4 className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">
                         {formatRupiah(summaryData.totalBasicSalary)}
                       </h4>
                     </div>
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                      <span className="text-[10px] uppercase font-bold text-slate-500">Total Penerimaan (Tunjangan & Lembur)</span>
-                      <h4 className="text-xl font-bold text-slate-900 mt-1">
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Total Penerimaan (Tunjangan & Lembur)</span>
+                      <h4 className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">
                         {formatRupiah(summaryData.totalAllowances)}
                       </h4>
                     </div>
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                      <span className="text-[10px] uppercase font-bold text-slate-500">Sub-total Upah Lembur</span>
-                      <h4 className="text-xl font-bold text-slate-900 mt-1">
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Sub-total Upah Lembur</span>
+                      <h4 className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">
                         {formatRupiah(summaryData.totalOvertime)}
                       </h4>
                     </div>
-                    <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
-                      <span className="text-[10px] uppercase font-bold text-rose-600">Total Seluruh Potongan</span>
-                      <h4 className="text-xl font-bold text-rose-900 mt-1">
+                    <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60">
+                      <span className="text-[10px] uppercase font-bold text-rose-600 dark:text-rose-400">Total Seluruh Potongan</span>
+                      <h4 className="text-xl font-bold text-rose-900 dark:text-rose-200 mt-1">
                         {formatRupiah(summaryData.totalDeductions)}
                       </h4>
                     </div>
                   </div>
 
                   {/* PUSAT UNDUH MASTER DATA CLOUD (DENGAN FILTER TAHUN & CHECKLIST BULAN) */}
-                  <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-slate-50/90 via-white to-indigo-50/40 border border-slate-200 shadow-xs space-y-4">
+                  <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-slate-50/90 via-white to-indigo-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                       <div>
-                        <h5 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                          <Database className="h-4 w-4 text-indigo-600" />
+                        <h5 className="text-sm font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                          <Database className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                           <span>Pusat Unduh Master Data Cloud (Gaji & Pegawai)</span>
                         </h5>
-                        <p className="text-xs text-slate-500 mt-0.5">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                           Gunakan filter tahun dan checklist bulan di bawah untuk mengekspor Master Data Gaji (multi-sheet lengkap) atau Master Data Pegawai Terupdate (unik per NRP).
                         </p>
                       </div>
@@ -1556,13 +1595,13 @@ export default function PayrollResultsModal({
                         type="button"
                         disabled={isExporting || isExportingUnique}
                         onClick={() => handleDownloadExcel([summaryPeriod])}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-60 text-slate-700 text-xs font-bold shadow-2xs transition-all cursor-pointer shrink-0"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-60 text-slate-700 dark:text-slate-300 text-xs font-bold shadow-2xs transition-all cursor-pointer shrink-0"
                         title={`Unduh master data gaji khusus periode ${summaryPeriod}`}
                       >
                         {isExporting ? (
                           <Loader2 className="h-3.5 w-3.5 text-slate-500 animate-spin" />
                         ) : (
-                          <Download className="h-3.5 w-3.5 text-slate-500" />
+                          <Download className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
                         )}
                         <span>Unduh Gaji Periode {summaryPeriod} Saja</span>
                       </button>
@@ -1570,13 +1609,13 @@ export default function PayrollResultsModal({
 
                     {/* STATUS BANNER KETIKA SEDANG PROSES UNDUH */}
                     {(isExporting || isExportingUnique) && (
-                      <div className="flex items-center gap-3 p-3.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-950 text-xs shadow-xs animate-in fade-in duration-200">
-                        <Loader2 className="h-5 w-5 text-indigo-600 animate-spin shrink-0" />
+                      <div className="flex items-center gap-3 p-3.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 text-indigo-950 dark:text-indigo-200 text-xs shadow-xs animate-in fade-in duration-200">
+                        <Loader2 className="h-5 w-5 text-indigo-600 dark:text-indigo-400 animate-spin shrink-0" />
                         <div className="flex-1">
-                          <p className="font-extrabold text-slate-900">
+                          <p className="font-extrabold text-slate-900 dark:text-slate-100">
                             {exportingLabel || 'Sedang Menyiapkan & Mengunduh File Excel...'}
                           </p>
-                          <p className="text-[11px] text-indigo-800 mt-0.5">
+                          <p className="text-[11px] text-indigo-800 dark:text-indigo-300 mt-0.5">
                             Sistem sedang memproses data dari cloud database. Mohon tunggu sejenak, unduhan akan otomatis dimulai.
                           </p>
                         </div>
@@ -1584,23 +1623,23 @@ export default function PayrollResultsModal({
                     )}
 
                     {/* SECTION: FILTER TAHUN & CHECKLIST BULAN */}
-                    <div className="p-3.5 rounded-xl bg-white border border-slate-200/90 space-y-3">
+                    <div className="p-3.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-200/90 dark:border-slate-800 space-y-3">
                       {/* Baris Filter Tahun & Quick Select */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-slate-100">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-slate-100 dark:border-slate-800">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
                             <Calendar className="h-3.5 w-3.5 text-slate-400" />
                             <span>Filter Tahun:</span>
                           </span>
-                          <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200/80">
+                          <div className="inline-flex p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700">
                             <button
                               type="button"
                               onClick={() => setSelectedExportYear('ALL')}
                               disabled={isExporting || isExportingUnique}
                               className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
                                 selectedExportYear === 'ALL'
-                                  ? 'bg-white text-indigo-700 shadow-2xs font-extrabold'
-                                  : 'text-slate-600 hover:text-slate-900'
+                                  ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-300 shadow-2xs font-extrabold'
+                                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                               }`}
                             >
                               Semua Tahun ({availablePeriods.length})
@@ -1615,8 +1654,8 @@ export default function PayrollResultsModal({
                                   disabled={isExporting || isExportingUnique}
                                   className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
                                     selectedExportYear === yr
-                                      ? 'bg-white text-indigo-700 shadow-2xs font-extrabold'
-                                      : 'text-slate-600 hover:text-slate-900'
+                                      ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-300 shadow-2xs font-extrabold'
+                                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                                   }`}
                                 >
                                   {yr} ({countInYr})
@@ -1627,14 +1666,14 @@ export default function PayrollResultsModal({
                         </div>
 
                         <div className="flex items-center gap-3 justify-between sm:justify-end">
-                          <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2.5 py-1 rounded-lg">
+                          <span className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 dark:border-indigo-800 px-2.5 py-1 rounded-lg">
                             {selectedExportPeriods.length} dari {availablePeriods.length} Bulan Tercentang
                           </span>
                           <button
                             type="button"
                             onClick={toggleSelectAllExportPeriods}
                             disabled={isExporting || isExportingUnique}
-                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 disabled:opacity-50 cursor-pointer underline"
+                            className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 disabled:opacity-50 cursor-pointer underline"
                           >
                             {isAllVisibleSelected
                               ? selectedExportYear === 'ALL'
@@ -1656,8 +1695,8 @@ export default function PayrollResultsModal({
                               key={p}
                               className={`flex items-center gap-2 p-2 rounded-xl border text-xs font-semibold cursor-pointer transition-all select-none ${
                                 isSelected
-                                  ? 'bg-indigo-50 border-indigo-400 text-indigo-950 font-bold shadow-2xs'
-                                  : 'bg-slate-50/70 border-slate-200 text-slate-600 hover:bg-slate-100'
+                                  ? 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-400 dark:border-indigo-600 text-indigo-950 dark:text-indigo-200 font-bold shadow-2xs'
+                                  : 'bg-slate-50/70 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-850'
                               } ${isExporting || isExportingUnique ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''}`}
                             >
                               <input
@@ -1665,11 +1704,11 @@ export default function PayrollResultsModal({
                                 checked={isSelected}
                                 disabled={isExporting || isExportingUnique}
                                 onChange={() => toggleExportPeriod(p)}
-                                className="h-3.5 w-3.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+                                className="h-3.5 w-3.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 dark:border-slate-700"
                               />
                               <div className="flex flex-col leading-tight">
                                 <span className="text-[11px]">{formatPeriodLabel(p)}</span>
-                                <span className="text-[9px] text-slate-400 font-mono">{p}</span>
+                                <span className="text-[9px] text-slate-400 dark:text-slate-500 font-mono">{p}</span>
                               </div>
                             </label>
                           );
@@ -1677,8 +1716,8 @@ export default function PayrollResultsModal({
                       </div>
 
                       {selectedExportPeriods.length === 0 && (
-                        <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5 flex items-center gap-2">
-                          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                        <div className="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5 flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
                           <span>Centang minimal 1 bulan di atas untuk mengaktifkan tombol unduhan data gaji atau master pegawai.</span>
                         </div>
                       )}
@@ -1687,21 +1726,21 @@ export default function PayrollResultsModal({
                     {/* DUA KARTU AKSI UNDUH */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                       {/* KARTU 1: MASTER DATA GAJI (MULTI-SHEET) */}
-                      <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-50/70 via-white to-teal-50/40 border border-emerald-200 shadow-2xs flex flex-col justify-between space-y-3">
+                      <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-50/70 via-white to-teal-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900 border border-emerald-200 dark:border-slate-800 shadow-2xs flex flex-col justify-between space-y-3">
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
-                              <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                            <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-400 flex items-center gap-1.5">
+                              <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                               <span>Master Data Payroll</span>
                             </span>
-                            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                            <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full">
                               Multi-Sheet Detail
                             </span>
                           </div>
-                          <h6 className="text-xs font-bold text-slate-900">
+                          <h6 className="text-xs font-bold text-slate-900 dark:text-slate-100">
                             File Gaji Lengkap Seluruh Komponen
                           </h6>
-                          <p className="text-[11px] text-slate-500 leading-relaxed">
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                             Berisi sheet RINGKASAN + sheet per bulan ({selectedExportPeriods.length} bulan terpilih). Memuat gaji pokok, seluruh tunjangan & potongan detail lengkap.
                           </p>
                         </div>
@@ -1712,7 +1751,7 @@ export default function PayrollResultsModal({
                           onClick={() => handleDownloadExcel(selectedExportPeriods)}
                           className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md ${
                             isExporting || isExportingUnique || selectedExportPeriods.length === 0
-                              ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                              ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed shadow-none'
                               : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20 cursor-pointer'
                           }`}
                         >
@@ -1733,26 +1772,26 @@ export default function PayrollResultsModal({
                       </div>
 
                       {/* KARTU 2: MASTER PEGAWAI TERUPDATE (DEDUPLIKASI 1 BARIS PER NRP) */}
-                      <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50/70 via-white to-indigo-50/40 border border-blue-200 shadow-2xs flex flex-col justify-between space-y-3">
+                      <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50/70 via-white to-indigo-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900 border border-blue-200 dark:border-slate-800 shadow-2xs flex flex-col justify-between space-y-3">
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold uppercase tracking-wider text-blue-800 flex items-center gap-1.5">
-                              <Users className="h-4 w-4 text-blue-600" />
+                            <span className="text-xs font-bold uppercase tracking-wider text-blue-800 dark:text-blue-400 flex items-center gap-1.5">
+                              <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                               <span>Master Data Pegawai</span>
                             </span>
-                            <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
+                            <span className="text-[10px] bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 font-bold px-2 py-0.5 rounded-full">
                               Deduplikasi Unik
                             </span>
                           </div>
-                          <h6 className="text-xs font-bold text-slate-900">
+                          <h6 className="text-xs font-bold text-slate-900 dark:text-slate-100">
                             Daftar Seluruh Pegawai Unik Terupdate
                           </h6>
-                          <p className="text-[11px] text-slate-500 leading-relaxed">
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                             Ekspor seluruh pegawai unik dari {selectedExportPeriods.length} bulan terpilih lengkap dengan periode awal aktif/masuk dan periode terakhir aktifnya. NRP duplikat otomatis hanya dicatat 1 baris.
                           </p>
                           <div className="flex flex-wrap items-center gap-1 pt-0.5">
                             {['No', 'NRP/NIK', 'Nama', 'Jabatan Terakhir', 'Cost Center Terakhir', 'Periode Awal', 'Periode Terakhir'].map((c) => (
-                              <span key={c} className="text-[9px] bg-blue-100/70 text-blue-800 px-1.5 py-0.5 rounded font-mono font-medium">
+                              <span key={c} className="text-[9px] bg-blue-100/70 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 px-1.5 py-0.5 rounded font-mono font-medium">
                                 {c}
                               </span>
                             ))}
@@ -1765,7 +1804,7 @@ export default function PayrollResultsModal({
                           onClick={() => handleDownloadUniqueEmployees(selectedExportPeriods)}
                           className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md ${
                             isExporting || isExportingUnique || selectedExportPeriods.length === 0
-                              ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                              ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed shadow-none'
                               : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/20 cursor-pointer'
                           }`}
                         >
@@ -1788,7 +1827,7 @@ export default function PayrollResultsModal({
                   </div>
                 </div>
               ) : (
-                <div className="p-8 text-center text-slate-400 border border-dashed border-slate-200 rounded-2xl text-xs">
+                <div className="p-8 text-center text-slate-400 dark:text-slate-500 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-xs">
                   Belum ada data payroll yang diunggah untuk periode {summaryPeriod}.
                 </div>
               )}

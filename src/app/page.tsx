@@ -56,6 +56,7 @@ import ReportsTableView, { SortField, SortOrder } from '@/components/ReportsTabl
 import MobileBottomBar from '@/components/MobileBottomBar';
 import QuickEntryModal from '@/components/QuickEntryModal';
 import ReportDetailModal from '@/components/ReportDetailModal';
+import { useToast } from '@/components/ToastProvider';
 import CutoffSettingsModal from '@/components/CutoffSettingsModal';
 import PayrollResultsModal from '@/components/PayrollResultsModal';
 import TerbilangModal from '@/components/TerbilangModal';
@@ -66,6 +67,7 @@ import PageLoadingScreen from '@/components/PageLoadingScreen';
 import { exportReportsToExcel } from '@/lib/exportExcel';
 
 export default function AssistantDashboard() {
+  const { toast } = useToast();
   const [reports, setReports] = useState<PayrollReport[]>([]);
   const [settings, setSettings] = useState<PayrollSettings>({
     activePeriod: 'Oktober 2026',
@@ -606,7 +608,7 @@ export default function AssistantDashboard() {
         fetchDashboardData();
         fetchTodos();
       } else {
-        alert(data.message || 'Gagal mengubah status massal.');
+        toast.error(data.message || 'Gagal mengubah status massal.');
       }
     } catch (err) {
       console.error('Error bulk updating:', err);
@@ -661,7 +663,7 @@ export default function AssistantDashboard() {
   const activeProfileInfo = APP_USER_PROFILES.find((p) => p.id === activeProfile) || APP_USER_PROFILES[0];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-24 md:pb-12">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-24 md:pb-12 transition-colors duration-200">
       {/* Loading Screen Animasi Maskot saat Pertama Kali Mengambil Data Database */}
       {isInitialLoading && <PageLoadingScreen />}
 
@@ -720,15 +722,15 @@ export default function AssistantDashboard() {
         />
 
         {/* Navigation Tabs (Laporan vs To-Do List) */}
-        <div className="flex items-center justify-between border-b border-slate-200/80 overflow-x-auto scrollbar-none">
+        <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800 overflow-x-auto scrollbar-none">
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <button
               type="button"
               onClick={() => setActiveTab('REPORTS')}
               className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'REPORTS'
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
+                  ? 'border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
               }`}
             >
               <ClipboardList className="h-4 w-4 shrink-0" />
@@ -740,24 +742,24 @@ export default function AssistantDashboard() {
               onClick={() => setActiveTab('TODOS')}
               className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'TODOS'
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
+                  ? 'border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
               }`}
             >
               <ListTodo className="h-4 w-4 shrink-0" />
               <span className="sm:hidden">To-Do ({activeProfile})</span>
               <span className="hidden sm:inline">To-Do List Mandiri ({activeProfile})</span>
               {(displayMetrics.activeTodosCount || 0) > 0 && (
-                <span className="rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-extrabold px-1.5 py-0.2 shrink-0">
+                <span className="rounded-full bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 text-[10px] font-extrabold px-1.5 py-0.2 shrink-0">
                   {displayMetrics.activeTodosCount}
                 </span>
               )}
             </button>
           </div>
 
-          <div className="hidden sm:flex items-center gap-2 text-xs text-slate-400 shrink-0">
+          <div className="hidden sm:flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 shrink-0">
             <span>Profil Aktif:</span>
-            <span className="font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
+            <span className="font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
               {activeProfile} ({activeProfileInfo.roleLabel})
             </span>
           </div>
@@ -866,24 +868,24 @@ export default function AssistantDashboard() {
 
             {/* 4. Task / Reports List & Pagination */}
             <div className="space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider px-1 gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1 gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span>
                     Daftar Laporan ({filteredReports.length} laporan)
                     {picFilter === 'MY_TICKETS' && (
-                      <span className="text-amber-600 font-semibold normal-case ml-1.5">
+                      <span className="text-amber-600 dark:text-amber-400 font-semibold normal-case ml-1.5">
                         • Milik {activeProfile}
                       </span>
                     )}
                     {periodFilter !== 'ALL' && (
-                      <span className="text-indigo-600 font-semibold normal-case ml-1.5">
+                      <span className="text-indigo-600 dark:text-indigo-400 font-semibold normal-case ml-1.5">
                         • Periode {periodFilter}
                       </span>
                     )}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-3 font-normal normal-case text-slate-400 justify-between sm:justify-end">
+                <div className="flex items-center gap-3 font-normal normal-case text-slate-400 dark:text-slate-500 justify-between sm:justify-end">
                   {filteredReports.length > 0 && (
                     <span className="text-xs">
                       Halaman {currentPage} dari {totalPages}
@@ -891,14 +893,14 @@ export default function AssistantDashboard() {
                   )}
 
                   {/* Toggle Tampilan: Tabel Padat vs Kartu */}
-                  <div className="inline-flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 shrink-0">
+                  <div className="inline-flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 shrink-0">
                     <button
                       type="button"
                       onClick={() => handleViewModeChange('TABLE')}
                       className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                         viewMode === 'TABLE'
-                          ? 'bg-white text-indigo-700 shadow-2xs'
-                          : 'text-slate-500 hover:text-slate-900'
+                          ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-300 shadow-2xs'
+                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                       }`}
                       title="Tampilan Tabel Ringkas"
                     >
@@ -910,8 +912,8 @@ export default function AssistantDashboard() {
                       onClick={() => handleViewModeChange('CARD')}
                       className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                         viewMode === 'CARD'
-                          ? 'bg-white text-indigo-700 shadow-2xs'
-                          : 'text-slate-500 hover:text-slate-900'
+                          ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-300 shadow-2xs'
+                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                       }`}
                       title="Tampilan Kartu Lengkap"
                     >
@@ -923,26 +925,71 @@ export default function AssistantDashboard() {
               </div>
 
               {filteredReports.length === 0 ? (
-                <div className="rounded-2xl border-2 border-dashed border-slate-200 p-12 text-center bg-white shadow-xs">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 mb-3">
-                    <ClipboardList className="h-7 w-7" />
-                  </div>
-                  <h3 className="text-base font-bold text-slate-900">
-                    Tidak ada laporan yang sesuai kriteria
-                  </h3>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-5 leading-relaxed">
-                    {reports.length === 0
-                      ? 'Belum ada laporan payroll yang dicatat.'
-                      : 'Coba ubah kata kunci pencarian, filter status, atau filter PIC Anda.'}
-                  </p>
-                  {reports.length === 0 && (
-                    <button
-                      onClick={() => setIsQuickEntryOpen(true)}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/25 transition-all cursor-pointer"
-                    >
-                      <Plus className="h-4 w-4" />
-                      <span>Catat Laporan Pertama</span>
-                    </button>
+                <div className="rounded-3xl border-2 border-dashed border-slate-200/90 dark:border-slate-800 p-8 sm:p-12 text-center bg-white dark:bg-slate-900 shadow-xs">
+                  {reports.length === 0 ? (
+                    <>
+                      <div className="relative mx-auto w-24 h-24 mb-4">
+                        <Image
+                          src="/mascot/ready.png"
+                          alt="Si PALI Siap"
+                          fill
+                          className="object-contain drop-shadow-sm"
+                        />
+                      </div>
+                      <h3 className="text-base font-extrabold text-slate-900 dark:text-slate-100">
+                        Belum Ada Laporan Payroll
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto mt-1 mb-6 leading-relaxed">
+                        Seluruh rekap payroll periode ini aman atau belum ada tiket keluhan yang dicatat oleh tim.
+                      </p>
+                      <button
+                        onClick={() => setIsQuickEntryOpen(true)}
+                        className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/25 transition-all cursor-pointer"
+                      >
+                        <Plus className="h-4 w-4" />
+                        <span>Catat Laporan Pertama</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="relative mx-auto w-24 h-24 mb-4">
+                        <Image
+                          src="/mascot/thinking.png"
+                          alt="Si PALI Berpikir"
+                          fill
+                          className="object-contain drop-shadow-sm"
+                        />
+                      </div>
+                      <h3 className="text-base font-extrabold text-slate-900 dark:text-slate-100">
+                        Tidak Ada Tiket yang Cocok
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto mt-1 mb-6 leading-relaxed">
+                        Kata kunci pencarian atau kombinasi filter Anda saat ini tidak menemukan tiket laporan payroll.
+                      </p>
+                      <div className="flex flex-wrap items-center justify-center gap-2.5">
+                        <button
+                          onClick={() => {
+                            setStatusFilter('ALL');
+                            setCategoryFilter('ALL');
+                            setPeriodFilter('ALL');
+                            setPicFilter('ALL');
+                            setSearchQuery('');
+                            setCurrentPage(1);
+                          }}
+                          className="inline-flex items-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/25 transition-all cursor-pointer"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          <span>Reset Semua Filter</span>
+                        </button>
+                        <button
+                          onClick={() => setIsQuickEntryOpen(true)}
+                          className="inline-flex items-center gap-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 transition-all cursor-pointer"
+                        >
+                          <Plus className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+                          <span>Catat Laporan Baru</span>
+                        </button>
+                      </div>
+                    </>
                   )}
                 </div>
               ) : viewMode === 'CARD' ? (
@@ -982,13 +1029,13 @@ export default function AssistantDashboard() {
               )}
 
               {/* Pagination Controls */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 sm:px-5 rounded-2xl border border-slate-200/80 shadow-xs mt-3">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3.5 sm:px-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs mt-3">
                 {/* Informasi Rentang Data & Pilihan Jumlah Baris */}
-                <div className="flex items-center gap-3 text-xs text-slate-500 w-full sm:w-auto justify-between sm:justify-start">
+                <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 w-full sm:w-auto justify-between sm:justify-start">
                   <span>
-                    Menampilkan <strong className="text-slate-700">{filteredReports.length > 0 ? startIndex + 1 : 0}</strong> -{' '}
-                    <strong className="text-slate-700">{endIndex}</strong> dari{' '}
-                    <strong className="text-slate-700">{filteredReports.length}</strong> laporan
+                    Menampilkan <strong className="text-slate-700 dark:text-slate-200">{filteredReports.length > 0 ? startIndex + 1 : 0}</strong> -{' '}
+                    <strong className="text-slate-700 dark:text-slate-200">{endIndex}</strong> dari{' '}
+                    <strong className="text-slate-700 dark:text-slate-200">{filteredReports.length}</strong> laporan
                   </span>
 
                   <div className="flex items-center gap-1.5">
@@ -996,7 +1043,7 @@ export default function AssistantDashboard() {
                     <select
                       value={pageSize}
                       onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-                      className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold bg-slate-50 text-slate-700 outline-none focus:border-indigo-600"
+                      className="rounded-lg border border-slate-200 dark:border-slate-700 px-2 py-1 text-xs font-semibold bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none focus:border-indigo-600"
                     >
                       <option value={5}>5</option>
                       <option value={10}>10</option>
@@ -1011,7 +1058,7 @@ export default function AssistantDashboard() {
                   <button
                     onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
                     disabled={currentPage === 1}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
                   >
                     <ChevronLeft className="h-4 w-4" />
                     <span className="hidden sm:inline">Sebelumnya</span>
@@ -1039,7 +1086,7 @@ export default function AssistantDashboard() {
                               className={`h-8 w-8 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
                                 currentPage === page
                                   ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
-                                  : 'text-slate-600 hover:bg-slate-100 border border-transparent hover:border-slate-200'
+                                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700'
                               }`}
                             >
                               {page}
@@ -1052,7 +1099,7 @@ export default function AssistantDashboard() {
                   <button
                     onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
                     disabled={currentPage === totalPages || totalPages === 0}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
                   >
                     <span className="hidden sm:inline">Selanjutnya</span>
                     <ChevronRight className="h-4 w-4" />

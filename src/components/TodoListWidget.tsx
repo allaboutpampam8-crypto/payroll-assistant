@@ -388,30 +388,30 @@ export default function TodoListWidget({
   const isSuperintendent = activeUser === 'Ucup';
 
   return (
-    <div className="rounded-2xl bg-white p-4 sm:p-6 border border-slate-200/80 shadow-xs space-y-4 sm:space-y-5">
+    <div className="rounded-2xl bg-white dark:bg-slate-900 p-4 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4 sm:space-y-5">
       {/* Header Widget */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3 sm:pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3 sm:pb-4">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-base md:text-lg font-bold text-slate-900 flex items-center gap-2">
+            <h3 className="text-base md:text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               To-Do List Mandiri ({activeUser})
               {isSuperintendent && (
-                <span className="rounded-full bg-amber-100 border border-amber-300 text-amber-800 text-[11px] font-bold px-2 py-0.5 inline-flex items-center gap-1 shadow-2xs">
-                  <Crown className="h-3 w-3 text-amber-600" /> Superintendent
+                <span className="rounded-full bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-[11px] font-bold px-2 py-0.5 inline-flex items-center gap-1 shadow-2xs">
+                  <Crown className="h-3 w-3 text-amber-600 dark:text-amber-400" /> Superintendent
                 </span>
               )}
             </h3>
-            <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-bold text-indigo-700">
+            <span className="rounded-full bg-indigo-100 dark:bg-indigo-950/70 px-2.5 py-0.5 text-xs font-bold text-indigo-700 dark:text-indigo-300">
               {activeCount} tugas aktif
             </span>
             {overdueCount > 0 && (
-              <span className="rounded-full bg-rose-100 border border-rose-200 px-2.5 py-0.5 text-xs font-extrabold text-rose-700 animate-pulse flex items-center gap-1">
-                <Flame className="h-3 w-3 text-rose-600" />
+              <span className="rounded-full bg-rose-100 dark:bg-rose-950/70 border border-rose-200 dark:border-rose-800 px-2.5 py-0.5 text-xs font-extrabold text-rose-700 dark:text-rose-300 animate-pulse flex items-center gap-1">
+                <Flame className="h-3 w-3 text-rose-600 dark:text-rose-400" />
                 <span>{overdueCount} Terlambat!</span>
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {isSuperintendent
               ? 'Mode Superintendent: Anda dapat memantau meja kerja semua PIC dan mendelegasikan tugas khusus ke PIC tertentu.'
               : `Meja kerja privat ${activeUser}: Catatan agenda, instruksi lanjutan, dan checklist sub-tugas pribadi.`}
@@ -419,13 +419,13 @@ export default function TodoListWidget({
         </div>
 
         {/* Filter Tabs */}
-        <div className="w-full sm:w-auto overflow-x-auto flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold self-start sm:self-auto">
+        <div className="w-full sm:w-auto overflow-x-auto flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold self-start sm:self-auto">
           <button
             onClick={() => handleFilterChange('ACTIVE')}
             className={`shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
               filter === 'ACTIVE'
-                ? 'bg-white text-indigo-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-300 shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
             <span className="sm:hidden">Aktif ({activeCount})</span>
@@ -438,7 +438,7 @@ export default function TodoListWidget({
               className={`shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
                 filter === 'OVERDUE'
                   ? 'bg-rose-600 text-white shadow-xs font-bold'
-                  : 'bg-rose-100/80 text-rose-800 hover:bg-rose-200 font-bold'
+                  : 'bg-rose-100/80 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 hover:bg-rose-200 dark:hover:bg-rose-900 font-bold'
               }`}
             >
               <Flame className="h-3 w-3" />
@@ -452,7 +452,7 @@ export default function TodoListWidget({
               className={`shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                 filter === 'TODAY'
                   ? 'bg-amber-500 text-slate-950 shadow-xs font-bold'
-                  : 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+                  : 'bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900'
               }`}
             >
               Hari Ini ({dueTodayCount})
@@ -463,8 +463,8 @@ export default function TodoListWidget({
             onClick={() => handleFilterChange('COMPLETED')}
             className={`shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
               filter === 'COMPLETED'
-                ? 'bg-white text-emerald-700 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-300 shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
             Selesai ({completedCount})
@@ -473,8 +473,8 @@ export default function TodoListWidget({
             onClick={() => handleFilterChange('ALL')}
             className={`shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
               filter === 'ALL'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
             Semua ({userTodos.length})
@@ -525,7 +525,7 @@ export default function TodoListWidget({
       )}
 
       {/* Form Input Tambah To-Do Baru (Multi-line Support) */}
-      <form onSubmit={handleAddTodo} className="space-y-2.5 bg-slate-50/80 p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
+      <form onSubmit={handleAddTodo} className="space-y-2.5 bg-slate-50/80 dark:bg-slate-800/60 p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-2xs">
         <div className="space-y-2">
           {/* Textarea Multi-line untuk Judul Tugas Utama */}
           <div className="relative">
@@ -546,7 +546,7 @@ export default function TodoListWidget({
                   ? `Berikan instruksi to-do untuk ${assignedTo}...\n(Tekan Enter untuk baris baru, Ctrl+Enter untuk simpan)`
                   : `Tulis to-do atau catatan tugas...\n(Tekan Enter untuk baris baru, Ctrl+Enter untuk simpan)`
               }
-              className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs sm:text-sm focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none resize-y min-h-[52px] leading-relaxed"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 px-3.5 py-2.5 text-xs sm:text-sm focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none resize-y min-h-[52px] leading-relaxed"
             />
           </div>
 
@@ -554,14 +554,14 @@ export default function TodoListWidget({
           {showDescriptionInput ? (
             <div className="animate-in fade-in duration-150">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
-                  <FileText className="h-3 w-3 text-indigo-600" />
+                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1">
+                  <FileText className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
                   Rincian Penjelasan / Catatan Tambahan (Opsional):
                 </span>
                 <button
                   type="button"
                   onClick={() => setShowDescriptionInput(false)}
-                  className="text-[10px] text-slate-400 hover:text-slate-600 font-semibold"
+                  className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-semibold"
                 >
                   Tutup Catatan
                 </button>
@@ -571,34 +571,34 @@ export default function TodoListWidget({
                 value={newDescription}
                 onChange={(e) => setNewDescription(e.target.value)}
                 placeholder="Tambahkan catatan detail, link meeting, atau panduan kerja..."
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none leading-relaxed"
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 px-3 py-2 text-xs focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none leading-relaxed"
               />
             </div>
           ) : (
             <button
               type="button"
               onClick={() => setShowDescriptionInput(true)}
-              className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors cursor-pointer"
             >
               <Plus className="h-3 w-3" />
-              <span>+ Tambah Catatan / Rincian Penjelasan</span>
+              <span>Tambah Catatan / Rincian Penjelasan</span>
             </button>
           )}
         </div>
 
         {/* Toolbar Bawah: Tugaskan Ke, Prioritas, Due Date, dan Tombol Tambah */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1 border-t border-slate-200/60 text-xs">
-          <div className="flex flex-wrap items-center gap-2 text-slate-500">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1 border-t border-slate-200/60 dark:border-slate-700 text-xs">
+          <div className="flex flex-wrap items-center gap-2.5 text-slate-500">
             {isSuperintendent && (
-              <div className="flex items-center gap-1.5 bg-amber-100/80 border border-amber-300 px-2 py-1 rounded-lg">
-                <span className="text-[11px] font-bold text-amber-950 flex items-center gap-1">
-                  <Crown className="h-3 w-3 text-amber-700" />
+              <div className="flex items-center gap-1.5 bg-amber-100/80 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 px-2 py-1 rounded-lg">
+                <span className="text-[11px] font-bold text-amber-950 dark:text-amber-200 flex items-center gap-1">
+                  <Crown className="h-3 w-3 text-amber-700 dark:text-amber-400" />
                   Tugaskan Ke:
                 </span>
                 <select
                   value={assignedTo}
                   onChange={(e) => setAssignedTo(e.target.value as AppUserProfile)}
-                  className="rounded-md border border-amber-300 bg-white px-2 py-0.5 text-xs font-bold text-amber-950 outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+                  className="rounded-md border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 px-2 py-0.5 text-xs font-bold text-amber-950 dark:text-amber-100 outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
                 >
                   <option value="Pampam">Pampam (PIC)</option>
                   <option value="Wahid">Wahid (PIC)</option>
@@ -609,26 +609,31 @@ export default function TodoListWidget({
             )}
 
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-semibold">Prioritas:</span>
+              <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">Prioritas:</span>
               <select
                 value={newPriority}
                 onChange={(e) => setNewPriority(e.target.value as Priority)}
-                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 outline-none focus:border-indigo-600 cursor-pointer"
+                className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-medium text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-600 dark:focus:border-indigo-400 cursor-pointer shadow-2xs"
               >
-                <option value="NORMAL">Normal</option>
-                <option value="TINGGI">Tinggi</option>
-                <option value="URGENT">Urgent 🔴</option>
+                <option value="NORMAL" className="dark:bg-slate-900 dark:text-slate-200">Normal</option>
+                <option value="TINGGI" className="dark:bg-slate-900 dark:text-slate-200">Tinggi</option>
+                <option value="URGENT" className="dark:bg-slate-900 dark:text-slate-200">Urgent 🔴</option>
               </select>
             </div>
 
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-semibold">Batas Waktu:</span>
-              <input
-                type="date"
-                value={newDueDate}
-                onChange={(e) => setNewDueDate(e.target.value)}
-                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 outline-none focus:border-indigo-600 cursor-pointer"
-              />
+              <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                Batas Waktu:
+              </span>
+              <div className="relative flex items-center">
+                <input
+                  type="date"
+                  value={newDueDate}
+                  onChange={(e) => setNewDueDate(e.target.value)}
+                  className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-medium text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-600 dark:focus:border-indigo-400 cursor-pointer shadow-2xs [color-scheme:light] dark:[color-scheme:dark]"
+                />
+              </div>
             </div>
           </div>
 
@@ -685,14 +690,14 @@ export default function TodoListWidget({
                 key={todo.id}
                 className={`group rounded-2xl border transition-all ${
                   isToggling
-                    ? 'bg-indigo-50/50 border-indigo-200 opacity-80'
+                    ? 'bg-indigo-50/50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800 opacity-80'
                     : todo.isCompleted
-                    ? 'bg-slate-50/60 border-slate-200/60 text-slate-400'
+                    ? 'bg-slate-50/60 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800 text-slate-400 dark:text-slate-500'
                     : isOverdue
-                    ? 'bg-rose-50/70 border-rose-300 shadow-xs ring-1 ring-rose-200'
+                    ? 'bg-rose-50/70 dark:bg-rose-950/40 border-rose-300 dark:border-rose-900/60 shadow-xs ring-1 ring-rose-200 dark:ring-rose-900/40'
                     : isDueToday
-                    ? 'bg-amber-50/50 border-amber-300 shadow-2xs'
-                    : 'bg-white border-slate-200 hover:border-indigo-300 shadow-2xs'
+                    ? 'bg-amber-50/50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-900/60 shadow-2xs'
+                    : 'bg-white dark:bg-slate-850 border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700 shadow-2xs'
                 }`}
               >
                 {/* Baris Utama To-Do */}
@@ -750,19 +755,22 @@ export default function TodoListWidget({
                               <select
                                 value={editPriority}
                                 onChange={(e) => setEditPriority(e.target.value as Priority)}
-                                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 outline-none"
+                                className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs text-slate-700 dark:text-slate-200 outline-none"
                               >
-                                <option value="NORMAL">Normal</option>
-                                <option value="TINGGI">Tinggi</option>
-                                <option value="URGENT">Urgent 🔴</option>
+                                <option value="NORMAL" className="dark:bg-slate-900 dark:text-slate-200">Normal</option>
+                                <option value="TINGGI" className="dark:bg-slate-900 dark:text-slate-200">Tinggi</option>
+                                <option value="URGENT" className="dark:bg-slate-900 dark:text-slate-200">Urgent 🔴</option>
                               </select>
 
-                              <input
-                                type="date"
-                                value={editDueDate}
-                                onChange={(e) => setEditDueDate(e.target.value)}
-                                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 outline-none"
-                              />
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+                                <input
+                                  type="date"
+                                  value={editDueDate}
+                                  onChange={(e) => setEditDueDate(e.target.value)}
+                                  className="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs text-slate-700 dark:text-slate-200 outline-none [color-scheme:light] dark:[color-scheme:dark] cursor-pointer"
+                                />
+                              </div>
                             </div>
 
                             <div className="flex items-center gap-1.5">

@@ -81,10 +81,10 @@ export default function ReportsTableView({
   };
 
   return (
-    <div className="rounded-2xl bg-white border border-slate-200/80 shadow-xs overflow-hidden">
+    <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
-          <thead className="bg-slate-100/90 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+          <thead className="bg-slate-100/90 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px]">
             <tr>
               {/* Checkbox Header */}
               <th
@@ -205,12 +205,22 @@ export default function ReportsTableView({
               <th className="py-3 px-3 w-16 text-center">Aksi</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 text-slate-700">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200">
             {paginatedReports.map((report, idx) => {
               const isUrgent = report.priority === 'URGENT';
               const rowNumber = startIndex + idx + 1;
               const isSelected = selectedReportIds.has(report.id);
               const reportPic = report.picName || 'Pampam';
+              const isCreatedToday = (() => {
+                if (!report.createdAt) return false;
+                const created = new Date(report.createdAt);
+                const today = new Date();
+                return (
+                  created.getDate() === today.getDate() &&
+                  created.getMonth() === today.getMonth() &&
+                  created.getFullYear() === today.getFullYear()
+                );
+              })();
 
               return (
                 <tr
@@ -218,8 +228,8 @@ export default function ReportsTableView({
                   onClick={() => onSelectReport(report)}
                   className={`transition-colors cursor-pointer group ${
                     isSelected
-                      ? 'bg-indigo-50/80 hover:bg-indigo-100/70'
-                      : 'hover:bg-indigo-50/40'
+                      ? 'bg-indigo-50/80 dark:bg-indigo-950/40 hover:bg-indigo-100/70 dark:hover:bg-indigo-950/60'
+                      : 'hover:bg-indigo-50/40 dark:hover:bg-slate-800/50'
                   }`}
                 >
                   {/* Checkbox Baris */}
@@ -243,11 +253,23 @@ export default function ReportsTableView({
                   </td>
 
                   {/* No. Tiket & Indikator Lampiran */}
-                  <td className="py-2.5 px-3 font-mono font-bold text-slate-800 whitespace-nowrap">
-                    <div className="flex items-center gap-1.5">
-                      <span className="bg-slate-100 px-2 py-0.5 rounded text-[11px] group-hover:bg-indigo-100 group-hover:text-indigo-800 transition-colors">
+                  <td className="py-2.5 px-3 font-mono font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-[11px] group-hover:bg-indigo-100 dark:group-hover:bg-indigo-950/70 group-hover:text-indigo-800 dark:group-hover:text-indigo-300 transition-colors">
                         {report.ticketNumber}
                       </span>
+                      {isCreatedToday && (
+                        <span
+                          title="Laporan dibuat hari ini"
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs"
+                        >
+                          <span className="relative flex h-1.5 w-1.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-600"></span>
+                          </span>
+                          Hari Ini
+                        </span>
+                      )}
                       {report.attachmentUrl && (
                         <button
                           type="button"
@@ -265,9 +287,9 @@ export default function ReportsTableView({
                               ? `Klik untuk pratinjau bukti: ${report.attachmentName}`
                               : 'Klik untuk pratinjau bukti lampiran'
                           }
-                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold border border-indigo-200/80 transition-all cursor-pointer shadow-2xs hover:scale-105"
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/70 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold border border-indigo-200/80 dark:border-indigo-800 transition-all cursor-pointer shadow-2xs hover:scale-105"
                         >
-                          <Paperclip className="h-3 w-3 text-indigo-600 shrink-0" />
+                          <Paperclip className="h-3 w-3 text-indigo-600 dark:text-indigo-400 shrink-0" />
                           <span>Bukti</span>
                         </button>
                       )}
@@ -295,10 +317,10 @@ export default function ReportsTableView({
                             : ''
                         } ${
                           report.actionStatus === 'OPEN'
-                            ? 'bg-amber-50 text-amber-800 border-amber-200'
+                            ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
                             : report.actionStatus === 'CROSSCHECK'
-                            ? 'bg-sky-50 text-sky-800 border-sky-200'
-                            : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border-sky-200 dark:border-sky-800'
+                            : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
                         }`}
                       >
                         <option value="OPEN">🟡 Open</option>
@@ -313,37 +335,37 @@ export default function ReportsTableView({
 
                   {/* PIC Penanggung Jawab */}
                   <td className="py-2.5 px-3 whitespace-nowrap">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200/80">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700">
                       👤 {reportPic}
                     </span>
                   </td>
 
                   {/* Pegawai & NRP */}
                   <td className="py-2.5 px-3">
-                    <div className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                    <div className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                       {report.employeeName}
                     </div>
-                    <div className="text-[11px] text-slate-400 font-mono">
+                    <div className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">
                       NRP: {report.employeeNik}
                     </div>
                   </td>
 
                   {/* Project */}
                   <td
-                    className="py-2.5 px-3 text-slate-600 font-medium max-w-[200px] truncate"
+                    className="py-2.5 px-3 text-slate-600 dark:text-slate-300 font-medium max-w-[200px] truncate"
                     title={report.department}
                   >
                     {report.department || '-'}
                   </td>
 
                   {/* Kategori */}
-                  <td className="py-2.5 px-3 font-medium text-indigo-700 whitespace-nowrap">
+                  <td className="py-2.5 px-3 font-medium text-indigo-700 dark:text-indigo-400 whitespace-nowrap">
                     <div className="flex items-center gap-1.5">
                       <span>
                         {CATEGORY_LABELS[report.category] || report.category}
                       </span>
                       {isUrgent && (
-                        <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-rose-100 text-rose-800 uppercase animate-pulse">
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 uppercase animate-pulse border border-rose-300 dark:border-rose-800">
                           Urgent
                         </span>
                       )}
@@ -351,16 +373,20 @@ export default function ReportsTableView({
                   </td>
 
                   {/* Selisih */}
-                  <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
+                  <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                     {formatRupiah(report.discrepancyAmount)}
                   </td>
 
                   {/* Tgl */}
-                  <td className="py-2.5 px-3 text-[11px] text-slate-400 whitespace-nowrap">
-                    {new Date(report.createdAt).toLocaleDateString('id-ID', {
-                      day: 'numeric',
-                      month: 'short',
-                    })}
+                  <td className="py-2.5 px-3 text-[11px] text-slate-400 dark:text-slate-500 whitespace-nowrap">
+                    {isCreatedToday ? (
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">Hari ini</span>
+                    ) : (
+                      new Date(report.createdAt).toLocaleDateString('id-ID', {
+                        day: 'numeric',
+                        month: 'short',
+                      })
+                    )}
                   </td>
 
                   {/* Aksi */}
@@ -370,7 +396,7 @@ export default function ReportsTableView({
                   >
                     <button
                       onClick={() => onSelectReport(report)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                       title="Buka Detail Laporan"
                     >
                       <ChevronRight className="h-4 w-4" />

@@ -16,6 +16,7 @@ import {
 import { sanitizeHtml } from '@/lib/sanitize';
 import { PayrollTodo } from '@/lib/types';
 import { TodoFilterType } from '@/components/TodoListWidget';
+import { useToast } from '@/components/ToastProvider';
 
 interface ChatAttachmentDisplay {
   name: string;
@@ -84,6 +85,7 @@ export default function AiChatWidget({
   todos = [],
   onOpenTodos,
 }: AiChatWidgetProps) {
+  const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -93,6 +95,34 @@ export default function AiChatWidget({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatWindowRef = useRef<HTMLDivElement>(null);
+
+  // Tutup chat widget saat pengguna mengklik di sembarang tempat di luar jendela chat atau menekan Escape
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
+      if (chatWindowRef.current && !chatWindowRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('touchstart', handleOutsideClick);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
 
   const currentUser = activeUser || 'Pampam';
   const userGreeting = currentUser === 'Ucup' ? 'Pak Ucup' : `Pak ${currentUser}`;
@@ -161,7 +191,7 @@ export default function AiChatWidget({
     if (!file) return;
 
     if (file.size > 8 * 1024 * 1024) {
-      alert('Ukuran file maksimal 8 MB.');
+      toast.error('Ukuran file maksimal 8 MB.');
       return;
     }
 
@@ -426,7 +456,7 @@ export default function AiChatWidget({
             onClick={() => setIsOpen(false)}
           />
 
-          <div className="fixed inset-x-0 bottom-0 md:inset-auto md:bottom-5 md:right-5 z-50 w-full md:w-[430px] h-[86vh] md:h-[620px] max-h-[92vh] bg-white dark:bg-slate-900 rounded-t-3xl md:rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-all duration-300 animate-in slide-in-from-bottom duration-300">
+          <div ref={chatWindowRef} className="fixed inset-x-0 bottom-0 md:inset-auto md:bottom-5 md:right-5 z-50 w-full md:w-[430px] h-[86vh] md:h-[620px] max-h-[92vh] bg-white dark:bg-slate-900 rounded-t-3xl md:rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-all duration-300 animate-in slide-in-from-bottom duration-300">
             {/* Header */}
             <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white p-3.5 pb-3 flex flex-col shadow-md border-b border-indigo-900/50">
               {/* Mobile Drag Indicator */}

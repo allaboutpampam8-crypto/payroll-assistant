@@ -21,6 +21,7 @@ import {
 import confetti from 'canvas-confetti';
 import { splitExcelFile, SplitResult } from '@/lib/excelSplitter';
 import PinLockScreen from '@/components/PinLockScreen';
+import ToolsHeaderNav from '@/components/ToolsHeaderNav';
 
 export default function ExcelSplitterPage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -171,32 +172,15 @@ export default function ExcelSplitterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-16 transition-colors duration-200">
       {/* Header Bar */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-8 py-3.5 shadow-xs">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Kembali ke Dashboard Asisten</span>
-          </Link>
-
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              100% Offline & Privat di Laptop
-            </span>
-          </div>
-        </div>
-      </header>
+      <ToolsHeaderNav activeTool="excel-splitter" />
 
       {/* Main Content */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 space-y-6">
         {/* Title Card */}
-        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
-          <div className="absolute right-0 top-0 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20"></div>
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 dark:from-slate-900 dark:via-slate-900/95 dark:to-slate-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-transparent dark:border-slate-800/80 relative overflow-hidden transition-colors">
+          <div className="absolute right-0 top-0 w-80 h-80 bg-indigo-500/10 dark:bg-indigo-500/5 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20"></div>
 
           <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div className="space-y-2 max-w-2xl">
@@ -207,13 +191,13 @@ export default function ExcelSplitterPage() {
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
                 Pemecah File Excel Payroll (Batch Splitter)
               </h1>
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-300 dark:text-slate-300 leading-relaxed">
                 Bagi file master payroll (hingga 100.000+ baris) menjadi file kecil per 1.000 baris secara otomatis, aman, dan tanpa mengubah format kolom sedikit pun (tanggal <code className="text-sky-300">dd/mm/yyyy</code>, teks NIK/rekening, dan angka tetap 100% utuh).
               </p>
             </div>
 
-            <div className="flex-shrink-0 flex items-center gap-3 bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/15">
-              <div className="w-12 h-12 relative rounded-xl overflow-hidden bg-white/20 p-1 flex items-center justify-center">
+            <div className="flex-shrink-0 flex items-center gap-3 bg-white/10 dark:bg-slate-800/60 backdrop-blur-xs p-3 rounded-2xl border border-white/15 dark:border-slate-700">
+              <div className="w-12 h-12 relative rounded-xl overflow-hidden bg-white/20 dark:bg-slate-700/60 p-1 flex items-center justify-center">
                 <Image
                   src="/mascot/ready.png"
                   alt="Si PALI Siap"
@@ -231,13 +215,13 @@ export default function ExcelSplitterPage() {
         </div>
 
         {/* Security Assurance Banner */}
-        <div className="bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200/80 rounded-2xl p-4 flex items-start gap-3.5 text-xs text-emerald-900">
-          <ShieldCheck className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+        <div className="bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/50 rounded-2xl p-4 flex items-start gap-3.5 text-xs text-emerald-900 dark:text-emerald-300">
+          <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
           <div className="space-y-1">
-            <p className="font-bold text-emerald-800">
+            <p className="font-bold text-emerald-800 dark:text-emerald-300">
               Jaminan Keamanan & Privasi Data Gaji:
             </p>
-            <p className="text-emerald-700 leading-relaxed">
+            <p className="text-emerald-700 dark:text-emerald-400 leading-relaxed">
               Seluruh proses membaca, memotong baris data, dan mengompresi ke file ZIP dilakukan secara <b>100% Client-Side di dalam memori laptop Anda</b>. File Excel master Anda <b>tidak pernah dikirim ke internet, cloud, atau server pihak ketiga mana pun</b>.
             </p>
           </div>
@@ -245,14 +229,14 @@ export default function ExcelSplitterPage() {
 
         {/* Step 1 & Step 2 Card */}
         {!result && (
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-6 sm:p-8 space-y-6">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-6 sm:p-8 space-y-6">
             {/* Step 1: Upload */}
             <div>
               <div className="flex items-center gap-2.5 mb-3">
                 <span className="w-6 h-6 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center">
                   1
                 </span>
-                <h2 className="text-base font-bold text-slate-800">
+                <h2 className="text-base font-bold text-slate-800 dark:text-slate-200">
                   Pilih File Master Excel (.xlsx)
                 </h2>
               </div>
@@ -262,7 +246,7 @@ export default function ExcelSplitterPage() {
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-slate-300 hover:border-indigo-500 rounded-2xl p-8 sm:p-12 text-center cursor-pointer transition-all bg-slate-50/50 hover:bg-indigo-50/30 group"
+                  className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-400 rounded-2xl p-8 sm:p-12 text-center cursor-pointer transition-all bg-slate-50/50 dark:bg-slate-950/50 hover:bg-indigo-50/30 dark:hover:bg-slate-800/40 group"
                 >
                   <input
                     ref={fileInputRef}
@@ -271,27 +255,27 @@ export default function ExcelSplitterPage() {
                     className="hidden"
                     onChange={handleFileChange}
                   />
-                  <div className="w-16 h-16 rounded-2xl bg-indigo-50 group-hover:bg-indigo-100/80 text-indigo-600 mx-auto flex items-center justify-center mb-4 transition-colors shadow-xs">
+                  <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-slate-800 group-hover:bg-indigo-100/80 dark:group-hover:bg-slate-700 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center mb-4 transition-colors shadow-xs">
                     <Upload className="w-8 h-8" />
                   </div>
-                  <h3 className="font-bold text-slate-800 text-sm sm:text-base">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm sm:text-base">
                     Klik untuk Memilih File atau Tarik (Drag & Drop) ke Sini
                   </h3>
-                  <p className="text-xs text-slate-500 mt-1.5 max-w-md mx-auto">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 max-w-md mx-auto">
                     Mendukung file Excel master penggajian (hingga 100.000+ baris data, format <code>.xlsx</code>).
                   </p>
                 </div>
               ) : (
-                <div className="bg-indigo-50/40 border border-indigo-200/80 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4">
+                <div className="bg-indigo-50/40 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3.5 min-w-0">
-                    <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
+                    <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">
                       <FileSpreadsheet className="w-6 h-6" />
                     </div>
                     <div className="min-w-0">
-                      <h4 className="font-bold text-slate-900 text-sm truncate">
+                      <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm truncate">
                         {selectedFile.name}
                       </h4>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                         Ukuran: {formatFileSize(selectedFile.size)} • Format: .xlsx
                       </p>
                     </div>
@@ -300,7 +284,7 @@ export default function ExcelSplitterPage() {
                   <button
                     onClick={handleReset}
                     disabled={isProcessing}
-                    className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors cursor-pointer"
                   >
                     Ganti File
                   </button>
@@ -310,20 +294,20 @@ export default function ExcelSplitterPage() {
 
             {/* Step 2: Settings */}
             {selectedFile && (
-              <div className="border-t border-slate-100 pt-6 space-y-5 animate-in fade-in duration-300">
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-6 space-y-5 animate-in fade-in duration-300">
                 <div className="flex items-center gap-2.5">
                   <span className="w-6 h-6 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center">
                     2
                   </span>
-                  <h2 className="text-base font-bold text-slate-800">
-                    Pengaturan Pemecahan
+                  <h2 className="text-base font-bold text-slate-800 dark:text-slate-200">
+                    Atur Parameter Pemotongan Baris
                   </h2>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   {/* Chunk Size Input */}
                   <div className="space-y-2">
-                    <label className="block text-xs font-bold text-slate-700">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                       Jumlah Baris Data per File
                     </label>
                     <div className="relative">
@@ -335,16 +319,16 @@ export default function ExcelSplitterPage() {
                         value={chunkSize}
                         onChange={(e) => setChunkSize(Math.max(1, Number(e.target.value)))}
                         disabled={isProcessing}
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
-                      <span className="absolute right-3.5 top-2.5 text-xs text-slate-400 font-medium">
+                      <span className="absolute right-3.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-medium">
                         baris / file
                       </span>
                     </div>
 
                     {/* Presets */}
                     <div className="flex items-center gap-2 pt-1">
-                      <span className="text-[11px] text-slate-400 font-medium">Pilihan Cepat:</span>
+                      <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">Pilihan Cepat:</span>
                       {[500, 1000, 2000, 5000].map((val) => (
                         <button
                           key={val}
@@ -354,7 +338,7 @@ export default function ExcelSplitterPage() {
                           className={`px-2.5 py-1 text-xs rounded-lg font-semibold transition-colors cursor-pointer ${
                             chunkSize === val
                               ? 'bg-indigo-600 text-white shadow-xs'
-                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                           }`}
                         >
                           {val}
@@ -365,7 +349,7 @@ export default function ExcelSplitterPage() {
 
                   {/* File Prefix Input */}
                   <div className="space-y-2">
-                    <label className="block text-xs font-bold text-slate-700">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                       Awalan Nama File Hasil (Prefix)
                     </label>
                     <input
@@ -374,35 +358,35 @@ export default function ExcelSplitterPage() {
                       onChange={(e) => setFilePrefix(e.target.value)}
                       disabled={isProcessing}
                       placeholder="Contoh: HRIS_Payroll_Oktober"
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">
                       Contoh nama file: <code>{filePrefix || 'Master'}_Part_001_Row_1-1000.xlsx</code>
                     </p>
                   </div>
                 </div>
 
                 {/* Format Guarantee Checklist */}
-                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-2 text-xs text-slate-600">
-                  <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 space-y-2 text-xs text-slate-600 dark:text-slate-300">
+                  <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                     Kualitas Format Kolom yang Dijamin:
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
                     <div className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                      <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
                       <span>Baris Header (Baris 1) disalin di setiap part</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                      <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
                       <span>Format Tanggal (<code>dd/mm/yyyy</code>) tidak berubah</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                      <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
                       <span>NIK & No. Rekening diawali 0 tidak hilang</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                      <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
                       <span>Lebar kolom tabel tetap rapi sesuai file asli</span>
                     </div>
                   </div>
@@ -410,21 +394,21 @@ export default function ExcelSplitterPage() {
 
                 {/* Progress Bar if processing */}
                 {isProcessing && (
-                  <div className="bg-indigo-50/60 border border-indigo-200 rounded-2xl p-5 space-y-3 animate-in fade-in">
-                    <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                  <div className="bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-5 space-y-3 animate-in fade-in">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-200">
                       <span className="flex items-center gap-2">
-                        <RefreshCw className="w-4 h-4 text-indigo-600 animate-spin" />
+                        <RefreshCw className="w-4 h-4 text-indigo-600 dark:text-indigo-400 animate-spin" />
                         {progressMessage}
                       </span>
-                      <span className="text-indigo-600 font-mono">{progressPercent}%</span>
+                      <span className="text-indigo-600 dark:text-indigo-400 font-mono">{progressPercent}%</span>
                     </div>
-                    <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3 overflow-hidden">
                       <div
                         className="bg-gradient-to-r from-blue-600 to-indigo-600 h-full rounded-full transition-all duration-300 ease-out"
                         style={{ width: `${progressPercent}%` }}
                       />
                     </div>
-                    <p className="text-[11px] text-slate-500 text-center">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 text-center">
                       Mohon jangan menutup halaman ini selama proses pemecahan berlangsung.
                     </p>
                   </div>
@@ -432,8 +416,8 @@ export default function ExcelSplitterPage() {
 
                 {/* Error Box */}
                 {errorMsg && (
-                  <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-start gap-3 text-xs text-rose-800 animate-in fade-in">
-                    <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                  <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl p-4 flex items-start gap-3 text-xs text-rose-800 dark:text-rose-300 animate-in fade-in">
+                    <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 flex-shrink-0 mt-0.5" />
                     <div>
                       <span className="font-bold">Gagal Memproses: </span>
                       {errorMsg}
@@ -468,18 +452,18 @@ export default function ExcelSplitterPage() {
 
         {/* Step 3: Result Card */}
         {result && (
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-md p-6 sm:p-8 space-y-6 animate-in slide-in-from-bottom duration-300">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-md p-6 sm:p-8 space-y-6 animate-in slide-in-from-bottom duration-300">
             {/* Header Success */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-6">
               <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0 shadow-xs">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0 shadow-xs">
                   <CheckCircle2 className="w-7 h-7" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-extrabold text-slate-900">
+                  <h2 className="text-xl font-extrabold text-slate-900 dark:text-slate-100">
                     File Berhasil Dipecah Menjadi {result.totalChunks} Part!
                   </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Diproses dalam {(result.durationMs / 1000).toFixed(1)} detik • Seluruh format kolom 100% identik
                   </p>
                 </div>
@@ -487,7 +471,7 @@ export default function ExcelSplitterPage() {
 
               <button
                 onClick={handleReset}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>Pecah File Baru</span>
@@ -496,44 +480,44 @@ export default function ExcelSplitterPage() {
 
             {/* Metrics Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+              <div className="bg-slate-50 dark:bg-slate-950/60 rounded-2xl p-4 border border-slate-100 dark:border-slate-800">
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   Total Baris Data
                 </div>
-                <div className="text-xl sm:text-2xl font-black text-slate-900 mt-1 font-mono">
+                <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 mt-1 font-mono">
                   {result.totalRows.toLocaleString('id-ID')}
                 </div>
-                <div className="text-[10px] text-slate-400 mt-0.5">di luar header baris 1</div>
+                <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">di luar header baris 1</div>
               </div>
 
-              <div className="bg-indigo-50/50 rounded-2xl p-4 border border-indigo-100">
-                <div className="text-[11px] font-semibold text-indigo-600 uppercase tracking-wider">
+              <div className="bg-indigo-50/50 dark:bg-indigo-950/40 rounded-2xl p-4 border border-indigo-100 dark:border-indigo-900/50">
+                <div className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
                   Jumlah File Part
                 </div>
-                <div className="text-xl sm:text-2xl font-black text-indigo-900 mt-1 font-mono">
+                <div className="text-xl sm:text-2xl font-black text-indigo-900 dark:text-indigo-200 mt-1 font-mono">
                   {result.totalChunks} File
                 </div>
-                <div className="text-[10px] text-indigo-500 mt-0.5">format .xlsx murni</div>
+                <div className="text-[10px] text-indigo-500 dark:text-indigo-400 mt-0.5">format .xlsx murni</div>
               </div>
 
-              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+              <div className="bg-slate-50 dark:bg-slate-950/60 rounded-2xl p-4 border border-slate-100 dark:border-slate-800">
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   Ukuran Tiap Part
                 </div>
-                <div className="text-xl sm:text-2xl font-black text-slate-900 mt-1 font-mono">
+                <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 mt-1 font-mono">
                   {result.chunkSize.toLocaleString('id-ID')}
                 </div>
-                <div className="text-[10px] text-slate-400 mt-0.5">baris data per file</div>
+                <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">baris data per file</div>
               </div>
 
-              <div className="bg-emerald-50/50 rounded-2xl p-4 border border-emerald-100">
-                <div className="text-[11px] font-semibold text-emerald-600 uppercase tracking-wider">
+              <div className="bg-emerald-50/50 dark:bg-emerald-950/40 rounded-2xl p-4 border border-emerald-100 dark:border-emerald-900/50">
+                <div className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
                   Ukuran File ZIP
                 </div>
-                <div className="text-xl sm:text-2xl font-black text-emerald-900 mt-1 font-mono">
+                <div className="text-xl sm:text-2xl font-black text-emerald-900 dark:text-emerald-200 mt-1 font-mono">
                   {formatFileSize(result.zipBlob.size)}
                 </div>
-                <div className="text-[10px] text-emerald-600 mt-0.5">kompresi optimal</div>
+                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">kompresi optimal</div>
               </div>
             </div>
 
@@ -565,30 +549,30 @@ export default function ExcelSplitterPage() {
             {/* List of Individual Parts */}
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-indigo-600" />
+                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                   Daftar Rincian File Pecahan ({result.parts.length} File):
                 </h4>
-                <span className="text-[11px] text-slate-400">
+                <span className="text-[11px] text-slate-400 dark:text-slate-500">
                   Bisa diunduh satu per satu jika diperlukan
                 </span>
               </div>
 
-              <div className="border border-slate-200/80 rounded-2xl overflow-hidden max-h-80 overflow-y-auto divide-y divide-slate-100 bg-slate-50/50">
+              <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
                 {result.parts.map((p) => (
                   <div
                     key={p.index}
-                    className="p-3 sm:px-4 flex items-center justify-between gap-3 hover:bg-white transition-colors"
+                    className="p-3 sm:px-4 flex items-center justify-between gap-3 hover:bg-white dark:hover:bg-slate-850 transition-colors"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <span className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center flex-shrink-0 font-mono">
+                      <span className="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold text-xs flex items-center justify-center flex-shrink-0 font-mono">
                         #{p.index}
                       </span>
                       <div className="min-w-0">
-                        <div className="text-xs font-bold text-slate-800 truncate font-mono">
+                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate font-mono">
                           {p.fileName}
                         </div>
-                        <div className="text-[11px] text-slate-500">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
                           Baris {p.startRow.toLocaleString('id-ID')} s/d {p.endRow.toLocaleString('id-ID')} ({p.rowCount.toLocaleString('id-ID')} baris data)
                         </div>
                       </div>
@@ -597,7 +581,7 @@ export default function ExcelSplitterPage() {
                     <button
                       onClick={() => handleDownloadSinglePart(p)}
                       title={`Unduh part ${p.index}`}
-                      className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-indigo-50 border border-slate-200 text-slate-700 hover:text-indigo-600 text-xs font-semibold shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer flex-shrink-0"
+                      className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 hover:bg-indigo-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-xs font-semibold shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer flex-shrink-0"
                     >
                       <Download className="w-3.5 h-3.5" />
                       <span className="hidden sm:inline">Unduh</span>

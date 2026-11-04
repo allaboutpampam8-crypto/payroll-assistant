@@ -50,9 +50,9 @@ export default function ReportsCardView({
     <div className="space-y-3">
       {/* Bilah Pilih Semua di Mode Kartu */}
       {paginatedReports.length > 0 && (
-        <div className="flex items-center justify-between bg-slate-50 border border-slate-200/80 px-3.5 py-2 rounded-xl text-xs">
+        <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 px-3.5 py-2 rounded-xl text-xs">
           <label
-            className="flex items-center gap-2 cursor-pointer select-none font-semibold text-slate-700"
+            className="flex items-center gap-2 cursor-pointer select-none font-semibold text-slate-700 dark:text-slate-300"
             onClick={(e) => e.stopPropagation()}
           >
             <input
@@ -63,14 +63,14 @@ export default function ReportsCardView({
                 if (el) el.indeterminate = isSomeVisibleSelected;
               }}
               onChange={onToggleSelectAllVisible}
-              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+              className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
             />
             <span>
               {isAllVisibleSelected ? 'Batalkan Semua' : 'Pilih Semua Halaman Ini'}
             </span>
           </label>
           {selectedReportIds.size > 0 && (
-            <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-lg border border-indigo-200">
+            <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/70 px-2.5 py-0.5 rounded-lg border border-indigo-200 dark:border-indigo-800">
               {selectedReportIds.size} dipilih
             </span>
           )}
@@ -86,15 +86,25 @@ export default function ReportsCardView({
         const isUrgent = report.priority === 'URGENT';
         const reportPic = report.picName || 'Pampam';
         const isSelected = selectedReportIds.has(report.id);
+        const isCreatedToday = (() => {
+          if (!report.createdAt) return false;
+          const created = new Date(report.createdAt);
+          const today = new Date();
+          return (
+            created.getDate() === today.getDate() &&
+            created.getMonth() === today.getMonth() &&
+            created.getFullYear() === today.getFullYear()
+          );
+        })();
 
         return (
           <div
             key={report.id}
             onClick={() => onSelectReport(report)}
-            className={`group rounded-2xl bg-white p-3.5 sm:p-5 border transition-all cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-3.5 sm:gap-4 ${
+            className={`group rounded-2xl p-3.5 sm:p-5 border transition-all cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-3.5 sm:gap-4 ${
               isSelected
-                ? 'border-indigo-400 bg-indigo-50/25 ring-2 ring-indigo-500/20 shadow-xs'
-                : 'border-slate-200/80 hover:border-indigo-300 shadow-xs hover:shadow-md'
+                ? 'border-indigo-400 bg-indigo-50/25 dark:bg-indigo-950/40 ring-2 ring-indigo-500/20 shadow-xs'
+                : 'border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-300 dark:hover:border-indigo-700 shadow-xs hover:shadow-md'
             }`}
           >
             {/* Checkbox & Left Info Container */}
@@ -119,9 +129,22 @@ export default function ReportsCardView({
               <div className="space-y-2 flex-1 min-w-0">
                 {/* Baris Badges */}
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
+                  <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                     {report.ticketNumber}
                   </span>
+
+                  {isCreatedToday && (
+                    <span
+                      title="Tiket dibuat hari ini"
+                      className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs"
+                    >
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-600"></span>
+                      </span>
+                      Hari Ini
+                    </span>
+                  )}
 
                   <span
                     className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${statusInfo.badgeClass}`}
@@ -130,7 +153,7 @@ export default function ReportsCardView({
                   </span>
 
                   {/* Badge PIC */}
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                     👤 {reportPic}
                   </span>
 
@@ -147,7 +170,7 @@ export default function ReportsCardView({
                           report,
                         });
                       }}
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 transition-all cursor-pointer shadow-2xs hover:scale-105"
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/70 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800 transition-all cursor-pointer shadow-2xs hover:scale-105"
                       title={
                         report.attachmentName
                           ? `Klik untuk lihat lampiran: ${report.attachmentName}`
@@ -187,27 +210,27 @@ export default function ReportsCardView({
                 {/* Nama & Project */}
                 <div>
                   <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2">
-                    <h4 className="text-sm md:text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                    <h4 className="text-sm md:text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                       {report.employeeName}
                     </h4>
-                    <span className="text-xs text-slate-500">
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
                       NRP: {report.employeeNik} • {report.department}
                     </span>
                   </div>
-                  <p className="text-xs font-semibold text-indigo-700 mt-0.5">
+                  <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-400 mt-0.5">
                     {CATEGORY_LABELS[report.category] || report.category}
                   </p>
                 </div>
 
                 {/* Deskripsi Kronologi Singkat */}
-                <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed">
                   {report.description}
                 </p>
 
                 {/* Catatan Tindak Lanjut jika ada */}
                 {report.resolutionNotes && (
-                  <div className="text-[11px] text-slate-500 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/60 line-clamp-1">
-                    <span className="font-semibold text-slate-700">Tindak Lanjut:</span>{' '}
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/70 px-3 py-1.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60 line-clamp-1">
+                    <span className="font-semibold text-slate-700 dark:text-slate-250">Tindak Lanjut:</span>{' '}
                     {report.resolutionNotes}
                   </div>
                 )}
@@ -215,12 +238,12 @@ export default function ReportsCardView({
             </div>
 
             {/* Right Info: Nominal & Quick Action Status */}
-            <div className="flex md:flex-col items-center md:items-end justify-between border-t md:border-t-0 pt-3 md:pt-0 border-slate-100 shrink-0 gap-2">
+            <div className="flex md:flex-col items-center md:items-end justify-between border-t md:border-t-0 pt-3 md:pt-0 border-slate-100 dark:border-slate-800 shrink-0 gap-2">
               <div className="text-left md:text-right">
-                <div className="text-[10px] uppercase font-semibold text-slate-400">
+                <div className="text-[10px] uppercase font-semibold text-slate-400 dark:text-slate-500">
                   Estimasi Selisih
                 </div>
-                <div className="text-sm md:text-base font-bold text-slate-900">
+                <div className="text-sm md:text-base font-bold text-slate-900 dark:text-slate-100">
                   {formatRupiah(report.discrepancyAmount)}
                 </div>
               </div>
@@ -240,7 +263,7 @@ export default function ReportsCardView({
                         e.target.value as ActionStatus
                       )
                     }
-                    className={`text-[11px] font-semibold py-1.5 px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 outline-none cursor-pointer transition-all ${
+                    className={`text-[11px] font-semibold py-1.5 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 outline-none cursor-pointer transition-all ${
                       updatingReportIds.has(report.id)
                         ? 'opacity-60 cursor-wait pl-7'
                         : ''
@@ -257,7 +280,7 @@ export default function ReportsCardView({
 
                 <button
                   onClick={() => onSelectReport(report)}
-                  className="p-1.5 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                  className="p-1.5 rounded-xl text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors"
                   title="Lihat Detail & Catatan"
                 >
                   <ChevronRight className="h-4 w-4" />

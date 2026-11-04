@@ -17,6 +17,8 @@ import {
   Image as ImageIcon,
   FileText,
   Trash2,
+  AlertTriangle,
+  Calendar,
 } from 'lucide-react';
 import {
   IssueCategory,
@@ -27,6 +29,7 @@ import {
   AppUserProfile,
   APP_USER_PROFILES,
 } from '@/lib/types';
+import { useToast } from '@/components/ToastProvider';
 
 interface QuickEntryModalProps {
   isOpen: boolean;
@@ -45,6 +48,8 @@ export default function QuickEntryModal({
   activePeriod,
   activeUser = 'Pampam',
 }: QuickEntryModalProps) {
+  const { toast } = useToast();
+
   // Scope Laporan
   const [scope, setScope] = useState<ReportScope>('INDIVIDUAL');
 
@@ -92,13 +97,16 @@ export default function QuickEntryModal({
   const [selectedGroupEmployees, setSelectedGroupEmployees] = useState<PayrollResult[]>([]);
   const [groupSearchTerm, setGroupSearchTerm] = useState('');
 
+  // Konfirmasi buang isian laporan jika form telah terisi (Unsaved changes guard)
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+
   // Handle upload lampiran file
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      alert('Ukuran berkas lampiran maksimal 5 MB.');
+      toast.error('Ukuran berkas lampiran melebihi batas 5 MB.');
       return;
     }
 
@@ -130,7 +138,7 @@ export default function QuickEntryModal({
           const blob = items[i].getAsFile();
           if (blob) {
             if (blob.size > 5 * 1024 * 1024) {
-              alert('Ukuran gambar screenshot melebihi batas 5 MB.');
+              toast.error('Ukuran gambar screenshot melebihi batas 5 MB.');
               return;
             }
             const reader = new FileReader();
@@ -212,6 +220,74 @@ export default function QuickEntryModal({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Deteksi apakah form sedang terisi (Unsaved changes / Dirty state)
+  const isFormDirty = Boolean(
+    employeeName.trim() ||
+    employeeNik.trim() ||
+    description.trim() ||
+    discrepancyAmount.trim() ||
+    phoneNumber.trim() ||
+    reportedBy.trim() ||
+    attachmentUrl ||
+    selectedDept ||
+    selectedGroupEmployees.length > 0
+  );
+
+  const handleAttemptClose = () => {
+    if (isFormDirty) {
+      setShowDiscardConfirm(true);
+    } else {
+      handleForceClose();
+    }
+  };
+
+  const handleForceClose = () => {
+    setShowDiscardConfirm(false);
+    setEmployeeName('');
+    setEmployeeNik('');
+    setDepartment('');
+    setPhoneNumber('');
+    setReportedBy('');
+    setCategory('KOREKSI_GAJI');
+    setDiscrepancyAmount('');
+    setDescription('');
+    setPriority('NORMAL');
+    setActionStatus('OPEN');
+    setDueDate('');
+    setAttachmentUrl('');
+    setAttachmentName('');
+    setSelectedDept('');
+    setSelectedGroupEmployees([]);
+    setMatchedEmployee(null);
+    onClose();
+  };
+
+  // Kunci Scroll Layar Utama saat modal terbuka
+  useEffect(() => {
+    if (!isOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isOpen]);
+
+  // Tutup modal Catat Laporan saat menekan tombol Escape (dengan proteksi data belum tersimpan)
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showDiscardConfirm) {
+          setShowDiscardConfirm(false);
+        } else {
+          handleAttemptClose();
+        }
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, showDiscardConfirm, isFormDirty]);
 
   if (!isOpen) return null;
 
@@ -450,6 +526,7 @@ export default function QuickEntryModal({
         setAttachmentUrl('');
         setAttachmentName('');
         if (fileInputRef.current) fileInputRef.current.value = '';
+        toast.success('Laporan berhasil disimpan! Siap input laporan berikutnya.');
         onSuccess();
       } else {
         // Reset total dan tutup modal
@@ -469,6 +546,7 @@ export default function QuickEntryModal({
         setAttachmentUrl('');
         setAttachmentName('');
         if (fileInputRef.current) fileInputRef.current.value = '';
+        toast.success('Laporan kendala payroll berhasil dicatat!');
         onSuccess();
         onClose();
       }
@@ -496,40 +574,85 @@ export default function QuickEntryModal({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-xl rounded-2xl bg-white shadow-2xl border border-slate-100 max-h-[92vh] flex flex-col overflow-hidden">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          handleAttemptClose();
+        }
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-xl rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-100 dark:border-slate-800 max-h-[92vh] flex flex-col overflow-hidden"
+      >
+        {/* Modal Konfirmasi Buang Data Belum Tersimpan */}
+        {showDiscardConfirm && (
+          <div className="absolute inset-0 z-60 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-200 dark:border-slate-800 text-center space-y-4 animate-in zoom-in-95 duration-150">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center shadow-xs">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-base font-extrabold text-slate-900 dark:text-slate-100">
+                  Buang Isian Laporan?
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Ada data laporan yang belum Anda simpan. Jika Anda keluar sekarang, data yang telah diketik akan hilang.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowDiscardConfirm(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Lanjut Mengisi
+                </button>
+                <button
+                  type="button"
+                  onClick={handleForceClose}
+                  className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition-all cursor-pointer"
+                >
+                  Ya, Buang & Keluar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-slate-50/50">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
           <div>
-            <h3 className="text-base md:text-lg font-bold text-slate-900 flex items-center gap-2">
-              <PlusCircle className="h-5 w-5 text-indigo-600" />
+            <h3 className="text-base md:text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <PlusCircle className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
               Catat Laporan Cepat
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Input instan dari chat WhatsApp, telepon, PIC Project, atau kendala massal.
             </p>
           </div>
           <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+            onClick={handleAttemptClose}
+            className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Scope Selector Tabs */}
-        <div className="px-4 sm:px-6 pt-3 pb-2 border-b border-slate-100 bg-slate-50/30">
-          <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+        <div className="px-4 sm:px-6 pt-3 pb-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-950/30">
+          <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
             Cakupan Laporan:
           </div>
-          <div className="grid grid-cols-3 gap-1.5 bg-slate-200/60 p-1 rounded-xl text-xs font-semibold">
+          <div className="grid grid-cols-3 gap-1.5 bg-slate-200/60 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold">
             <button
               type="button"
               onClick={() => handleScopeChange('INDIVIDUAL')}
               className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg transition-all cursor-pointer ${
                 scope === 'INDIVIDUAL'
-                  ? 'bg-white text-indigo-700 shadow-xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-300 shadow-xs font-bold'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
               <User className="h-3.5 w-3.5" />
@@ -540,8 +663,8 @@ export default function QuickEntryModal({
               onClick={() => handleScopeChange('GROUP')}
               className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg transition-all cursor-pointer ${
                 scope === 'GROUP'
-                  ? 'bg-white text-indigo-700 shadow-xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-300 shadow-xs font-bold'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
               <Users className="h-3.5 w-3.5" />
@@ -552,8 +675,8 @@ export default function QuickEntryModal({
               onClick={() => handleScopeChange('PROJECT')}
               className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg transition-all cursor-pointer ${
                 scope === 'PROJECT'
-                  ? 'bg-white text-indigo-700 shadow-xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-300 shadow-xs font-bold'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
               <Building2 className="h-3.5 w-3.5" />
@@ -1123,14 +1246,15 @@ export default function QuickEntryModal({
 
           {/* Baris Tanggal Target Selesai */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
               Target Penyelesaian (Due Date)
             </label>
             <input
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm bg-white focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-3.5 py-2 text-sm bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
             />
           </div>
 
@@ -1221,17 +1345,17 @@ export default function QuickEntryModal({
           </div>
 
           {/* Tombol Aksi */}
-          <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-slate-100">
-            <span className="text-[11px] text-slate-400 hidden sm:inline">
+          <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-slate-100 dark:border-slate-800">
+            <span className="text-[11px] text-slate-400 dark:text-slate-500 hidden sm:inline">
               💡 Tekan Esc untuk batal
             </span>
 
             <div className="flex items-center gap-1.5 sm:gap-2 justify-end flex-wrap sm:flex-nowrap">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleAttemptClose}
                 disabled={loading}
-                className="px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="px-3 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 Batal
               </button>
@@ -1239,7 +1363,7 @@ export default function QuickEntryModal({
                 type="button"
                 onClick={(e) => handleSubmit(e, true)}
                 disabled={loading}
-                className="px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-70"
+                className="px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-indigo-200 dark:border-indigo-800 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-70"
                 title="Simpan tiket ini dan langsung lanjut catat tiket berikutnya untuk project ini"
               >
                 <span className="hidden sm:inline">Simpan & </span>

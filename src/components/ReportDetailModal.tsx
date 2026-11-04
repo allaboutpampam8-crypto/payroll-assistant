@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   X,
   Phone,
@@ -21,6 +21,7 @@ import {
   Clipboard,
   RotateCcw,
   Sparkles,
+  Calendar,
 } from 'lucide-react';
 import {
   PayrollReport,
@@ -30,6 +31,7 @@ import {
   AppUserProfile,
   APP_USER_PROFILES,
 } from '@/lib/types';
+import { useToast } from '@/components/ToastProvider';
 
 interface ReportDetailModalProps {
   report: PayrollReport | null;
@@ -70,6 +72,7 @@ function ReportDetailModalContent({
   onUpdated: (updatedReport?: PayrollReport) => void;
   activeUser: AppUserProfile;
 }) {
+  const { toast } = useToast();
   const [actionStatus, setActionStatus] = useState<ActionStatus>(report.actionStatus);
   const [priority, setPriority] = useState<Priority>(report.priority);
   const [resolutionNotes, setResolutionNotes] = useState(report.resolutionNotes || '');
@@ -104,7 +107,7 @@ function ReportDetailModalContent({
           if (imageType) {
             const blob = await item.getType(imageType);
             if (blob.size > 5 * 1024 * 1024) {
-              alert('Ukuran gambar screenshot maksimal 5 MB.');
+              toast.error('Ukuran gambar screenshot maksimal 5 MB.');
               return;
             }
             const reader = new FileReader();
@@ -142,7 +145,7 @@ function ReportDetailModalContent({
           if (!blob) continue;
 
           if (blob.size > 5 * 1024 * 1024) {
-            alert('Ukuran gambar screenshot maksimal 5 MB.');
+            toast.error('Ukuran gambar screenshot maksimal 5 MB.');
             return;
           }
 
@@ -170,7 +173,7 @@ function ReportDetailModalContent({
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      alert('Ukuran berkas lampiran maksimal 5 MB.');
+      toast.error('Ukuran berkas lampiran maksimal 5 MB.');
       return;
     }
 
@@ -222,6 +225,7 @@ function ReportDetailModalContent({
       });
       if (res.ok) {
         setTodoAdded(true);
+        toast.success('Tugas otomatis berhasil ditambahkan ke agenda tim!');
         setTimeout(() => setTodoAdded(false), 3000);
         onUpdated();
       }
@@ -259,9 +263,12 @@ function ReportDetailModalContent({
       }
 
       onUpdated(data.data);
+      toast.success('Perubahan laporan berhasil disimpan!');
       onClose();
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : 'Terjadi kesalahan sistem.');
+      const msg = err instanceof Error ? err.message : 'Terjadi kesalahan sistem.';
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -277,10 +284,12 @@ function ReportDetailModalContent({
       if (!res.ok || !data.success) {
         throw new Error(data.message || 'Gagal menghapus laporan.');
       }
+      toast.success('Laporan berhasil dihapus.');
       onUpdated();
       onClose();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Gagal menghapus laporan.');
+      const msg = err instanceof Error ? err.message : 'Gagal menghapus laporan.';
+      toast.error(msg);
       setShowDeleteConfirm(false);
     } finally {
       setDeleteLoading(false);
@@ -303,20 +312,48 @@ function ReportDetailModalContent({
       )}`
     : null;
 
+  // Kunci Scroll Layar Utama saat modal terbuka
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
+
+  // Tutup modal detail tiket saat menekan Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl rounded-2xl bg-white shadow-2xl border border-slate-100 max-h-[92vh] flex flex-col overflow-hidden">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-100 dark:border-slate-800 max-h-[92vh] flex flex-col overflow-hidden"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-slate-50/50">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <span className="font-mono text-[11px] sm:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+            <span className="font-mono text-[11px] sm:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shrink-0">
               {report.ticketNumber}
             </span>
             <div>
-              <h3 className="text-sm sm:text-base font-bold text-slate-900 line-clamp-1">
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 line-clamp-1">
                 {CATEGORY_LABELS[report.category] || report.category}
               </h3>
-              <p className="text-[11px] sm:text-xs text-slate-500">
+              <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
                 Dilaporkan pada {new Date(report.createdAt).toLocaleDateString('id-ID', {
                   day: 'numeric',
                   month: 'short',
@@ -326,8 +363,8 @@ function ReportDetailModalContent({
                 })}
               </p>
               {report.actionStatus === 'CLOSE' && report.resolvedAt && (
-                <p className="text-[11px] sm:text-xs text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                <p className="text-[11px] sm:text-xs text-emerald-700 dark:text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <span>
                     Selesai pada {new Date(report.resolvedAt).toLocaleDateString('id-ID', {
                       day: 'numeric',
@@ -343,7 +380,7 @@ function ReportDetailModalContent({
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+            className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
           >
             <X className="h-5 w-5" />
           </button>
@@ -352,8 +389,8 @@ function ReportDetailModalContent({
         {/* Content Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5">
           {loading && (
-            <div className="flex items-center gap-2.5 rounded-xl bg-indigo-50 p-3 text-xs text-indigo-700 border border-indigo-200 animate-pulse">
-              <Loader2 className="h-4 w-4 animate-spin text-indigo-600 shrink-0" />
+            <div className="flex items-center gap-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 p-3 text-xs text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 animate-pulse">
+              <Loader2 className="h-4 w-4 animate-spin text-indigo-600 dark:text-indigo-400 shrink-0" />
               <span className="font-semibold">
                 Sedang menyimpan perubahan laporan ke sistem... Mohon tunggu sebentar.
               </span>
@@ -361,40 +398,40 @@ function ReportDetailModalContent({
           )}
 
           {errorMsg && (
-            <div className="flex items-center gap-2 rounded-xl bg-rose-50 p-3 text-xs text-rose-700 border border-rose-200">
+            <div className="flex items-center gap-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 p-3 text-xs text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           {/* Profil Karyawan & Nominal */}
-          <div className="rounded-xl bg-slate-50 p-4 border border-slate-200/60 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="rounded-xl bg-slate-50 dark:bg-slate-950/60 p-4 border border-slate-200/60 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+              <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 Pegawai
               </div>
-              <div className="text-sm font-bold text-slate-900 mt-0.5">
+              <div className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-0.5">
                 {report.employeeName}
               </div>
-              <div className="text-xs text-slate-600">
+              <div className="text-xs text-slate-600 dark:text-slate-300">
                 NRP: {report.employeeNik} • Project: {report.department}
               </div>
               {reportedBy && (
-                <div className="mt-1.5 inline-flex items-center gap-1 text-xs text-indigo-800 bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 rounded-md font-medium">
+                <div className="mt-1.5 inline-flex items-center gap-1 text-xs text-indigo-800 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 dark:border-indigo-800 px-2 py-0.5 rounded-md font-medium">
                   🗣️ Pelapor: <span className="font-semibold">{reportedBy}</span>
                 </div>
               )}
 
               {/* No. WhatsApp & Direct Chat */}
-              <div className="mt-2.5 pt-2 border-t border-slate-200/60 flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
+              <div className="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-800 flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-2xs">
                   <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                   <input
                     type="text"
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="No. WhatsApp..."
-                    className="text-xs text-slate-800 outline-none w-32 placeholder:text-slate-400 font-medium"
+                    className="text-xs text-slate-800 dark:text-slate-100 bg-transparent outline-none w-32 placeholder:text-slate-400 font-medium"
                     title="Nomor WhatsApp pegawai (dapat diubah/disimpan)"
                   />
                 </div>
@@ -403,35 +440,35 @@ function ReportDetailModalContent({
                     href={waUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300 transition-all shadow-xs cursor-pointer"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300 dark:border-emerald-800 transition-all shadow-xs cursor-pointer"
                   >
-                    <MessageCircle className="h-3.5 w-3.5 text-emerald-600" />
+                    <MessageCircle className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                     <span>Chat WA Pegawai</span>
-                    <ExternalLink className="h-3 w-3 text-emerald-500" />
+                    <ExternalLink className="h-3 w-3 text-emerald-500 dark:text-emerald-400" />
                   </a>
                 )}
               </div>
             </div>
 
             <div>
-              <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+              <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 Estimasi Selisih
               </div>
-              <div className="text-lg font-bold text-indigo-700 mt-0.5">
+              <div className="text-lg font-bold text-indigo-700 dark:text-indigo-400 mt-0.5">
                 {formatRupiah(discrepancyAmount)}
               </div>
-              <div className="text-xs text-slate-500 mt-1">
-                Periode: <span className="font-medium text-slate-700">{report.period}</span>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Periode: <span className="font-medium text-slate-700 dark:text-slate-200">{report.period}</span>
               </div>
             </div>
           </div>
 
           {/* Deskripsi Laporan */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Keterangan / Kronologi Laporan:
             </label>
-            <div className="p-3.5 rounded-xl bg-white border border-slate-200 text-sm text-slate-800 leading-relaxed whitespace-pre-wrap">
+            <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">
               {report.description || 'Tidak ada deskripsi rinci.'}
             </div>
           </div>
@@ -439,7 +476,7 @@ function ReportDetailModalContent({
           {/* Lampiran Bukti / Slip */}
           <div>
             <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1.5">
-              <label className="block text-xs font-semibold text-slate-700">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                 Lampiran Bukti (Slip / Timesheet):
               </label>
 
@@ -450,8 +487,8 @@ function ReportDetailModalContent({
                   onClick={handlePasteClipboard}
                   className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
                     isPasteMode
-                      ? 'bg-amber-100 border-amber-400 text-amber-950 ring-2 ring-amber-400/50 animate-pulse'
-                      : 'bg-indigo-50/80 hover:bg-indigo-100 border-indigo-200/80 text-indigo-700 shadow-2xs'
+                      ? 'bg-amber-100 dark:bg-amber-950/60 border-amber-400 text-amber-950 dark:text-amber-200 ring-2 ring-amber-400/50 animate-pulse'
+                      : 'bg-indigo-50/80 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900 border-indigo-200/80 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 shadow-2xs'
                   }`}
                   title="Klik untuk menempelkan gambar screenshot langsung dari clipboard"
                 >
@@ -463,7 +500,7 @@ function ReportDetailModalContent({
                 <button
                   type="button"
                   onClick={() => detailFileInputRef.current?.click()}
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 px-2 py-1 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                   title="Pilih file dari komputer"
                 >
                   <Upload className="h-3 w-3" />
@@ -482,15 +519,15 @@ function ReportDetailModalContent({
 
             {/* Banner Mode Siap Tempel */}
             {isPasteMode && (
-              <div className="mb-2 p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-center justify-between gap-2 animate-in fade-in duration-200">
+              <div className="mb-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 text-xs flex items-center justify-between gap-2 animate-in fade-in duration-200">
                 <span className="flex items-center gap-1.5 font-medium text-[11px]">
-                  <Sparkles className="h-3.5 w-3.5 text-amber-600 shrink-0 animate-bounce" />
+                  <Sparkles className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0 animate-bounce" />
                   Mode siap tempel aktif: Tekan <strong>Ctrl + V</strong> sekarang untuk menempelkan gambar.
                 </span>
                 <button
                   type="button"
                   onClick={() => setIsPasteMode(false)}
-                  className="text-amber-800 hover:text-amber-950 text-[11px] font-bold hover:underline shrink-0 cursor-pointer"
+                  className="text-amber-800 dark:text-amber-300 hover:text-amber-950 text-[11px] font-bold hover:underline shrink-0 cursor-pointer"
                 >
                   Batal
                 </button>
@@ -499,15 +536,15 @@ function ReportDetailModalContent({
 
             {/* Banner Pengaman: Berkas telah digantikan (Bisa dibatalkan) */}
             {hasReplacedAttachment && Boolean(report.attachmentUrl) && (
-              <div className="mb-2 p-2 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs flex items-center justify-between gap-2 animate-in fade-in duration-200">
+              <div className="mb-2 p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200 text-xs flex items-center justify-between gap-2 animate-in fade-in duration-200">
                 <span className="flex items-center gap-1.5 text-[11px] font-medium">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                  <CheckCircle2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                   Berkas diganti dengan yang baru (belum disimpan).
                 </span>
                 <button
                   type="button"
                   onClick={handleRevertAttachment}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 hover:underline cursor-pointer shrink-0"
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 dark:text-blue-300 hover:text-blue-900 hover:underline cursor-pointer shrink-0"
                   title="Kembalikan ke berkas lampiran awal laporan"
                 >
                   <RotateCcw className="h-3 w-3" />
@@ -517,9 +554,9 @@ function ReportDetailModalContent({
             )}
 
             {attachmentUrl ? (
-              <div className="rounded-xl border border-slate-200 p-2.5 bg-slate-50 space-y-2">
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-2.5 bg-slate-50 dark:bg-slate-950/60 space-y-2">
                 {attachmentUrl.startsWith('data:image') || attachmentUrl.startsWith('http') ? (
-                  <div className="relative group rounded-lg overflow-hidden border border-slate-200 bg-white flex items-center justify-center max-h-56">
+                  <div className="relative group rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center max-h-56">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={attachmentUrl}
@@ -535,15 +572,15 @@ function ReportDetailModalContent({
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200">
+                  <div className="flex items-center gap-2 p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
                     <FileText className="h-5 w-5 text-indigo-600 shrink-0" />
-                    <span className="text-xs font-semibold text-slate-800 truncate flex-1">
+                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate flex-1">
                       {attachmentName || 'Dokumen Lampiran'}
                     </span>
                     <a
                       href={attachmentUrl}
                       download={attachmentName || 'lampiran.pdf'}
-                      className="px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 transition-colors"
+                      className="px-2.5 py-1 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-xs font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors"
                     >
                       Unduh
                     </a>
@@ -551,14 +588,14 @@ function ReportDetailModalContent({
                 )}
 
                 <div className="flex items-center justify-between text-xs pt-1 px-1">
-                  <span className="text-slate-500 text-[11px] truncate max-w-[200px]">
+                  <span className="text-slate-500 dark:text-slate-400 text-[11px] truncate max-w-[200px]">
                     📎 {attachmentName || 'lampiran-bukti'}
                   </span>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setIsViewingFullImage(true)}
-                      className="text-[11px] font-semibold text-indigo-600 hover:underline flex items-center gap-1 cursor-pointer"
+                      className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       <Maximize2 className="h-3 w-3" />
                       Perbesar
@@ -570,7 +607,7 @@ function ReportDetailModalContent({
                         setAttachmentName('');
                         if (detailFileInputRef.current) detailFileInputRef.current.value = '';
                       }}
-                      className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
+                      className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
                     >
                       Hapus
                     </button>
@@ -580,7 +617,7 @@ function ReportDetailModalContent({
             ) : (
               <div
                 onClick={() => detailFileInputRef.current?.click()}
-                className="border border-dashed border-slate-200 hover:border-indigo-300 rounded-xl p-3 text-center cursor-pointer transition-all bg-slate-50/50 hover:bg-indigo-50/30 text-xs text-slate-400 hover:text-indigo-600 flex items-center justify-center gap-1.5"
+                className="border border-dashed border-slate-200 dark:border-slate-800 hover:border-indigo-300 rounded-xl p-3 text-center cursor-pointer transition-all bg-slate-50/50 dark:bg-slate-950/50 hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 text-xs text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center justify-center gap-1.5"
               >
                 <Paperclip className="h-3.5 w-3.5" />
                 <span>Belum ada berkas bukti dilampirkan. Klik untuk memilih file atau klik Paste Screenshot di atas.</span>
@@ -588,13 +625,13 @@ function ReportDetailModalContent({
             )}
           </div>
 
-          <hr className="border-slate-100" />
+          <hr className="border-slate-100 dark:border-slate-800" />
 
           {/* Form Tindakan Asisten */}
           <div className="space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <Clock className="h-4 w-4 text-indigo-600" />
+              <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
+                <Clock className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                 Tindakan Penanganan
               </h4>
               <button
@@ -603,8 +640,8 @@ function ReportDetailModalContent({
                 disabled={todoLoading || todoAdded}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   todoAdded
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                    : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                    : 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-indigo-200 dark:border-indigo-800'
                 }`}
               >
                 {todoLoading ? (
@@ -619,8 +656,8 @@ function ReportDetailModalContent({
             </div>
 
             {/* Interactive Status Stepper */}
-            <div className="rounded-xl bg-slate-50 p-3 border border-slate-200/80 space-y-2">
-              <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-950/60 p-3 border border-slate-200/80 dark:border-slate-800 space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
                 <span className="flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-indigo-600" />
                   Alur Status Pengerjaan (Klik untuk Ubah Cepat):
@@ -635,18 +672,18 @@ function ReportDetailModalContent({
                   onClick={() => setActionStatus('OPEN')}
                   className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                     actionStatus === 'OPEN'
-                      ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-400/30 shadow-xs'
-                      : 'bg-white border-slate-200 hover:border-slate-300 text-slate-600'
+                      ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/30 shadow-xs'
+                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-600 dark:text-slate-300'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${actionStatus === 'OPEN' ? 'text-amber-700' : 'text-slate-400'}`}>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${actionStatus === 'OPEN' ? 'text-amber-700 dark:text-amber-400' : 'text-slate-400'}`}>
                       Tahap 1
                     </span>
-                    <span className={`h-2.5 w-2.5 rounded-full ${actionStatus === 'OPEN' ? 'bg-amber-500 animate-pulse' : 'bg-slate-300'}`} />
+                    <span className={`h-2.5 w-2.5 rounded-full ${actionStatus === 'OPEN' ? 'bg-amber-500 animate-pulse' : 'bg-slate-300 dark:bg-slate-600'}`} />
                   </div>
-                  <div className="text-xs font-extrabold text-slate-900 mt-1">🟡 Open</div>
-                  <div className="text-[10px] text-slate-500">Laporan Baru</div>
+                  <div className="text-xs font-extrabold text-slate-900 dark:text-slate-100 mt-1">🟡 Open</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400">Laporan Baru</div>
                 </button>
 
                 {/* Step 2: CROSSCHECK */}
@@ -655,18 +692,18 @@ function ReportDetailModalContent({
                   onClick={() => setActionStatus('CROSSCHECK')}
                   className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                     actionStatus === 'CROSSCHECK'
-                      ? 'bg-sky-50 border-sky-300 ring-2 ring-sky-400/30 shadow-xs'
-                      : 'bg-white border-slate-200 hover:border-slate-300 text-slate-600'
+                      ? 'bg-sky-50 dark:bg-sky-950/50 border-sky-300 dark:border-sky-700 ring-2 ring-sky-400/30 shadow-xs'
+                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-600 dark:text-slate-300'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${actionStatus === 'CROSSCHECK' ? 'text-sky-700' : 'text-slate-400'}`}>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${actionStatus === 'CROSSCHECK' ? 'text-sky-700 dark:text-sky-400' : 'text-slate-400'}`}>
                       Tahap 2
                     </span>
-                    <span className={`h-2.5 w-2.5 rounded-full ${actionStatus === 'CROSSCHECK' ? 'bg-sky-500 animate-pulse' : 'bg-slate-300'}`} />
+                    <span className={`h-2.5 w-2.5 rounded-full ${actionStatus === 'CROSSCHECK' ? 'bg-sky-500 animate-pulse' : 'bg-slate-300 dark:bg-slate-600'}`} />
                   </div>
-                  <div className="text-xs font-extrabold text-slate-900 mt-1">🔵 Crosscheck</div>
-                  <div className="text-[10px] text-slate-500">Sedang Investigasi</div>
+                  <div className="text-xs font-extrabold text-slate-900 dark:text-slate-100 mt-1">🔵 Crosscheck</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400">Sedang Investigasi</div>
                 </button>
 
                 {/* Step 3: CLOSE */}
@@ -675,18 +712,18 @@ function ReportDetailModalContent({
                   onClick={() => setActionStatus('CLOSE')}
                   className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                     actionStatus === 'CLOSE'
-                      ? 'bg-emerald-50 border-emerald-300 ring-2 ring-emerald-400/30 shadow-xs'
-                      : 'bg-white border-slate-200 hover:border-slate-300 text-slate-600'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-700 ring-2 ring-emerald-400/30 shadow-xs'
+                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-600 dark:text-slate-300'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${actionStatus === 'CLOSE' ? 'text-emerald-700' : 'text-slate-400'}`}>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${actionStatus === 'CLOSE' ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'}`}>
                       Tahap 3
                     </span>
-                    <span className={`h-2.5 w-2.5 rounded-full ${actionStatus === 'CLOSE' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                    <span className={`h-2.5 w-2.5 rounded-full ${actionStatus === 'CLOSE' ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`} />
                   </div>
-                  <div className="text-xs font-extrabold text-slate-900 mt-1">🟢 Close</div>
-                  <div className="text-[10px] text-slate-500">Selesai / Tuntas</div>
+                  <div className="text-xs font-extrabold text-slate-900 dark:text-slate-100 mt-1">🟢 Close</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400">Selesai / Tuntas</div>
                 </button>
               </div>
             </div>
@@ -694,20 +731,20 @@ function ReportDetailModalContent({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* Status Dropdown */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Status
                 </label>
                 <select
                   value={actionStatus}
                   onChange={(e) => setActionStatus(e.target.value as ActionStatus)}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold bg-white focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-xs font-semibold bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
                 >
                   <option value="OPEN">🟡 Open</option>
                   <option value="CROSSCHECK">🔵 Crosscheck</option>
                   <option value="CLOSE">🟢 Close</option>
                 </select>
                 {actionStatus === 'CLOSE' && (
-                  <p className="text-[10px] text-emerald-700 font-medium mt-1 flex items-center gap-1">
+                  <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium mt-1 flex items-center gap-1">
                     <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
                     <span>Tanggal & jam selesai otomatis dicatat</span>
                   </p>
@@ -716,13 +753,13 @@ function ReportDetailModalContent({
 
               {/* Ubah Prioritas */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Prioritas
                 </label>
                 <select
                   value={priority}
                   onChange={(e) => setPriority(e.target.value as Priority)}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold bg-white focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-xs font-semibold bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
                 >
                   <option value="NORMAL">Normal</option>
                   <option value="TINGGI">Tinggi</option>
@@ -732,21 +769,22 @@ function ReportDetailModalContent({
 
               {/* Target Tanggal */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                   Target Selesai
                 </label>
                 <input
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs bg-white focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-xs bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
                 />
               </div>
             </div>
 
             {/* Koreksi Nominal Final */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Koreksi Nominal (Rp) <span className="text-slate-400 font-normal">(Opsional)</span>
               </label>
               <input
@@ -754,20 +792,20 @@ function ReportDetailModalContent({
                 value={discrepancyAmount}
                 onChange={(e) => setDiscrepancyAmount(Number(e.target.value) || 0)}
                 placeholder="0"
-                className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm font-semibold focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-3.5 py-2 text-sm font-semibold focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
               />
             </div>
 
             {/* Baris PIC & Pelapor */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   PIC Penanggung Jawab
                 </label>
                 <select
                   value={picName}
                   onChange={(e) => setPicName(e.target.value)}
-                  className="w-full rounded-xl border border-indigo-200 bg-indigo-50/40 px-3 py-2 text-xs font-semibold text-indigo-950 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none cursor-pointer"
+                  className="w-full rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/40 px-3 py-2 text-xs font-semibold text-indigo-950 dark:text-indigo-200 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none cursor-pointer"
                 >
                   {APP_USER_PROFILES.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -778,7 +816,7 @@ function ReportDetailModalContent({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Pelapor / Sumber Laporan <span className="text-slate-400 font-normal">(Opsional)</span>
                 </label>
                 <input
@@ -786,14 +824,14 @@ function ReportDetailModalContent({
                   value={reportedBy}
                   onChange={(e) => setReportedBy(e.target.value)}
                   placeholder="Contoh: Pak Doni, HR Project..."
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-3 py-2 text-xs focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
                 />
               </div>
             </div>
 
             {/* Catatan Tindak Lanjut */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Catatan Solusi / Hasil Crosscheck:
               </label>
               <textarea
@@ -801,17 +839,17 @@ function ReportDetailModalContent({
                 value={resolutionNotes}
                 onChange={(e) => setResolutionNotes(e.target.value)}
                 placeholder="Contoh: Sudah dikonfirmasi ke PIC Project, lembur disetujui dan diajukan rapel / slip sudah dikirim via email..."
-                className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none resize-none"
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-3.5 py-2 text-sm focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none resize-none"
               />
             </div>
           </div>
         </div>
 
         {/* Footer Actions */}
-        <div className="p-3.5 sm:p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
+        <div className="p-3.5 sm:p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 flex items-center justify-between gap-2">
           {showDeleteConfirm ? (
-            <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-xl animate-in fade-in">
-              <span className="text-xs text-rose-800 font-semibold">Hapus permanen?</span>
+            <div className="flex items-center gap-2 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 px-3 py-1.5 rounded-xl animate-in fade-in">
+              <span className="text-xs text-rose-800 dark:text-rose-300 font-semibold">Hapus permanen?</span>
               <button
                 type="button"
                 onClick={confirmDelete}
@@ -823,7 +861,7 @@ function ReportDetailModalContent({
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-2 py-1 rounded-lg text-xs text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+                className="px-2 py-1 rounded-lg text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 Batal
               </button>
@@ -833,7 +871,7 @@ function ReportDetailModalContent({
               type="button"
               onClick={() => setShowDeleteConfirm(true)}
               disabled={deleteLoading}
-              className="px-3 py-2 rounded-xl text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="px-3 py-2 rounded-xl text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               <Trash2 className="h-4 w-4" />
               <span className="hidden sm:inline">Hapus</span>
@@ -845,7 +883,7 @@ function ReportDetailModalContent({
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="px-3 sm:px-4 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-200/60 transition-colors cursor-pointer"
+              className="px-3 sm:px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               Tutup
             </button>

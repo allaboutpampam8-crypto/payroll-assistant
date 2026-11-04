@@ -34,9 +34,9 @@ export default function MetricsCards({
       subtext: scopeLabel ? `Laporan ${scopeLabel}` : 'Seluruh laporan periode ini',
       icon: Inbox,
       color: 'slate',
-      borderClass: 'hover:border-slate-400',
-      activeClass: 'ring-2 ring-slate-900 border-slate-900 bg-slate-50/80',
-      badgeClass: 'bg-slate-100 text-slate-700',
+      borderClass: 'hover:border-slate-400 dark:hover:border-slate-600',
+      activeClass: 'ring-2 ring-slate-900 dark:ring-slate-400 border-slate-900 dark:border-slate-400 bg-slate-50/80 dark:bg-slate-800',
+      badgeClass: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300',
     },
     {
       id: 'OPEN',
@@ -46,8 +46,8 @@ export default function MetricsCards({
       icon: AlertCircle,
       color: 'amber',
       borderClass: 'hover:border-amber-400',
-      activeClass: 'ring-2 ring-amber-500 border-amber-500 bg-amber-50/60',
-      badgeClass: 'bg-amber-100 text-amber-800',
+      activeClass: 'ring-2 ring-amber-500 border-amber-500 bg-amber-50/60 dark:bg-amber-950/40',
+      badgeClass: 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300',
     },
     {
       id: 'CROSSCHECK',
@@ -57,8 +57,8 @@ export default function MetricsCards({
       icon: SearchCheck,
       color: 'blue',
       borderClass: 'hover:border-blue-400',
-      activeClass: 'ring-2 ring-blue-500 border-blue-500 bg-blue-50/60',
-      badgeClass: 'bg-blue-100 text-blue-800',
+      activeClass: 'ring-2 ring-blue-500 border-blue-500 bg-blue-50/60 dark:bg-blue-950/40',
+      badgeClass: 'bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300',
     },
     {
       id: 'CLOSE',
@@ -68,8 +68,8 @@ export default function MetricsCards({
       icon: CheckCircle2,
       color: 'emerald',
       borderClass: 'hover:border-emerald-400',
-      activeClass: 'ring-2 ring-emerald-500 border-emerald-500 bg-emerald-50/60',
-      badgeClass: 'bg-emerald-100 text-emerald-800',
+      activeClass: 'ring-2 ring-emerald-500 border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40',
+      badgeClass: 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300',
     },
   ];
 
@@ -87,19 +87,19 @@ export default function MetricsCards({
             <button
               key={c.id}
               onClick={() => onSelectFilter(c.id)}
-              className={`flex flex-col justify-between text-left rounded-2xl bg-white p-4 md:p-5 shadow-sm border transition-all cursor-pointer ${
+              className={`flex flex-col justify-between text-left rounded-2xl bg-white dark:bg-slate-900 p-4 md:p-5 shadow-sm border transition-all cursor-pointer ${
                 isActive
                   ? c.activeClass
-                  : `border-slate-200/80 ${c.borderClass} hover:shadow-md`
+                  : `border-slate-200/80 dark:border-slate-800 ${c.borderClass} hover:shadow-md`
               }`}
             >
               <div className="flex items-center justify-between w-full mb-3">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-xs md:text-sm font-semibold text-slate-500">
+                  <span className="text-xs md:text-sm font-semibold text-slate-500 dark:text-slate-400">
                     {c.title}
                   </span>
                   {scopeLabel && c.id === 'ALL' && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-200">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
                       ⭐ {scopeLabel}
                     </span>
                   )}
@@ -110,10 +110,10 @@ export default function MetricsCards({
               </div>
 
               <div>
-                <div className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+                <div className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
                   {c.value}
                 </div>
-                <div className="text-[11px] md:text-xs text-slate-400 mt-1 truncate">
+                <div className="text-[11px] md:text-xs text-slate-400 dark:text-slate-500 mt-1 truncate">
                   {c.subtext}
                 </div>
               </div>

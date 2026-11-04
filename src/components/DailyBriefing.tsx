@@ -175,24 +175,24 @@ export default function DailyBriefing({
   const isCutoffPassed = diffDays < 0;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 p-5 md:p-6 text-white shadow-xl border border-indigo-700/50">
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 dark:from-slate-900 dark:via-slate-900/95 dark:to-slate-950 p-5 md:p-6 text-white shadow-xl border border-indigo-700/50 dark:border-slate-800/80 transition-colors">
       {/* Background Glow Accent */}
-      <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-indigo-500/20 blur-3xl" />
-      <div className="pointer-events-none absolute -left-12 -bottom-12 h-44 w-44 rounded-full bg-blue-500/15 blur-2xl" />
+      <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-indigo-500/20 dark:bg-indigo-500/5 blur-3xl" />
+      <div className="pointer-events-none absolute -left-12 -bottom-12 h-44 w-44 rounded-full bg-blue-500/15 dark:bg-slate-700/10 blur-2xl" />
 
       <div className="relative z-10 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         {/* Sapaan Asisten */}
         <div className="space-y-2 max-w-full">
-          <div className="inline-flex flex-wrap items-center gap-1.5 rounded-xl sm:rounded-full bg-indigo-500/30 px-3 py-1 text-[11px] sm:text-xs font-medium text-indigo-200 backdrop-blur-md border border-indigo-400/30 max-w-full">
+          <div className="inline-flex flex-wrap items-center gap-1.5 rounded-xl sm:rounded-full bg-indigo-500/30 dark:bg-slate-800/80 px-3 py-1 text-[11px] sm:text-xs font-medium text-indigo-200 dark:text-slate-300 backdrop-blur-md border border-indigo-400/30 dark:border-slate-700 max-w-full">
             <Sparkles className="h-3.5 w-3.5 text-amber-300 animate-pulse shrink-0" />
             <span className="truncate max-w-[200px] sm:max-w-none">
               Asisten Payroll {settings.companyName}
             </span>
-            <span className="text-indigo-400 hidden sm:inline">•</span>
-            <span className="font-semibold text-indigo-100">{settings.activePeriod}</span>
+            <span className="text-indigo-400 dark:text-slate-500 hidden sm:inline">•</span>
+            <span className="font-semibold text-indigo-100 dark:text-white">{settings.activePeriod}</span>
             {activeUser && (
               <>
-                <span className="text-indigo-400 hidden sm:inline">•</span>
+                <span className="text-indigo-400 dark:text-slate-500 hidden sm:inline">•</span>
                 <span className="font-semibold text-amber-300 flex items-center gap-1">
                   <span>PIC: {activeUser}</span>
                   {isSuperintendent && (
@@ -230,12 +230,12 @@ export default function DailyBriefing({
             )}
           </h2>
 
-          <p className="text-sm text-indigo-100/90 max-w-2xl leading-relaxed">
+          <p className="text-sm text-indigo-100/90 dark:text-slate-300 max-w-2xl leading-relaxed">
             {settings.isPeriodCompleted ? (
               <>
                 Siklus penggajian {settings.activePeriod} telah tuntas difinalisasi. Dashboard dalam masa standby sampai siklus baru dimulai.
                 {totalUnresolved > 0 && (
-                  <span className="text-indigo-200 block text-xs mt-1 opacity-90">
+                  <span className="text-indigo-200 dark:text-slate-400 block text-xs mt-1 opacity-90">
                     💡 Catatan: Masih ada {totalUnresolved} tiket laporan tercatat, yang dapat Anda tindak lanjuti pada siklus penggajian berikutnya.
                   </span>
                 )}
@@ -300,7 +300,7 @@ export default function DailyBriefing({
                 ? 'bg-rose-950/70 border-rose-600 text-rose-200'
                 : isCutoffNear
                 ? 'bg-amber-950/70 border-amber-500 text-amber-200 animate-pulse'
-                : 'bg-white/10 border-white/20 text-white'
+                : 'bg-white/10 dark:bg-slate-800/60 border-white/20 dark:border-slate-700 text-white dark:text-slate-200'
             }`}
           >
             <div className="flex items-center gap-2">
@@ -309,10 +309,10 @@ export default function DailyBriefing({
               ) : isCutoffNear || isCutoffPassed ? (
                 <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
               ) : (
-                <Calendar className="h-4 w-4 shrink-0 text-indigo-300" />
+                <Calendar className="h-4 w-4 shrink-0 text-indigo-300 dark:text-slate-400" />
               )}
               <div>
-                <div className="text-[10px] uppercase tracking-wider text-indigo-200/80">
+                <div className="text-[10px] uppercase tracking-wider text-indigo-200/80 dark:text-slate-400">
                   {settings.isPeriodCompleted ? 'Payroll Selesai' : 'Cut-Off Payroll'}
                 </div>
                 <div>
@@ -353,7 +353,7 @@ export default function DailyBriefing({
                   type="button"
                   onClick={() => handleToggleComplete(false)}
                   disabled={updatingLifecycle}
-                  className="flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 p-2 text-xs font-medium text-white transition-all cursor-pointer border border-white/10"
+                  className="flex items-center justify-center rounded-xl bg-white/10 dark:bg-slate-800/80 hover:bg-white/20 dark:hover:bg-slate-700 p-2 text-xs font-medium text-white transition-all cursor-pointer border border-white/10 dark:border-slate-700"
                   title="Buka kembali status periode ini (batalkan selesai)"
                 >
                   <RotateCcw className="h-3.5 w-3.5 text-slate-300" />
@@ -383,7 +383,7 @@ export default function DailyBriefing({
             <button
               type="button"
               onClick={onOpenSettings}
-              className="flex items-center justify-center gap-1.5 rounded-xl bg-white/10 hover:bg-white/20 px-2.5 py-2 text-xs font-medium text-white transition-all cursor-pointer border border-white/10"
+              className="flex items-center justify-center gap-1.5 rounded-xl bg-white/10 dark:bg-slate-800/80 hover:bg-white/20 dark:hover:bg-slate-700 px-2.5 py-2 text-xs font-medium text-white transition-all cursor-pointer border border-white/10 dark:border-slate-700"
               title="Atur Periode & Cut-Off"
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -395,7 +395,7 @@ export default function DailyBriefing({
 
       {/* BANNER KHUSUS REMINDER DEADLINE & TERLAMBAT */}
       {(totalOverdueItems > 0 || totalDueSoonItems > 0) && (
-        <div className="mt-4 p-3 rounded-xl bg-black/30 backdrop-blur-md border border-white/15 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div className="mt-4 p-3 rounded-xl bg-black/30 dark:bg-slate-950/60 backdrop-blur-md border border-white/15 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex items-center gap-2 text-xs flex-wrap">
             <span className="font-extrabold text-amber-300 flex items-center gap-1">
               <Hourglass className="h-3.5 w-3.5" />
@@ -447,7 +447,7 @@ export default function DailyBriefing({
             )}
           </div>
 
-          <div className="text-[11px] text-indigo-200/70 shrink-0 italic">
+          <div className="text-[11px] text-indigo-200/70 dark:text-slate-400 shrink-0 italic">
             Klik tombol untuk langsung membuka daftar tugas
           </div>
         </div>
@@ -455,8 +455,8 @@ export default function DailyBriefing({
 
       {/* Quick Action Badges */}
       {(totalUnresolved > 0 || activeTodoList.length > 0) && (
-        <div className="mt-3.5 pt-3 border-t border-white/10 flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-indigo-200/70 text-[11px]">
+        <div className="mt-3.5 pt-3 border-t border-white/10 dark:border-slate-800/80 flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-indigo-200/70 dark:text-slate-400 text-[11px]">
             Akses Cepat {isSuperintendent ? '(Tim):' : `(${activeUser || 'Saya'}):`}
           </span>
           {openCount > 0 && (
