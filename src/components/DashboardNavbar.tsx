@@ -13,6 +13,7 @@ import {
   ChevronDown,
   CheckCircle2,
   HardDriveDownload,
+  Layers,
 } from 'lucide-react';
 import { PayrollSettings, AppUserProfile, APP_USER_PROFILES } from '@/lib/types';
 
@@ -219,6 +220,20 @@ export default function DashboardNavbar({
                     <div>
                       <p className="text-xs font-bold text-slate-900">Pemecah Excel HRIS</p>
                       <p className="text-[11px] text-slate-500">Bagi file per 1000 baris format utuh</p>
+                    </div>
+                  </Link>
+
+                  <Link
+                    href="/tools/tanos-normalizer"
+                    onClick={() => setIsToolsDropdownOpen(false)}
+                    className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-violet-50/70 text-left transition-colors cursor-pointer group"
+                  >
+                    <div className="p-2 rounded-lg bg-violet-100 text-violet-700 group-hover:bg-violet-600 group-hover:text-white transition-colors">
+                      <Layers className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Normalisasi Data Tanos</p>
+                      <p className="text-[11px] text-slate-500">Urutkan 150+ kolom gaji Tanos otomatis</p>
                     </div>
                   </Link>
 

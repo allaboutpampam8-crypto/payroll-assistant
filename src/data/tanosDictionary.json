@@ -1,0 +1,977 @@
+{
+  "upah pokok": {
+    "id": 9837,
+    "name": "Upah Pokok",
+    "type": "allowance"
+  },
+  "bantuan transport dan makan": {
+    "id": 9662,
+    "name": "Bantuan Transport Dan Makan",
+    "type": "allowance"
+  },
+  "bantuan transport": {
+    "id": 10845,
+    "name": "Bantuan Transport",
+    "type": "allowance"
+  },
+  "uang makan": {
+    "id": 11552,
+    "name": "Uang Makan",
+    "type": "allowance"
+  },
+  "uang cadangan lembur": {
+    "id": 9665,
+    "name": "Uang Cadangan Lembur",
+    "type": "allowance"
+  },
+  "tunjangan tetap": {
+    "id": 10840,
+    "name": "Tunjangan Tetap",
+    "type": "allowance"
+  },
+  "tunjangan transport dan makan": {
+    "id": 9667,
+    "name": "Tunjangan Transport Dan Makan",
+    "type": "allowance"
+  },
+  "tunjangan transport": {
+    "id": 9875,
+    "name": "Tunjangan Transport",
+    "type": "allowance"
+  },
+  "tunjangan tidak tetap": {
+    "id": 10932,
+    "name": "Tunjangan Tidak Tetap",
+    "type": "allowance"
+  },
+  "tunjangan shift": {
+    "id": 9670,
+    "name": "Tunjangan Shift",
+    "type": "allowance"
+  },
+  "tunjangan sertifikasi": {
+    "id": 9840,
+    "name": "Tunjangan Sertifikasi",
+    "type": "allowance"
+  },
+  "tunjangan selisih": {
+    "id": 9672,
+    "name": "Tunjangan Selisih",
+    "type": "allowance"
+  },
+  "tunjangan representatif officer": {
+    "id": 9673,
+    "name": "Tunjangan Representatif Officer",
+    "type": "allowance"
+  },
+  "tunjangan pulsa": {
+    "id": 9674,
+    "name": "Tunjangan Pulsa",
+    "type": "allowance"
+  },
+  "tunjangan programmer": {
+    "id": 9675,
+    "name": "Tunjangan Programmer",
+    "type": "allowance"
+  },
+  "tunjangan profesi": {
+    "id": 9878,
+    "name": "Tunjangan Profesi",
+    "type": "allowance"
+  },
+  "tunjangan prestasi pegawai": {
+    "id": 9677,
+    "name": "Tunjangan Prestasi Pegawai",
+    "type": "allowance"
+  },
+  "tunjangan prestasi": {
+    "id": 9678,
+    "name": "Tunjangan Prestasi",
+    "type": "allowance"
+  },
+  "tunjangan perumahan": {
+    "id": 9679,
+    "name": "Tunjangan Perumahan",
+    "type": "allowance"
+  },
+  "tunjangan peralihan": {
+    "id": 9876,
+    "name": "Tunjangan Peralihan",
+    "type": "allowance"
+  },
+  "tunjangan lembur": {
+    "id": 9681,
+    "name": "Tunjangan Lembur",
+    "type": "allowance"
+  },
+  "tunjangan pengawas": {
+    "id": 9682,
+    "name": "Tunjangan Pengawas",
+    "type": "allowance"
+  },
+  "tunjangan pendidikan": {
+    "id": 9877,
+    "name": "Tunjangan Pendidikan",
+    "type": "allowance"
+  },
+  "tunjangan operasional": {
+    "id": 9684,
+    "name": "Tunjangan Operasional",
+    "type": "allowance"
+  },
+  "tunjangan non operasional": {
+    "id": 9685,
+    "name": "Tunjangan Non Operasional",
+    "type": "allowance"
+  },
+  "tunjangan mobilitas": {
+    "id": 9686,
+    "name": "Tunjangan Mobilitas",
+    "type": "allowance"
+  },
+  "tunjangan masa kerja": {
+    "id": 9841,
+    "name": "Tunjangan Masa Kerja",
+    "type": "allowance"
+  },
+  "tunjangan makan": {
+    "id": 10092,
+    "name": "Tunjangan Makan",
+    "type": "allowance"
+  },
+  "tunjangan loyalitas": {
+    "id": 9874,
+    "name": "Tunjangan Loyalitas",
+    "type": "allowance"
+  },
+  "tunjangan lain": {
+    "id": 10034,
+    "name": "Tunjangan Lain",
+    "type": "allowance"
+  },
+  "tunjangan koordinator": {
+    "id": 9691,
+    "name": "Tunjangan Koordinator",
+    "type": "allowance"
+  },
+  "tunjangan koordinator lapangan": {
+    "id": 9692,
+    "name": "Tunjangan Koordinator Lapangan",
+    "type": "allowance"
+  },
+  "tunjangan komunikasi": {
+    "id": 9879,
+    "name": "Tunjangan Komunikasi",
+    "type": "allowance"
+  },
+  "tunjangan kompetensi": {
+    "id": 9694,
+    "name": "Tunjangan Kompetensi",
+    "type": "allowance"
+  },
+  "tunjangan kinerja bidang": {
+    "id": 9880,
+    "name": "Tunjangan Kinerja Bidang",
+    "type": "allowance"
+  },
+  "tunjangan kinerja": {
+    "id": 9881,
+    "name": "Tunjangan Kinerja",
+    "type": "allowance"
+  },
+  "tunjangan kemahalan": {
+    "id": 9697,
+    "name": "Tunjangan Kemahalan",
+    "type": "allowance"
+  },
+  "tunjangan kehadiran": {
+    "id": 9698,
+    "name": "Tunjangan Kehadiran",
+    "type": "allowance"
+  },
+  "tunjangan keahlian khusus": {
+    "id": 9699,
+    "name": "Tunjangan Keahlian Khusus",
+    "type": "allowance"
+  },
+  "tunjangan jabatan struktural": {
+    "id": 9700,
+    "name": "Tunjangan Jabatan Struktural",
+    "type": "allowance"
+  },
+  "tunjangan jabatan": {
+    "id": 9701,
+    "name": "Tunjangan Jabatan",
+    "type": "allowance"
+  },
+  "tunjangan hidup minimum": {
+    "id": 9872,
+    "name": "Tunjangan Hidup Minimum",
+    "type": "allowance"
+  },
+  "tunjangan fungsional auditor": {
+    "id": 9703,
+    "name": "Tunjangan Fungsional Auditor",
+    "type": "allowance"
+  },
+  "tunjangan fungsional": {
+    "id": 9704,
+    "name": "Tunjangan Fungsional",
+    "type": "allowance"
+  },
+  "tunjangan bidang": {
+    "id": 9705,
+    "name": "Tunjangan Bidang",
+    "type": "allowance"
+  },
+  "tunjangan": {
+    "id": 9706,
+    "name": "Tunjangan",
+    "type": "allowance"
+  },
+  "premi": {
+    "id": 9707,
+    "name": "Premi",
+    "type": "allowance"
+  },
+  "tunjangan masa kerja dan peralihan": {
+    "id": 9708,
+    "name": "Tunjangan Masa Kerja Dan Peralihan",
+    "type": "allowance"
+  },
+  "lembur wajib": {
+    "id": 9709,
+    "name": "Lembur Wajib",
+    "type": "allowance"
+  },
+  "lembur libur nasional": {
+    "id": 9710,
+    "name": "Lembur Libur Nasional",
+    "type": "allowance"
+  },
+  "lembur borongan": {
+    "id": 9711,
+    "name": "Lembur Borongan",
+    "type": "allowance"
+  },
+  "lembur": {
+    "id": 9712,
+    "name": "Lembur",
+    "type": "allowance"
+  },
+  "insentif kinerja": {
+    "id": 11572,
+    "name": "Insentif Kinerja",
+    "type": "allowance"
+  },
+  "insentif pengganti": {
+    "id": 9714,
+    "name": "Insentif Pengganti",
+    "type": "allowance"
+  },
+  "insentif keahlian": {
+    "id": 9715,
+    "name": "Insentif Keahlian",
+    "type": "allowance"
+  },
+  "insentif job sharing": {
+    "id": 9839,
+    "name": "Insentif Job Sharing",
+    "type": "allowance"
+  },
+  "insentif box": {
+    "id": 9717,
+    "name": "Insentif Box",
+    "type": "allowance"
+  },
+  "insentif": {
+    "id": 9873,
+    "name": "Insentif",
+    "type": "allowance"
+  },
+  "extra fooding": {
+    "id": 9719,
+    "name": "Extra Fooding",
+    "type": "allowance"
+  },
+  "base salary": {
+    "id": 9720,
+    "name": "Base Salary",
+    "type": "allowance"
+  },
+  "uang transport": {
+    "id": 9838,
+    "name": "Uang Transport",
+    "type": "allowance"
+  },
+  "bantuan selisih penghasilan": {
+    "id": 9722,
+    "name": "Bantuan Selisih Penghasilan",
+    "type": "allowance"
+  },
+  "bantuan prestasi": {
+    "id": 9723,
+    "name": "Bantuan Prestasi",
+    "type": "allowance"
+  },
+  "bantuan pph21": {
+    "id": 9724,
+    "name": "Bantuan Pph21",
+    "type": "allowance"
+  },
+  "bantuan perumahan": {
+    "id": 9844,
+    "name": "Bantuan Perumahan",
+    "type": "allowance"
+  },
+  "bantuan perbaikan kinerja": {
+    "id": 9726,
+    "name": "Bantuan Perbaikan Kinerja",
+    "type": "allowance"
+  },
+  "bantuan penugasan khusus": {
+    "id": 9843,
+    "name": "Bantuan Penugasan Khusus",
+    "type": "allowance"
+  },
+  "bantuan masa kerja": {
+    "id": 9728,
+    "name": "Bantuan Masa Kerja",
+    "type": "allowance"
+  },
+  "uang transport dan makan": {
+    "id": 9729,
+    "name": "Uang Transport Dan Makan",
+    "type": "allowance"
+  },
+  "bantuan makan": {
+    "id": 10952,
+    "name": "Bantuan Makan",
+    "type": "allowance"
+  },
+  "bantuan komunikasi": {
+    "id": 9731,
+    "name": "Bantuan Komunikasi",
+    "type": "allowance"
+  },
+  "bantuan kinerja": {
+    "id": 9732,
+    "name": "Bantuan Kinerja",
+    "type": "allowance"
+  },
+  "tunjangan sosial": {
+    "id": 9733,
+    "name": "Tunjangan Sosial",
+    "type": "allowance"
+  },
+  "rapel": {
+    "id": 9892,
+    "name": "Rapel",
+    "type": "allowance"
+  },
+  "bpjs kesehatan penambahan keluarga": {
+    "id": 9735,
+    "name": "Bpjs Kesehatan Penambahan Keluarga",
+    "type": "deduction"
+  },
+  "bpjs kesehatan plus": {
+    "id": 9736,
+    "name": "Bpjs Kesehatan Plus",
+    "type": "deduction"
+  },
+  "iuran sp pds": {
+    "id": 9737,
+    "name": "Iuran Sp Pds",
+    "type": "deduction"
+  },
+  "jaminan hari tua": {
+    "id": 9738,
+    "name": "Jaminan Hari Tua",
+    "type": "deduction"
+  },
+  "jaminan hari tua contribution": {
+    "id": 9739,
+    "name": "Jaminan Hari Tua Contribution",
+    "type": "contribution"
+  },
+  "jaminan kesehatan": {
+    "id": 9740,
+    "name": "Jaminan Kesehatan",
+    "type": "deduction"
+  },
+  "jaminan kesehatan contribution": {
+    "id": 9741,
+    "name": "Jaminan Kesehatan Contribution",
+    "type": "contribution"
+  },
+  "jaminan pensiun": {
+    "id": 9742,
+    "name": "Jaminan Pensiun",
+    "type": "deduction"
+  },
+  "jaminan pensiun contribution": {
+    "id": 9743,
+    "name": "Jaminan Pensiun Contribution",
+    "type": "contribution"
+  },
+  "potongan pajak pph21": {
+    "id": 9744,
+    "name": "Potongan Pajak Pph21",
+    "type": "deduction"
+  },
+  "potongan kinerja": {
+    "id": 9745,
+    "name": "Potongan Kinerja",
+    "type": "deduction"
+  },
+  "potongan kedisiplinan": {
+    "id": 9746,
+    "name": "Potongan Kedisiplinan",
+    "type": "deduction"
+  },
+  "potongan kehadiran": {
+    "id": 9747,
+    "name": "Potongan Kehadiran",
+    "type": "deduction"
+  },
+  "potongan makan": {
+    "id": 9748,
+    "name": "Potongan Makan",
+    "type": "deduction"
+  },
+  "potongan transport": {
+    "id": 9749,
+    "name": "Potongan Transport",
+    "type": "deduction"
+  },
+  "pajak penghasilan (pph21)": {
+    "id": 9750,
+    "name": "Pajak Penghasilan (Pph21)",
+    "type": "contribution"
+  },
+  "potongan upah": {
+    "id": 9751,
+    "name": "Potongan Upah",
+    "type": "deduction"
+  },
+  "bonus": {
+    "id": 9752,
+    "name": "Bonus",
+    "type": "allowance"
+  },
+  "bantuan cuti": {
+    "id": 9772,
+    "name": "Bantuan Cuti",
+    "type": "allowance"
+  },
+  "pph 21 val": {
+    "id": 9773,
+    "name": "PPH 21 Val",
+    "type": "deduction"
+  },
+  "jaminan kecelakaan kerja contribution": {
+    "id": 9812,
+    "name": "Jaminan Kecelakaan Kerja Contribution",
+    "type": "contribution"
+  },
+  "jaminan kematian contribution": {
+    "id": 9813,
+    "name": "Jaminan Kematian Contribution",
+    "type": "contribution"
+  },
+  "potongan sertifikasi": {
+    "id": 9832,
+    "name": "Potongan Sertifikasi",
+    "type": "deduction"
+  },
+  "potongan ganti rugi": {
+    "id": 9833,
+    "name": "Potongan Ganti Rugi",
+    "type": "deduction"
+  },
+  "potongan surat peringatan": {
+    "id": 9834,
+    "name": "Potongan Surat Peringatan",
+    "type": "deduction"
+  },
+  "potongan kelebihan upah": {
+    "id": 9835,
+    "name": "Potongan Kelebihan Upah",
+    "type": "deduction"
+  },
+  "jaminan hari tua contribution gross up": {
+    "id": 9845,
+    "name": "Jaminan Hari Tua Contribution Gross Up",
+    "type": "contribution"
+  },
+  "jaminan pensiun contribution gross up": {
+    "id": 9846,
+    "name": "Jaminan Pensiun Contribution Gross Up",
+    "type": "contribution"
+  },
+  "piutang pegawai": {
+    "id": 9852,
+    "name": "Piutang Pegawai",
+    "type": "deduction"
+  },
+  "potongan kelebihan bonus": {
+    "id": 9853,
+    "name": "Potongan Kelebihan Bonus",
+    "type": "deduction"
+  },
+  "potongan upah (pemborongan)": {
+    "id": 9854,
+    "name": "Potongan Upah (Pemborongan)",
+    "type": "deduction"
+  },
+  "potongan transport (pemborongan)": {
+    "id": 9855,
+    "name": "Potongan Transport (Pemborongan)",
+    "type": "deduction"
+  },
+  "potongan makan (pemborongan)": {
+    "id": 9856,
+    "name": "Potongan Makan (Pemborongan)",
+    "type": "deduction"
+  },
+  "potongan koperasi": {
+    "id": 9857,
+    "name": "Potongan Koperasi",
+    "type": "deduction"
+  },
+  "jaminan kesehatan contribution gross up": {
+    "id": 9912,
+    "name": "Jaminan Kesehatan Contribution Gross Up",
+    "type": "contribution"
+  },
+  "jaminan kematian contribution gross up": {
+    "id": 9913,
+    "name": "Jaminan Kematian Contribution Gross Up",
+    "type": "contribution"
+  },
+  "jaminan kecelakaan kerja contribution gross up": {
+    "id": 9914,
+    "name": "Jaminan Kecelakaan Kerja Contribution Gross Up",
+    "type": "contribution"
+  },
+  "bantuan tali kasih": {
+    "id": 9915,
+    "name": "Bantuan Tali Kasih",
+    "type": "allowance"
+  },
+  "tunjangan pph.21": {
+    "id": 9916,
+    "name": "Tunjangan Pph.21",
+    "type": "allowance"
+  },
+  "uang kompensasi": {
+    "id": 9932,
+    "name": "Uang Kompensasi",
+    "type": "allowance"
+  },
+  "honor bko": {
+    "id": 11172,
+    "name": "Honor BKO",
+    "type": "allowance"
+  },
+  "honor pic": {
+    "id": 9972,
+    "name": "Honor PIC",
+    "type": "allowance"
+  },
+  "jumlah hadir": {
+    "id": 9992,
+    "name": "Jumlah Hadir",
+    "type": "other"
+  },
+  "jumlah alpha": {
+    "id": 9993,
+    "name": "Jumlah Alpha",
+    "type": "other"
+  },
+  "jumlah ijin": {
+    "id": 9994,
+    "name": "Jumlah Ijin",
+    "type": "other"
+  },
+  "jumlah sakit": {
+    "id": 9995,
+    "name": "Jumlah Sakit",
+    "type": "other"
+  },
+  "jumlah cuti tahunan": {
+    "id": 9996,
+    "name": "Jumlah Cuti Tahunan",
+    "type": "other"
+  },
+  "jumlah cuti lainnya": {
+    "id": 9997,
+    "name": "Jumlah Cuti Lainnya",
+    "type": "other"
+  },
+  "jumlah terlambat": {
+    "id": 9998,
+    "name": "Jumlah Terlambat",
+    "type": "other"
+  },
+  "jumlah kurang absen": {
+    "id": 9999,
+    "name": "Jumlah Kurang Absen",
+    "type": "other"
+  },
+  "jumlah hari kerja": {
+    "id": 10012,
+    "name": "Jumlah Hari Kerja",
+    "type": "other"
+  },
+  "bantuan sembako": {
+    "id": 11192,
+    "name": "Bantuan Sembako",
+    "type": "allowance"
+  },
+  "insentif proyek": {
+    "id": 10072,
+    "name": "Insentif Proyek",
+    "type": "allowance"
+  },
+  "hutang koperasi": {
+    "id": 10112,
+    "name": "Hutang Koperasi",
+    "type": "deduction"
+  },
+  "simpanan wajib koperasi": {
+    "id": 10132,
+    "name": "Simpanan Wajib Koperasi",
+    "type": "deduction"
+  },
+  "bantuan cuti - gross up": {
+    "id": 10152,
+    "name": "Bantuan Cuti - Gross Up",
+    "type": "allowance"
+  },
+  "potongan kelebihan kompensasi": {
+    "id": 10372,
+    "name": "Potongan Kelebihan Kompensasi",
+    "type": "deduction"
+  },
+  "thr": {
+    "id": 10432,
+    "name": "THR",
+    "type": "allowance"
+  },
+  "management fee": {
+    "id": 10452,
+    "name": "Management Fee",
+    "type": "other"
+  },
+  "gaji ke-13": {
+    "id": 10472,
+    "name": "Gaji Ke-13",
+    "type": "allowance"
+  },
+  "kompensasi gathering": {
+    "id": 10532,
+    "name": "Kompensasi Gathering",
+    "type": "allowance"
+  },
+  "dp3": {
+    "id": 10552,
+    "name": "DP3",
+    "type": "contribution"
+  },
+  "tunjangan plh": {
+    "id": 10572,
+    "name": "Tunjangan Plh",
+    "type": "allowance"
+  },
+  "biaya pengelolaan": {
+    "id": 10612,
+    "name": "Biaya Pengelolaan",
+    "type": "other"
+  },
+  "kekurangan potongan pph21 2024": {
+    "id": 10632,
+    "name": "Kekurangan Potongan PPH21 2024",
+    "type": "deduction"
+  },
+  "pengembalian kelebihan potong pph21": {
+    "id": 11672,
+    "name": "Pengembalian Kelebihan Potong PPH21",
+    "type": "allowance"
+  },
+  "lembur - gross up": {
+    "id": 10672,
+    "name": "Lembur - Gross Up",
+    "type": "allowance"
+  },
+  "kekurangan gaji": {
+    "id": 10692,
+    "name": "Kekurangan Gaji",
+    "type": "allowance"
+  },
+  "thr - gross up": {
+    "id": 10712,
+    "name": "THR - Gross Up",
+    "type": "allowance"
+  },
+  "tunjangan parcel": {
+    "id": 10733,
+    "name": "Tunjangan Parcel",
+    "type": "allowance"
+  },
+  "potongan kelebihan tunjangan makan": {
+    "id": 10752,
+    "name": "Potongan Kelebihan Tunjangan Makan",
+    "type": "deduction"
+  },
+  "bantuan kesejahteraan": {
+    "id": 10772,
+    "name": "Bantuan Kesejahteraan",
+    "type": "allowance"
+  },
+  "tunjangan pph atas thr": {
+    "id": 10792,
+    "name": "Tunjangan PPh Atas THR",
+    "type": "allowance"
+  },
+  "bantuan kompetensi": {
+    "id": 11432,
+    "name": "Bantuan Kompetensi",
+    "type": "allowance"
+  },
+  "bantuan kinerja bidang": {
+    "id": 10813,
+    "name": "Bantuan Kinerja Bidang",
+    "type": "allowance"
+  },
+  "bantuan shift 12 jam": {
+    "id": 10814,
+    "name": "Bantuan Shift 12 Jam",
+    "type": "allowance"
+  },
+  "bantuan jabatan": {
+    "id": 10815,
+    "name": "Bantuan Jabatan",
+    "type": "allowance"
+  },
+  "bantuan shift": {
+    "id": 10816,
+    "name": "Bantuan Shift",
+    "type": "allowance"
+  },
+  "insentif pengganti lembur": {
+    "id": 10817,
+    "name": "Insentif Pengganti Lembur",
+    "type": "allowance"
+  },
+  "bantuan kinerja bidang gross up": {
+    "id": 10818,
+    "name": "Bantuan Kinerja Bidang Gross Up",
+    "type": "allowance"
+  },
+  "bantuan masa kerja gross up": {
+    "id": 10819,
+    "name": "Bantuan Masa Kerja Gross Up",
+    "type": "allowance"
+  },
+  "bantuan loyalitas": {
+    "id": 10834,
+    "name": "Bantuan Loyalitas",
+    "type": "allowance"
+  },
+  "bantuan tidak tetap": {
+    "id": 10822,
+    "name": "Bantuan Tidak Tetap",
+    "type": "allowance"
+  },
+  "bantuan kehadiran": {
+    "id": 10832,
+    "name": "Bantuan Kehadiran",
+    "type": "allowance"
+  },
+  "insentif pengamanan": {
+    "id": 10833,
+    "name": "Insentif Pengamanan",
+    "type": "allowance"
+  },
+  "bantuan peralihan": {
+    "id": 10837,
+    "name": "Bantuan Peralihan",
+    "type": "allowance"
+  },
+  "bantuan shift 24 jam": {
+    "id": 10836,
+    "name": "Bantuan Shift 24 Jam",
+    "type": "allowance"
+  },
+  "bantuan penugasan": {
+    "id": 10838,
+    "name": "Bantuan Penugasan",
+    "type": "allowance"
+  },
+  "bantuan kinerja gross up": {
+    "id": 10841,
+    "name": "Bantuan Kinerja Gross Up",
+    "type": "allowance"
+  },
+  "bantuan selisih": {
+    "id": 10843,
+    "name": "Bantuan Selisih",
+    "type": "allowance"
+  },
+  "bantuan sertifikasi gross up": {
+    "id": 10844,
+    "name": "Bantuan Sertifikasi Gross Up",
+    "type": "allowance"
+  },
+  "bantuan lembur": {
+    "id": 10846,
+    "name": "Bantuan Lembur",
+    "type": "allowance"
+  },
+  "bantuan protokoler": {
+    "id": 10852,
+    "name": "Bantuan Protokoler",
+    "type": "allowance"
+  },
+  "beban keahlian khusus": {
+    "id": 10872,
+    "name": "Beban Keahlian Khusus",
+    "type": "allowance"
+  },
+  "tunjangan pph 21": {
+    "id": 10972,
+    "name": "Tunjangan PPH 21",
+    "type": "allowance"
+  },
+  "bantuan operasional": {
+    "id": 10973,
+    "name": "Bantuan Operasional",
+    "type": "allowance"
+  },
+  "bantuan meugeng": {
+    "id": 10992,
+    "name": "Bantuan Meugeng",
+    "type": "allowance"
+  },
+  "bonus - gross up": {
+    "id": 11032,
+    "name": "Bonus - Gross Up",
+    "type": "allowance"
+  },
+  "pengembalian kelebihan potong bpjs": {
+    "id": 11092,
+    "name": "Pengembalian Kelebihan Potong BPJS",
+    "type": "allowance"
+  },
+  "dplk": {
+    "id": 11112,
+    "name": "DPLK",
+    "type": "contribution"
+  },
+  "tunjangan shift 12 jam": {
+    "id": 11132,
+    "name": "Tunjangan Shift 12 Jam",
+    "type": "allowance"
+  },
+  "pengembalian potongan kedisiplinan": {
+    "id": 11152,
+    "name": "Pengembalian Potongan Kedisiplinan",
+    "type": "allowance"
+  },
+  "bantuan pajak": {
+    "id": 11212,
+    "name": "Bantuan Pajak",
+    "type": "allowance"
+  },
+  "voucher thr": {
+    "id": 11232,
+    "name": "Voucher THR",
+    "type": "allowance"
+  },
+  "grand total": {
+    "id": 11252,
+    "name": "Grand Total",
+    "type": "other"
+  },
+  "bantuan koordinator": {
+    "id": 11272,
+    "name": "Bantuan Koordinator",
+    "type": "allowance"
+  },
+  "insentif tahunan": {
+    "id": 11273,
+    "name": "Insentif Tahunan",
+    "type": "allowance"
+  },
+  "tunjangan leader": {
+    "id": 11312,
+    "name": "Tunjangan Leader",
+    "type": "allowance"
+  },
+  "pengembalian potongan sertifikasi": {
+    "id": 11332,
+    "name": "Pengembalian Potongan Sertifikasi",
+    "type": "allowance"
+  },
+  "bantuan lain": {
+    "id": 11372,
+    "name": "Bantuan Lain",
+    "type": "allowance"
+  },
+  "imbalan keberhasilan": {
+    "id": 11452,
+    "name": "Imbalan Keberhasilan",
+    "type": "allowance"
+  },
+  "bantuan selisih thr": {
+    "id": 11472,
+    "name": "Bantuan Selisih THR",
+    "type": "allowance"
+  },
+  "bantuan produktivitas": {
+    "id": 11492,
+    "name": "Bantuan Produktivitas",
+    "type": "allowance"
+  },
+  "perjalanan dinas (sppd)": {
+    "id": 11512,
+    "name": "Perjalanan Dinas (SPPD)",
+    "type": "allowance"
+  },
+  "value lembur h-1": {
+    "id": 11532,
+    "name": "Value Lembur H-1",
+    "type": "other"
+  },
+  "bantuan hidup minimal": {
+    "id": 11592,
+    "name": "Bantuan Hidup Minimal",
+    "type": "allowance"
+  },
+  "bantuan sembako gross up": {
+    "id": 11632,
+    "name": "Bantuan Sembako Gross Up",
+    "type": "allowance"
+  },
+  "kurang potong bpjs": {
+    "id": 11652,
+    "name": "Kurang Potong BPJS",
+    "type": "deduction"
+  },
+  "pengalihan bonus": {
+    "id": 11692,
+    "name": "Pengalihan Bonus",
+    "type": "allowance"
+  },
+  "tunjangan produktivitas": {
+    "id": 11772,
+    "name": "Tunjangan Produktivitas",
+    "type": "allowance"
+  },
+  "tunjangan skill": {
+    "id": 11792,
+    "name": "Tunjangan Skill",
+    "type": "allowance"
+  }
+}
