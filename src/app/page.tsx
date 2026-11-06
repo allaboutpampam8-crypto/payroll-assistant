@@ -65,8 +65,25 @@ import TodoListWidget, { TodoFilterType } from '@/components/TodoListWidget';
 import AiChatWidget from '@/components/AiChatWidget';
 import PageLoadingScreen from '@/components/PageLoadingScreen';
 import { exportReportsToExcel } from '@/lib/exportExcel';
+import { IS_MAINTENANCE_MODE } from '@/lib/maintenance';
+import MaintenancePage from './maintenance/page';
 
 export default function AssistantDashboard() {
+  const [bypassMaintenance, setBypassMaintenance] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('bypass') === 'true' || params.get('admin') === 'true') {
+        setBypassMaintenance(true);
+      }
+    }
+  }, []);
+
+  if (IS_MAINTENANCE_MODE && !bypassMaintenance) {
+    return <MaintenancePage />;
+  }
+
   const { toast } = useToast();
   const [reports, setReports] = useState<PayrollReport[]>([]);
   const [settings, setSettings] = useState<PayrollSettings>({

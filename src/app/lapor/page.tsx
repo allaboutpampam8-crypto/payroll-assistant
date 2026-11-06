@@ -14,8 +14,24 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { IssueCategory, CATEGORY_LABELS } from '@/lib/types';
+import { IS_MAINTENANCE_MODE } from '@/lib/maintenance';
+import MaintenancePage from '../maintenance/page';
 
 export default function PublicReportPage() {
+  const [bypassMaintenance, setBypassMaintenance] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('bypass') === 'true' || params.get('admin') === 'true') {
+        setBypassMaintenance(true);
+      }
+    }
+  }, []);
+
+  if (IS_MAINTENANCE_MODE && !bypassMaintenance) {
+    return <MaintenancePage />;
+  }
   const [employeeName, setEmployeeName] = useState('');
   const [employeeNik, setEmployeeNik] = useState(''); // Digunakan sebagai NRP
   const [department, setDepartment] = useState('');   // Digunakan sebagai Project
