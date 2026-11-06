@@ -158,13 +158,13 @@ export default function ReportsCardView({
                   </span>
 
                   {/* Tombol Lampiran Bukti */}
-                  {report.attachmentUrl && (
+                  {(report.attachmentUrl || report.attachmentName) && (
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         onPreviewAttachment({
-                          url: report.attachmentUrl!,
+                          url: report.attachmentUrl || `/api/reports/${report.id}/attachment`,
                           name: report.attachmentName || 'Bukti Laporan',
                           ticketNumber: report.ticketNumber,
                           report,

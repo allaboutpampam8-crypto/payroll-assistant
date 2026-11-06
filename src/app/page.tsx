@@ -1346,7 +1346,7 @@ export default function AssistantDashboard() {
 
               <div className="flex items-center gap-2 shrink-0">
                 <a
-                  href={previewAttachment.url}
+                  href={previewAttachment.report?.id ? `/api/reports/${previewAttachment.report.id}/attachment` : previewAttachment.url}
                   download={previewAttachment.name || 'bukti-lampiran'}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -1394,7 +1394,7 @@ export default function AssistantDashboard() {
               ) : (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
-                  src={previewAttachment.url}
+                  src={previewAttachment.report?.id ? `/api/reports/${previewAttachment.report.id}/attachment` : previewAttachment.url}
                   alt={previewAttachment.name || 'Lampiran Bukti'}
                   className="max-h-[80vh] w-auto max-w-full object-contain rounded-lg"
                 />

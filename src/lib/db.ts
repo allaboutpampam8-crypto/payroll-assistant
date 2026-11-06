@@ -77,7 +77,10 @@ function mapReportFromRow(row: any): PayrollReport {
     resolutionNotes: row.resolution_notes || row.resolutionNotes || '',
     source: row.source || 'MANUAL_PIC',
     reportedBy: reportedBy || undefined,
-    attachmentUrl: row.attachment_url || row.attachmentUrl || undefined,
+    attachmentUrl:
+      row.attachment_url ||
+      row.attachmentUrl ||
+      ((row.attachment_name || row.attachmentName) && row.id ? `/api/reports/${row.id}/attachment` : undefined),
     attachmentName: row.attachment_name || row.attachmentName || undefined,
     resolvedAt: resolvedAt || undefined,
     picName: picName || undefined,

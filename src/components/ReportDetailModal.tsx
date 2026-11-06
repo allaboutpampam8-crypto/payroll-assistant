@@ -81,16 +81,19 @@ function ReportDetailModalContent({
   const [picName, setPicName] = useState<string>(report.picName || activeUser || 'Pampam');
   const [reportedBy, setReportedBy] = useState(report.reportedBy || '');
   const [phoneNumber, setPhoneNumber] = useState(report.phoneNumber || '');
-  const [attachmentUrl, setAttachmentUrl] = useState(report.attachmentUrl || '');
+  const initialAttachment =
+    report.attachmentUrl ||
+    (report.attachmentName && report.id ? `/api/reports/${report.id}/attachment` : '');
+  const [attachmentUrl, setAttachmentUrl] = useState(initialAttachment);
   const [attachmentName, setAttachmentName] = useState(report.attachmentName || '');
   const [isViewingFullImage, setIsViewingFullImage] = useState(false);
   const [isPasteMode, setIsPasteMode] = useState(false);
   const detailFileInputRef = useRef<HTMLInputElement>(null);
 
-  const hasReplacedAttachment = attachmentUrl !== (report.attachmentUrl || '');
+  const hasReplacedAttachment = attachmentUrl !== initialAttachment;
 
   const handleRevertAttachment = () => {
-    setAttachmentUrl(report.attachmentUrl || '');
+    setAttachmentUrl(initialAttachment);
     setAttachmentName(report.attachmentName || '');
     if (detailFileInputRef.current) detailFileInputRef.current.value = '';
     setIsPasteMode(false);
@@ -252,8 +255,12 @@ function ReportDetailModalContent({
           reportedBy,
           picName: picName || activeUser || 'Pampam',
           phoneNumber: phoneNumber.trim(),
-          attachmentUrl: attachmentUrl || null,
-          attachmentName: attachmentName || null,
+          ...(hasReplacedAttachment
+            ? {
+                attachmentUrl: attachmentUrl || null,
+                attachmentName: attachmentName || null,
+              }
+            : {}),
         }),
       });
 
@@ -555,7 +562,10 @@ function ReportDetailModalContent({
 
             {attachmentUrl ? (
               <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-2.5 bg-slate-50 dark:bg-slate-950/60 space-y-2">
-                {attachmentUrl.startsWith('data:image') || attachmentUrl.startsWith('http') ? (
+                {attachmentUrl.startsWith('data:image') ||
+                attachmentUrl.startsWith('http') ||
+                attachmentUrl.startsWith('/api') ||
+                (attachmentName && !attachmentName.toLowerCase().endsWith('.pdf')) ? (
                   <div className="relative group rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center max-h-56">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
