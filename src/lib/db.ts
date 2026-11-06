@@ -33,11 +33,11 @@ const DEFAULT_SETTINGS: PayrollSettings = {
   completedAt: undefined,
 };
 
-// Row mappers for Supabase
+// Row mappers for Supabase & local DB
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapReportFromRow(row: any): PayrollReport {
-  let reportedBy = row.reported_by || '';
-  let picName: string | undefined = row.pic_name || undefined;
+  let reportedBy = row.reported_by || row.reportedBy || '';
+  let picName: string | undefined = row.pic_name || row.picName || undefined;
 
   // Graceful fallback for picName encoded inside reported_by: "Reporter • [PIC: Pampam]"
   if (!picName && reportedBy.includes('[PIC:')) {
@@ -53,29 +53,32 @@ function mapReportFromRow(row: any): PayrollReport {
   }
 
   // Resolving completion timestamp: prioritaskan resolved_at, fallback ke updated_at jika status CLOSE
-  const resolvedAt = row.resolved_at || (row.action_status === 'CLOSE' ? row.updated_at : undefined);
+  const resolvedAt =
+    row.resolved_at ||
+    row.resolvedAt ||
+    (row.action_status === 'CLOSE' || row.actionStatus === 'CLOSE' ? (row.updated_at || row.updatedAt) : undefined);
 
   return {
     id: row.id,
-    ticketNumber: row.ticket_number,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    period: row.period,
-    employeeName: row.employee_name,
-    employeeNik: row.employee_nik,
-    department: row.department,
-    phoneNumber: row.phone_number || '',
-    category: row.category,
-    discrepancyAmount: Number(row.discrepancy_amount) || 0,
+    ticketNumber: row.ticket_number || row.ticketNumber || '',
+    createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+    updatedAt: row.updated_at || row.updatedAt || new Date().toISOString(),
+    period: row.period || '',
+    employeeName: row.employee_name || row.employeeName || '',
+    employeeNik: row.employee_nik || row.employeeNik || '',
+    department: row.department || '',
+    phoneNumber: row.phone_number || row.phoneNumber || '',
+    category: row.category || '',
+    discrepancyAmount: Number(row.discrepancy_amount ?? row.discrepancyAmount) || 0,
     description: row.description || '',
-    actionStatus: row.action_status,
-    priority: row.priority,
-    dueDate: row.due_date || '',
-    resolutionNotes: row.resolution_notes || '',
-    source: row.source,
+    actionStatus: row.action_status || row.actionStatus || 'OPEN',
+    priority: row.priority || 'NORMAL',
+    dueDate: row.due_date || row.dueDate || '',
+    resolutionNotes: row.resolution_notes || row.resolutionNotes || '',
+    source: row.source || 'MANUAL_PIC',
     reportedBy: reportedBy || undefined,
-    attachmentUrl: row.attachment_url || undefined,
-    attachmentName: row.attachment_name || undefined,
+    attachmentUrl: row.attachment_url || row.attachmentUrl || undefined,
+    attachmentName: row.attachment_name || row.attachmentName || undefined,
     resolvedAt: resolvedAt || undefined,
     picName: picName || undefined,
   };
@@ -140,12 +143,12 @@ function mapTodoFromRow(row: any): PayrollTodo {
     title,
     description: description || row.description || undefined,
     subTodos: subTodos || undefined,
-    isCompleted: Boolean(row.is_completed),
-    dueDate: row.due_date || '',
-    priority: row.priority,
-    relatedTicketNumber: row.related_ticket_number || undefined,
-    createdAt: row.created_at,
-    completedAt: row.completed_at || undefined,
+    isCompleted: Boolean(row.is_completed ?? row.isCompleted),
+    dueDate: row.due_date || row.dueDate || '',
+    priority: row.priority || 'NORMAL',
+    relatedTicketNumber: row.related_ticket_number || row.relatedTicketNumber || undefined,
+    createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+    completedAt: row.completed_at || row.completedAt || undefined,
     userName: userName || 'Pampam',
   };
 }
@@ -156,8 +159,28 @@ function getLocalDatabase(): DatabaseSchema {
     if (fs.existsSync(DB_PATH)) {
       const raw = fs.readFileSync(DB_PATH, 'utf-8');
       const parsed = JSON.parse(raw);
+      let settings: PayrollSettings = { ...DEFAULT_SETTINGS };
+
+      if (Array.isArray(parsed.settings)) {
+        const defaultRow = parsed.settings.find((r: any) => r.id === 'default_settings');
+        const lifecycleRow = parsed.settings.find((r: any) => r.id === 'period_lifecycle');
+        if (defaultRow) {
+          settings.activePeriod = defaultRow.active_period || defaultRow.activePeriod || settings.activePeriod;
+          settings.cutoffDate = defaultRow.cutoff_date || defaultRow.cutoffDate || settings.cutoffDate;
+          settings.assistantName = defaultRow.assistant_name || defaultRow.assistantName || settings.assistantName;
+          settings.companyName = defaultRow.company_name || defaultRow.companyName || settings.companyName;
+        }
+        if (lifecycleRow) {
+          settings.isPeriodCompleted =
+            (lifecycleRow.assistant_name || lifecycleRow.assistantName) === 'COMPLETED';
+          settings.completedAt = lifecycleRow.company_name || lifecycleRow.companyName || undefined;
+        }
+      } else if (parsed.settings && typeof parsed.settings === 'object') {
+        settings = { ...DEFAULT_SETTINGS, ...parsed.settings };
+      }
+
       return {
-        settings: parsed.settings || DEFAULT_SETTINGS,
+        settings,
         reports: parsed.reports || [],
         todos: parsed.todos || [],
       };
@@ -184,38 +207,50 @@ function saveLocalDatabase(data: DatabaseSchema): void {
 
 export async function getAllReports(): Promise<PayrollReport[]> {
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
-      .from('payroll_reports')
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      // Optimasi Egress: kecualikan attachment_url (base64 besar) dari query daftar laporan
+      const { data, error } = await supabase
+        .from('payroll_reports')
+        .select(
+          'id, ticket_number, created_at, updated_at, period, employee_name, employee_nik, department, phone_number, category, discrepancy_amount, description, action_status, priority, due_date, resolution_notes, source, reported_by, attachment_name, resolved_at, pic_name'
+        )
+        .order('created_at', { ascending: false });
 
-    if (!error && data) {
-      return data.map(mapReportFromRow);
+      if (!error && data) {
+        return data.map(mapReportFromRow);
+      }
+      console.error('Supabase getAllReports error, using local fallback:', error);
+    } catch (err) {
+      console.error('Supabase getAllReports exception, using local fallback:', err);
     }
-    console.error('Supabase getAllReports error, using local fallback:', error);
   }
 
   const local = getLocalDatabase();
-  return local.reports.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  return local.reports
+    .map(mapReportFromRow)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 export async function getReportById(id: string): Promise<PayrollReport | undefined> {
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
-      .from('payroll_reports')
-      .select('*')
-      .eq('id', id)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('payroll_reports')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-    if (!error && data) {
-      return mapReportFromRow(data);
+      if (!error && data) {
+        return mapReportFromRow(data);
+      }
+    } catch (err) {
+      console.error('Supabase getReportById exception, using local fallback:', err);
     }
   }
 
   const local = getLocalDatabase();
-  return local.reports.find((r) => r.id === id);
+  const raw = local.reports.find((r) => r.id === id);
+  return raw ? mapReportFromRow(raw) : undefined;
 }
 
 export async function createReport(
@@ -449,8 +484,7 @@ export async function updateReportsBulk(
     }
 
     if (error) {
-      console.error('Error updating reports in bulk in Supabase:', error);
-      throw new Error(`Gagal memperbarui status di basis data: ${error.message}`);
+      console.error('Error updating reports in bulk in Supabase, continuing with local update:', error);
     }
   }
 
@@ -479,10 +513,11 @@ export async function updateReportsBulk(
 }
 
 export async function deleteReport(id: string): Promise<boolean> {
+  let success = false;
   if (isSupabaseConfigured && supabase) {
     const { error } = await supabase.from('payroll_reports').delete().eq('id', id);
-    if (!error) return true;
-    console.error('Error deleting report from Supabase:', error);
+    if (!error) success = true;
+    else console.error('Error deleting report from Supabase:', error);
   }
 
   const local = getLocalDatabase();
@@ -490,9 +525,9 @@ export async function deleteReport(id: string): Promise<boolean> {
   local.reports = local.reports.filter((r) => r.id !== id);
   if (local.reports.length !== initial) {
     saveLocalDatabase(local);
-    return true;
+    success = true;
   }
-  return false;
+  return success;
 }
 
 // -------------------------------------------------------------
@@ -502,16 +537,30 @@ export async function deleteReport(id: string): Promise<boolean> {
 export async function getAllTodos(userName?: string): Promise<PayrollTodo[]> {
   let list: PayrollTodo[] = [];
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
-      .from('payroll_todos')
-      .select('*')
-      .order('is_completed', { ascending: true })
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('payroll_todos')
+        .select('*')
+        .order('is_completed', { ascending: true })
+        .order('created_at', { ascending: false });
 
-    if (!error && data) {
-      list = data.map(mapTodoFromRow);
-    } else {
-      console.error('Error fetching todos from Supabase:', error);
+      if (!error && data) {
+        list = data.map(mapTodoFromRow);
+      } else {
+        console.error('Error fetching todos from Supabase, using local fallback:', error);
+        const local = getLocalDatabase();
+        list = (local.todos || []).map(mapTodoFromRow).sort((a, b) => {
+          if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1;
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+      }
+    } catch (err) {
+      console.error('Supabase getAllTodos exception, using local fallback:', err);
+      const local = getLocalDatabase();
+      list = (local.todos || []).map(mapTodoFromRow).sort((a, b) => {
+        if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
     }
   } else {
     const local = getLocalDatabase();
@@ -672,21 +721,22 @@ export async function updateTodo(
 }
 
 export async function deleteTodo(id: string): Promise<boolean> {
+  let success = false;
   if (isSupabaseConfigured && supabase) {
     const { error } = await supabase.from('payroll_todos').delete().eq('id', id);
-    if (!error) return true;
-    console.error('Error deleting todo from Supabase:', error);
+    if (!error) success = true;
+    else console.error('Error deleting todo from Supabase:', error);
   }
 
   const local = getLocalDatabase();
-  if (!local.todos) return false;
+  if (!local.todos) return success;
   const initial = local.todos.length;
   local.todos = local.todos.filter((t) => t.id !== id);
   if (local.todos.length !== initial) {
     saveLocalDatabase(local);
-    return true;
+    success = true;
   }
-  return false;
+  return success;
 }
 
 // -------------------------------------------------------------
@@ -718,9 +768,18 @@ export async function getSettings(): Promise<PayrollSettings> {
           settings.isPeriodCompleted = lifecycleRow.assistant_name === 'COMPLETED';
           settings.completedAt = lifecycleRow.company_name || undefined;
         }
+      } else {
+        const local = getLocalDatabase();
+        if (local.settings) {
+          settings = { ...settings, ...local.settings };
+        }
       }
     } catch (err) {
-      console.error('Failed to get Supabase settings:', err);
+      console.error('Failed to get Supabase settings, using local fallback:', err);
+      const local = getLocalDatabase();
+      if (local.settings) {
+        settings = { ...settings, ...local.settings };
+      }
     }
   } else {
     const local = getLocalDatabase();
