@@ -209,12 +209,23 @@ export async function getAllReports(): Promise<PayrollReport[]> {
   if (isSupabaseConfigured && supabase) {
     try {
       // Optimasi Egress: kecualikan attachment_url (base64 besar) dari query daftar laporan
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('payroll_reports')
         .select(
-          'id, ticket_number, created_at, updated_at, period, employee_name, employee_nik, department, phone_number, category, discrepancy_amount, description, action_status, priority, due_date, resolution_notes, source, reported_by, attachment_name, resolved_at, pic_name'
+          'id, ticket_number, created_at, updated_at, period, employee_name, employee_nik, department, phone_number, category, discrepancy_amount, description, action_status, priority, due_date, resolution_notes, source, reported_by, attachment_name, resolved_at'
         )
         .order('created_at', { ascending: false });
+
+      // Fallback toleransi jika ada kolom opsional yang belum ada di database
+      if (error && (error.code === '42703' || error.message?.includes('does not exist'))) {
+        console.warn('Kolom spesifik belum ada di Supabase, mencoba query fallback select(*)...');
+        const retry = await supabase
+          .from('payroll_reports')
+          .select('*')
+          .order('created_at', { ascending: false });
+        data = retry.data;
+        error = retry.error;
+      }
 
       if (!error && data) {
         return data.map(mapReportFromRow);
