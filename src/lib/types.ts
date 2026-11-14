@@ -227,3 +227,56 @@ export interface UniqueEmployeeRecord {
   firstPeriod?: string; // Periode awal masuk / awal aktif
 }
 
+export interface OvertimeChecklistItem {
+  id: string;
+  label: string;
+  done: boolean;
+}
+
+export interface OvertimeLog {
+  id: string;
+  userProfile: AppUserProfile;
+  workDate: string; // YYYY-MM-DD
+  period: string; // YYYY-MM
+  startTime: string; // HH.mm (e.g. 17.21)
+  endTime: string; // HH.mm (e.g. 21.21)
+  pauseMinutes: number;
+  durationMinutes: number;
+  jobDescription: string;
+  targetDescription: string;
+  reason: string;
+  checklist?: OvertimeChecklistItem[];
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface EmployeeIdentityConfig {
+  fullName: string;
+  nipp: string;
+  position: string;
+}
+
+export interface OvertimeDocConfig {
+  leaderName: string;
+  leaderNipp: string;
+  leaderPosition: string;
+  city: string;
+  defaultReason: string;
+  employees: Record<AppUserProfile, EmployeeIdentityConfig>;
+}
+
+export const DEFAULT_OVERTIME_DOC_CONFIG: OvertimeDocConfig = {
+  leaderName: 'Mahar Bagus Utomo',
+  leaderNipp: '105975',
+  leaderPosition: 'Manager Operasi & HSSE',
+  city: 'Surabaya',
+  defaultReason: 'Diperlukan lembur untuk kebutuhan penyelesaian target data gaji pada tanggal 23 setiap bulan',
+  employees: {
+    Pampam: { fullName: 'Setyo Pambudi', nipp: '19971110325', position: 'Staff Payroll' },
+    Wahid: { fullName: 'Wahid', nipp: '', position: 'Staff Payroll' },
+    Izul: { fullName: 'Izul', nipp: '', position: 'Staff Payroll' },
+    Ucup: { fullName: 'Ucup', nipp: '', position: 'Superintendent Payroll' },
+  },
+};
+
+

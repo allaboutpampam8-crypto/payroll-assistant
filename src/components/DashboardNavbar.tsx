@@ -16,9 +16,12 @@ import {
   Layers,
   Sun,
   Moon,
+  Clock,
 } from 'lucide-react';
 import { PayrollSettings, AppUserProfile, APP_USER_PROFILES } from '@/lib/types';
 import { useTheme } from '@/components/ThemeProvider';
+import { useOvertimeFocus } from '@/components/OvertimeFocusProvider';
+import { formatStopwatchSeconds } from '@/lib/overtimeUtils';
 
 export interface DashboardNavbarProps {
   settings: PayrollSettings;
@@ -42,6 +45,7 @@ export default function DashboardNavbar({
   onExportReports,
 }: DashboardNavbarProps) {
   const { resolvedTheme, toggleTheme } = useTheme();
+  const { session: focusSession, elapsedSeconds } = useOvertimeFocus();
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [isToolsDropdownOpen, setIsToolsDropdownOpen] = useState(false);
 
@@ -206,6 +210,34 @@ export default function DashboardNavbar({
             )}
           </div>
 
+          {/* Tombol Cepat Deep Focus & Tracker Lembur */}
+          <Link
+            href="/tools/deep-focus"
+            title="Mode Deep Focus & Tracker Pengajuan Lembur (SPKL)"
+            className={`hidden md:flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold shadow-xs transition-all cursor-pointer ${
+              focusSession.status === 'RUNNING'
+                ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-500/20'
+                : focusSession.status === 'PAUSED'
+                ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300'
+                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-emerald-50/70 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
+            }`}
+          >
+            <Clock
+              className={`h-3.5 w-3.5 ${
+                focusSession.status === 'RUNNING'
+                  ? 'text-emerald-600 dark:text-emerald-400 animate-pulse'
+                  : focusSession.status === 'PAUSED'
+                  ? 'text-amber-500'
+                  : 'text-emerald-600 dark:text-emerald-400'
+              }`}
+            />
+            {focusSession.status !== 'IDLE' ? (
+              <span className="font-mono">{formatStopwatchSeconds(elapsedSeconds)}</span>
+            ) : (
+              <span>Deep Focus</span>
+            )}
+          </Link>
+
           {/* Dropdown Alat Bantu Payroll */}
           <div ref={toolsDropdownRef} className="relative hidden sm:block">
             <button
@@ -269,6 +301,20 @@ export default function DashboardNavbar({
                     <div>
                       <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Normalisasi Data Tanos</p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400">Urutkan 150+ kolom gaji Tanos otomatis</p>
+                    </div>
+                  </Link>
+
+                  <Link
+                    href="/tools/deep-focus"
+                    onClick={() => setIsToolsDropdownOpen(false)}
+                    className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-emerald-50/70 dark:hover:bg-slate-700/60 text-left transition-colors cursor-pointer group"
+                  >
+                    <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                      <Clock className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Deep Focus & Lembur</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">Timer kerja & cetak surat lembur .docx</p>
                     </div>
                   </Link>
 

@@ -67,5 +67,20 @@ CREATE POLICY "Allow service_role only on payroll_settings"
   USING (true)
   WITH CHECK (true);
 
+
+-- 5. Kunci Tabel payroll_overtime_logs (Tracker Deep Focus & Lembur)
+ALTER TABLE IF EXISTS payroll_overtime_logs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public read access on payroll_overtime_logs" ON payroll_overtime_logs;
+DROP POLICY IF EXISTS "Allow all access on payroll_overtime_logs" ON payroll_overtime_logs;
+DROP POLICY IF EXISTS "Allow all for anon on payroll_overtime_logs" ON payroll_overtime_logs;
+
+CREATE POLICY "Allow service_role only on payroll_overtime_logs"
+  ON payroll_overtime_logs
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
 -- SELESAI. Dengan script ini, siapapun di internet yang mencoba memanggil API
 -- Supabase secara langsung menggunakan browser atau Postman akan otomatis ditolak (401/403).

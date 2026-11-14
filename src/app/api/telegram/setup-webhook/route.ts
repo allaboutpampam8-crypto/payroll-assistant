@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'crypto';
 import { verifySessionToken } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
@@ -33,11 +34,12 @@ export async function GET(request: NextRequest) {
     const proto = request.headers.get('x-forwarded-proto') || 'https';
     const webhookUrl = `${proto}://${host}/api/telegram/webhook`;
 
-    // 3. Sertakan secret token jika dikonfigurasi
-    const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
-    const tgEndpoint = webhookSecret
-      ? `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(webhookUrl)}&secret_token=${encodeURIComponent(webhookSecret)}`
-      : `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(webhookUrl)}`;
+    // 3. Sertakan secret token untuk mengamankan komunikasi webhook
+    const webhookSecret =
+      process.env.TELEGRAM_WEBHOOK_SECRET ||
+      createHash('sha256').update(token).digest('hex').slice(0, 32);
+
+    const tgEndpoint = `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(webhookUrl)}&secret_token=${encodeURIComponent(webhookSecret)}`;
 
     const tgRes = await fetch(tgEndpoint);
     const data = await tgRes.json();

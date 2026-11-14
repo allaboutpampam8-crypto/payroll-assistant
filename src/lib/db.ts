@@ -10,10 +10,15 @@ import {
   PayrollPeriodSummary,
   EmployeeCumulativePayrollSummary,
   UniqueEmployeeRecord,
+  OvertimeLog,
+  OvertimeDocConfig,
+  DEFAULT_OVERTIME_DOC_CONFIG,
+  AppUserProfile,
 } from './types';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { sendTelegramNotification } from './telegram';
 import { getNextPeriodSuggestion, INDONESIAN_MONTHS, formatPeriodToIso } from './periodUtils';
+import { computeDurationMinutes } from './overtimeUtils';
 
 const DB_PATH = path.join(process.cwd(), 'data', 'payroll_db.json');
 
@@ -22,6 +27,8 @@ interface DatabaseSchema {
   reports: PayrollReport[];
   todos: PayrollTodo[];
   results?: PayrollResult[];
+  overtimeLogs?: OvertimeLog[];
+  overtimeDocConfig?: OvertimeDocConfig;
 }
 
 const DEFAULT_SETTINGS: PayrollSettings = {
@@ -186,12 +193,14 @@ function getLocalDatabase(): DatabaseSchema {
         settings,
         reports: parsed.reports || [],
         todos: parsed.todos || [],
+        overtimeLogs: parsed.overtimeLogs || [],
+        overtimeDocConfig: parsed.overtimeDocConfig,
       };
     }
   } catch (err) {
     console.error('Error reading local JSON db:', err);
   }
-  return { settings: DEFAULT_SETTINGS, reports: [], todos: [] };
+  return { settings: DEFAULT_SETTINGS, reports: [], todos: [], overtimeLogs: [] };
 }
 
 function saveLocalDatabase(data: DatabaseSchema): void {
@@ -212,26 +221,33 @@ export async function getAllReports(): Promise<PayrollReport[]> {
   if (isSupabaseConfigured && supabase) {
     try {
       // Optimasi Egress: kecualikan attachment_url (base64 besar) dari query daftar laporan
-      let { data, error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let rows: any[] | null = null;
+      const initial = await supabase
         .from('payroll_reports')
         .select(
           'id, ticket_number, created_at, updated_at, period, employee_name, employee_nik, department, phone_number, category, discrepancy_amount, description, action_status, priority, due_date, resolution_notes, source, reported_by, attachment_name, resolved_at'
         )
         .order('created_at', { ascending: false });
 
+      let error = initial.error;
+      rows = initial.data;
+
       // Fallback toleransi jika ada kolom opsional yang belum ada di database
       if (error && (error.code === '42703' || error.message?.includes('does not exist'))) {
-        console.warn('Kolom spesifik belum ada di Supabase, mencoba query fallback select(*)...');
+        console.warn('Kolom spesifik belum ada di Supabase, mencoba query fallback tanpa kolom opsional...');
         const retry = await supabase
           .from('payroll_reports')
-          .select('*')
+          .select(
+            'id, ticket_number, created_at, updated_at, period, employee_name, employee_nik, department, phone_number, category, discrepancy_amount, description, action_status, priority, due_date, resolution_notes, source, attachment_name'
+          )
           .order('created_at', { ascending: false });
-        data = retry.data;
+        rows = retry.data;
         error = retry.error;
       }
 
-      if (!error && data) {
-        return data.map(mapReportFromRow);
+      if (!error && rows) {
+        return rows.map(mapReportFromRow);
       }
       console.error('Supabase getAllReports error, using local fallback:', error);
     } catch (err) {
@@ -276,19 +292,39 @@ export async function createReport(
   const rand = Math.random().toString(36).substring(2, 7);
   const id = `rep-${timestamp}-${rand}`;
 
-  // Count existing reports for sequence number
-  let count = 0;
+  // Hitung jumlah laporan di bulan berjalan (YYYYMM) agar nomor urut mereset setiap awal bulan
+  let countThisMonth = 0;
   if (isSupabaseConfigured && supabase) {
     const { count: sbCount } = await supabase
       .from('payroll_reports')
-      .select('*', { count: 'exact', head: true });
-    count = sbCount || 0;
+      .select('*', { count: 'exact', head: true })
+      .ilike('ticket_number', `PR-${yearMonth}-%`);
+    countThisMonth = sbCount || 0;
   } else {
-    count = getLocalDatabase().reports.length;
+    countThisMonth = getLocalDatabase().reports.filter((r) =>
+      (r.ticketNumber || '').startsWith(`PR-${yearMonth}-`)
+    ).length;
   }
 
-  const seq = count + 1;
-  const ticketNumber = `PR-${yearMonth}-${String(seq).padStart(3, '0')}`;
+  const seq = countThisMonth + 1;
+  let ticketNumber = `PR-${yearMonth}-${String(seq).padStart(3, '0')}`;
+
+  // Pencegahan collision jika ada tiket yang sama dalam periode bersamaan
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data: existing } = await supabase
+        .from('payroll_reports')
+        .select('id')
+        .eq('ticket_number', ticketNumber)
+        .maybeSingle();
+      if (existing) {
+        const randSuffix = Math.random().toString(36).substring(2, 5).toUpperCase();
+        ticketNumber = `PR-${yearMonth}-${String(seq).padStart(3, '0')}-${randSuffix}`;
+      }
+    } catch {
+      // ignore
+    }
+  }
 
   const newReport: PayrollReport = {
     ...payload,
@@ -1006,6 +1042,7 @@ export async function savePayrollResultsBatch(
       throw new Error(`Gagal menyimpan data gaji ke Supabase: ${error.message}`);
     }
 
+    deptCache.clear();
     return { count: data ? data.length : results.length };
   }
 
@@ -1131,11 +1168,20 @@ export async function getPayrollResultsByName(
   return unique.slice(0, 10);
 }
 
+const deptCache = new Map<string, { data: { department: string; count: number }[]; expiresAt: number }>();
+const DEPT_CACHE_TTL_MS = 10 * 60 * 1000; // Cache 10 menit untuk menekan egress Supabase
+
 export async function getPayrollDepartments(
   searchQuery?: string,
   period?: string
 ): Promise<{ department: string; count: number }[]> {
   const cleanSearch = searchQuery?.trim();
+  const cacheKey = `${cleanSearch || ''}__${period || ''}`;
+  const cached = deptCache.get(cacheKey);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.data;
+  }
+
   if (isSupabaseConfigured && supabase) {
     let query = supabase.from('payroll_results').select('department, employee_nik');
     if (cleanSearch) {
@@ -1153,9 +1199,12 @@ export async function getPayrollDepartments(
           deptMap[row.department].add(row.employee_nik);
         }
       }
-      return Object.entries(deptMap)
+      const result = Object.entries(deptMap)
         .map(([department, nikSet]) => ({ department, count: nikSet.size }))
         .sort((a, b) => b.count - a.count);
+
+      deptCache.set(cacheKey, { data: result, expiresAt: Date.now() + DEPT_CACHE_TTL_MS });
+      return result;
     }
   }
 
@@ -1889,6 +1938,338 @@ export async function getUniqueLatestEmployees(
     a.name.localeCompare(b.name)
   );
 }
+
+// -------------------------------------------------------------
+// OVERTIME & DEEP FOCUS LOGS
+// -------------------------------------------------------------
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapOvertimeLogFromRow(row: any): OvertimeLog {
+  return {
+    id: row.id,
+    userProfile: (row.user_profile || row.userProfile || 'Pampam') as AppUserProfile,
+    workDate: row.work_date || row.workDate || '',
+    period: row.period || '',
+    startTime: row.start_time || row.startTime || '',
+    endTime: row.end_time || row.endTime || '',
+    pauseMinutes: Number(row.pause_minutes ?? row.pauseMinutes ?? 0),
+    durationMinutes: Number(row.duration_minutes ?? row.durationMinutes ?? 0),
+    jobDescription: row.job_description || row.jobDescription || '',
+    targetDescription: row.target_description || row.targetDescription || '',
+    reason: row.reason || '',
+    checklist: Array.isArray(row.checklist_json || row.checklist)
+      ? row.checklist_json || row.checklist
+      : [],
+    createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+    updatedAt: row.updated_at || row.updatedAt || undefined,
+  };
+}
+
+export async function getOvertimeLogs(
+  period?: string,
+  userProfile?: string
+): Promise<{ logs: OvertimeLog[]; tableMissing?: boolean }> {
+  if (isSupabaseConfigured && supabase) {
+    try {
+      let query = supabase
+        .from('payroll_overtime_logs')
+        .select(
+          'id, user_profile, work_date, period, start_time, end_time, pause_minutes, duration_minutes, job_description, target_description, reason, checklist_json, created_at, updated_at'
+        )
+        .order('work_date', { ascending: true })
+        .order('start_time', { ascending: true });
+
+      if (period && period !== 'ALL') {
+        query = query.eq('period', period);
+      }
+      if (userProfile && userProfile !== 'ALL') {
+        query = query.eq('user_profile', userProfile);
+      }
+
+      const { data, error } = await query;
+      if (!error && data) {
+        return { logs: data.map(mapOvertimeLogFromRow) };
+      }
+
+      if (
+        error &&
+        (error.code === '42P01' ||
+          error.code === 'PGRST205' ||
+          error.message?.includes('does not exist') ||
+          error.message?.includes('schema cache'))
+      ) {
+        console.warn('Tabel payroll_overtime_logs belum dibuat di Supabase, fallback ke lokal.');
+        const local = getLocalDatabase();
+        let list = (local.overtimeLogs || []).map(mapOvertimeLogFromRow);
+        if (period && period !== 'ALL') list = list.filter((l) => l.period === period);
+        if (userProfile && userProfile !== 'ALL') list = list.filter((l) => l.userProfile === userProfile);
+        list.sort(
+          (a, b) =>
+            a.workDate.localeCompare(b.workDate) ||
+            a.startTime.padStart(5, '0').localeCompare(b.startTime.padStart(5, '0'))
+        );
+        return { logs: list, tableMissing: true };
+      }
+      if (error) {
+        console.error('Supabase getOvertimeLogs error:', error);
+        throw new Error(`Supabase query error: ${error.message}`);
+      }
+    } catch (err) {
+      console.error('Supabase getOvertimeLogs exception:', err);
+      throw err;
+    }
+  }
+
+  const local = getLocalDatabase();
+  let list = (local.overtimeLogs || []).map(mapOvertimeLogFromRow);
+  if (period && period !== 'ALL') list = list.filter((l) => l.period === period);
+  if (userProfile && userProfile !== 'ALL') list = list.filter((l) => l.userProfile === userProfile);
+  list.sort(
+    (a, b) =>
+      a.workDate.localeCompare(b.workDate) ||
+      a.startTime.padStart(5, '0').localeCompare(b.startTime.padStart(5, '0'))
+  );
+  return { logs: list };
+}
+
+export async function createOvertimeLog(
+  payload: Omit<OvertimeLog, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<{ log: OvertimeLog; tableMissing?: boolean }> {
+  const now = new Date().toISOString();
+  const newLog: OvertimeLog = {
+    ...payload,
+    id: `ovt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  let tableMissing = false;
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { error } = await supabase.from('payroll_overtime_logs').insert({
+        id: newLog.id,
+        user_profile: newLog.userProfile,
+        work_date: newLog.workDate,
+        period: newLog.period,
+        start_time: newLog.startTime,
+        end_time: newLog.endTime,
+        pause_minutes: newLog.pauseMinutes || 0,
+        duration_minutes: newLog.durationMinutes,
+        job_description: newLog.jobDescription,
+        target_description: newLog.targetDescription,
+        reason: newLog.reason,
+        checklist_json: newLog.checklist || [],
+        created_at: newLog.createdAt,
+        updated_at: newLog.updatedAt,
+      });
+
+      if (error) {
+        if (
+          error.code === '42P01' ||
+          error.code === 'PGRST205' ||
+          error.message?.includes('does not exist') ||
+          error.message?.includes('schema cache')
+        ) {
+          tableMissing = true;
+        } else {
+          console.error('Failed to insert overtime log into Supabase:', error);
+          throw new Error(`Supabase insert error: ${error.message}`);
+        }
+      }
+    } catch (err) {
+      console.error('Supabase createOvertimeLog exception:', err);
+      throw err;
+    }
+  }
+
+  const local = getLocalDatabase();
+  if (!local.overtimeLogs) local.overtimeLogs = [];
+  local.overtimeLogs.push(newLog);
+  saveLocalDatabase(local);
+
+  return { log: newLog, tableMissing };
+}
+
+export async function updateOvertimeLog(
+  id: string,
+  updates: Partial<OvertimeLog>
+): Promise<OvertimeLog | null> {
+  const now = new Date().toISOString();
+  const local = getLocalDatabase();
+  const existingLocal = local.overtimeLogs?.find((l) => l.id === id);
+
+  // Recalculate duration if start/end/pause is updated without explicit duration
+  if (
+    updates.durationMinutes === undefined &&
+    (updates.startTime || updates.endTime || updates.pauseMinutes !== undefined)
+  ) {
+    const s = updates.startTime || existingLocal?.startTime || '17.00';
+    const e = updates.endTime || existingLocal?.endTime || '21.00';
+    const p =
+      updates.pauseMinutes !== undefined ? updates.pauseMinutes : existingLocal?.pauseMinutes || 0;
+    updates.durationMinutes = computeDurationMinutes(s, e, p);
+  }
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rowUpdates: Record<string, any> = { updated_at: now };
+      if (updates.userProfile !== undefined) rowUpdates.user_profile = updates.userProfile;
+      if (updates.workDate !== undefined) rowUpdates.work_date = updates.workDate;
+      if (updates.period !== undefined) rowUpdates.period = updates.period;
+      if (updates.startTime !== undefined) rowUpdates.start_time = updates.startTime;
+      if (updates.endTime !== undefined) rowUpdates.end_time = updates.endTime;
+      if (updates.pauseMinutes !== undefined) rowUpdates.pause_minutes = updates.pauseMinutes;
+      if (updates.durationMinutes !== undefined) rowUpdates.duration_minutes = updates.durationMinutes;
+      if (updates.jobDescription !== undefined) rowUpdates.job_description = updates.jobDescription;
+      if (updates.targetDescription !== undefined) rowUpdates.target_description = updates.targetDescription;
+      if (updates.reason !== undefined) rowUpdates.reason = updates.reason;
+      if (updates.checklist !== undefined) rowUpdates.checklist_json = updates.checklist;
+
+      const { data, error } = await supabase
+        .from('payroll_overtime_logs')
+        .update(rowUpdates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (!error && data) {
+        const mapped = mapOvertimeLogFromRow(data);
+        if (local.overtimeLogs) {
+          const idx = local.overtimeLogs.findIndex((l) => l.id === id);
+          if (idx !== -1) {
+            local.overtimeLogs[idx] = mapped;
+            saveLocalDatabase(local);
+          }
+        }
+        return mapped;
+      }
+      if (error && error.code !== '42P01' && error.code !== 'PGRST205') {
+        console.error('Supabase updateOvertimeLog error:', error);
+      }
+    } catch (err) {
+      console.error('Supabase updateOvertimeLog exception:', err);
+    }
+  }
+
+  if (!local.overtimeLogs) return null;
+  const idx = local.overtimeLogs.findIndex((l) => l.id === id);
+  if (idx === -1) return null;
+
+  const updated: OvertimeLog = {
+    ...local.overtimeLogs[idx],
+    ...updates,
+    updatedAt: now,
+  };
+  local.overtimeLogs[idx] = updated;
+  saveLocalDatabase(local);
+  return updated;
+}
+
+export async function deleteOvertimeLog(id: string): Promise<boolean> {
+  let success = false;
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('payroll_overtime_logs')
+        .delete()
+        .eq('id', id)
+        .select('id');
+      if (!error && data && data.length > 0) {
+        success = true;
+      }
+    } catch (err) {
+      console.error('Supabase deleteOvertimeLog exception:', err);
+    }
+  }
+
+  const local = getLocalDatabase();
+  if (local.overtimeLogs) {
+    const initial = local.overtimeLogs.length;
+    local.overtimeLogs = local.overtimeLogs.filter((l) => l.id !== id);
+    if (local.overtimeLogs.length !== initial) {
+      saveLocalDatabase(local);
+      success = true;
+    }
+  }
+  return success;
+}
+
+export async function getOvertimeDocConfig(): Promise<OvertimeDocConfig> {
+  let config: OvertimeDocConfig = {
+    ...DEFAULT_OVERTIME_DOC_CONFIG,
+    employees: { ...DEFAULT_OVERTIME_DOC_CONFIG.employees },
+  };
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('payroll_settings')
+        .select('*')
+        .eq('id', 'overtime_doc_config')
+        .single();
+
+      if (!error && data && data.company_name) {
+        const parsed = JSON.parse(data.company_name);
+        config = {
+          ...config,
+          ...parsed,
+          employees: {
+            ...config.employees,
+            ...(parsed.employees || {}),
+          },
+        };
+        return config;
+      }
+    } catch {
+      // ignore fallback to local
+    }
+  }
+
+  const local = getLocalDatabase();
+  if (local.overtimeDocConfig) {
+    config = {
+      ...config,
+      ...local.overtimeDocConfig,
+      employees: {
+        ...config.employees,
+        ...(local.overtimeDocConfig.employees || {}),
+      },
+    };
+  }
+  return config;
+}
+
+export async function saveOvertimeDocConfig(
+  newConfig: OvertimeDocConfig
+): Promise<OvertimeDocConfig> {
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { error } = await supabase.from('payroll_settings').upsert({
+        id: 'overtime_doc_config',
+        active_period: newConfig.city || 'Surabaya',
+        cutoff_date: newConfig.leaderNipp || '',
+        assistant_name: newConfig.leaderName || '',
+        company_name: JSON.stringify(newConfig),
+        updated_at: new Date().toISOString(),
+      });
+      if (error) {
+        console.error('Failed to save overtime doc config to Supabase:', error);
+        throw new Error(`Supabase upsert error: ${error.message}`);
+      }
+    } catch (err) {
+      console.error('Failed to save overtime doc config to Supabase:', err);
+      throw err;
+    }
+  }
+
+  const local = getLocalDatabase();
+  local.overtimeDocConfig = newConfig;
+  saveLocalDatabase(local);
+  return newConfig;
+}
+
 
 
 

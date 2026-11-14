@@ -4,6 +4,7 @@ import './globals.css';
 import PwaRegister from '@/components/PwaRegister';
 import { ToastProvider } from '@/components/ToastProvider';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { OvertimeFocusProvider } from '@/components/OvertimeFocusProvider';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -80,8 +81,10 @@ export default function RootLayout({
       <body className="min-h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-indigo-500 selection:text-white transition-colors duration-200">
         <ThemeProvider>
           <ToastProvider>
-            {children}
-            <PwaRegister />
+            <OvertimeFocusProvider>
+              {children}
+              <PwaRegister />
+            </OvertimeFocusProvider>
           </ToastProvider>
         </ThemeProvider>
       </body>

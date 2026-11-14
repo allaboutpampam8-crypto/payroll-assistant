@@ -77,12 +77,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               role="alert"
               className={`pointer-events-auto rounded-2xl p-3.5 sm:p-4 shadow-xl border backdrop-blur-md flex items-start gap-3 transition-all animate-in slide-in-from-top-3 duration-200 ${
                 isSuccess
-                  ? 'bg-emerald-50/95 border-emerald-300 text-emerald-950'
+                  ? 'bg-emerald-50/95 dark:bg-emerald-950/90 border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-100'
                   : isError
-                  ? 'bg-rose-50/95 border-rose-300 text-rose-950'
+                  ? 'bg-rose-50/95 dark:bg-rose-950/90 border-rose-300 dark:border-rose-800 text-rose-950 dark:text-rose-100'
                   : isWarning
-                  ? 'bg-amber-50/95 border-amber-300 text-amber-950'
-                  : 'bg-indigo-50/95 border-indigo-300 text-indigo-950'
+                  ? 'bg-amber-50/95 dark:bg-amber-950/90 border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-100'
+                  : 'bg-indigo-50/95 dark:bg-indigo-950/90 border-indigo-300 dark:border-indigo-800 text-indigo-950 dark:text-indigo-100'
               }`}
             >
               <div className="shrink-0 mt-0.5">

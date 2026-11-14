@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createHash } from 'crypto';
 import {
   getPayrollResultByNik,
   getPayrollResultsByName,
@@ -18,8 +19,13 @@ function formatRupiah(num: number): string {
 
 export async function POST(request: Request) {
   try {
-    // 1. Keamanan: Validasi header token rahasia Telegram jika dikonfigurasi
-    const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
+    // 1. Keamanan: Validasi header token rahasia Telegram
+    const webhookSecret =
+      process.env.TELEGRAM_WEBHOOK_SECRET ||
+      (process.env.TELEGRAM_BOT_TOKEN
+        ? createHash('sha256').update(process.env.TELEGRAM_BOT_TOKEN).digest('hex').slice(0, 32)
+        : null);
+
     if (webhookSecret) {
       const incomingSecret = request.headers.get('x-telegram-bot-api-secret-token');
       if (incomingSecret !== webhookSecret) {

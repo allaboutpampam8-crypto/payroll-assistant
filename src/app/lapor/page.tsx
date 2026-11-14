@@ -101,17 +101,60 @@ export default function PublicReportPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Ukuran berkas maksimal 5MB.');
+    if (file.size > 8 * 1024 * 1024) {
+      setErrorMsg('Ukuran berkas terlalu besar (maksimal 8MB).');
       return;
     }
 
     setAttachmentName(file.name);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setAttachmentBase64(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    setErrorMsg('');
+
+    // Kompresi otomatis jika gambar (foto kamera HP) agar hemat kuota dan tidak melebihi limit body
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new window.Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 1600;
+
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+            setAttachmentBase64(compressedBase64);
+          } else {
+            setAttachmentBase64(event.target?.result as string);
+          }
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    } else {
+      if (file.size > 4.5 * 1024 * 1024) {
+        setErrorMsg('Ukuran dokumen PDF maksimal 4.5MB.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAttachmentBase64(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const formatInputCurrency = (val: string) => {

@@ -2,11 +2,11 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Scissors, Layers, ShieldCheck, Sun, Moon } from 'lucide-react';
+import { ArrowLeft, Scissors, Layers, ShieldCheck, Sun, Moon, Clock } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 
 interface ToolsHeaderNavProps {
-  activeTool: 'excel-splitter' | 'tanos-normalizer';
+  activeTool: 'excel-splitter' | 'tanos-normalizer' | 'deep-focus';
 }
 
 export default function ToolsHeaderNav({ activeTool }: ToolsHeaderNavProps) {
@@ -56,6 +56,18 @@ export default function ToolsHeaderNav({ activeTool }: ToolsHeaderNavProps) {
           >
             <Layers className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
             <span className="truncate">Normalisasi Data Tanos</span>
+          </Link>
+
+          <Link
+            href="/tools/deep-focus"
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+              activeTool === 'deep-focus'
+                ? 'bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-300 shadow-sm border border-slate-200/60 dark:border-slate-600'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span className="truncate">Deep Focus & Lembur</span>
           </Link>
         </div>
 

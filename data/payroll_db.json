@@ -1096,5 +1096,39 @@
       "createdAt": "2026-10-26T07:55:40.582+00:00",
       "userName": "Izul"
     }
+  ],
+  "overtimeLogs": [
+    {
+      "userProfile": "Pampam",
+      "workDate": "2026-11-12",
+      "period": "2026-11",
+      "startTime": "20.48",
+      "endTime": "20.50",
+      "pauseMinutes": 0,
+      "durationMinutes": 2,
+      "jobDescription": "Melakukan pengecekan pergerakan pegawai dan posting absensi periode bulan November 2026",
+      "targetDescription": "Absensi dan pergerakan pegawai bulan November 2026 untuk TAD maupun pemborongan dapat diposting",
+      "reason": "Diperlukan lembur untuk kebutuhan penyelesaian target data gaji pada tanggal 23 setiap bulan",
+      "checklist": [
+        {
+          "id": "c1",
+          "label": "Cek mutasi / pergerakan pegawai antar project & entitas",
+          "done": true
+        },
+        {
+          "id": "c2",
+          "label": "Validasi kehadiran, shift, dan data lembur pegawai",
+          "done": true
+        },
+        {
+          "id": "c3",
+          "label": "Posting absensi dan data kepegawaian ke sistem",
+          "done": true
+        }
+      ],
+      "id": "ovt-1794491441586-tvt1w",
+      "createdAt": "2026-11-12T13:50:41.586Z",
+      "updatedAt": "2026-11-12T13:50:41.586Z"
+    }
   ]
 }

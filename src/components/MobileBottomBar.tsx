@@ -15,6 +15,7 @@ import {
   Lock,
   Sun,
   Moon,
+  Clock,
 } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 
@@ -159,6 +160,24 @@ export default function MobileBottomBar({
                   </p>
                 </div>
               </button>
+
+              <Link
+                href="/tools/deep-focus"
+                onClick={onCloseMobileTools}
+                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200/80 dark:border-emerald-800 text-left transition-colors cursor-pointer"
+              >
+                <div className="p-2.5 rounded-xl bg-emerald-600 text-white shadow-xs">
+                  <Clock className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                    Deep Focus & Tracker Lembur
+                  </p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Timer kerja fokus & cetak surat lembur (.docx)
+                  </p>
+                </div>
+              </Link>
 
               <Link
                 href="/tools/excel-splitter"

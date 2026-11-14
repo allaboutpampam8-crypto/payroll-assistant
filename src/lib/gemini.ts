@@ -523,6 +523,14 @@ async function executeTool(name: string, args: Record<string, any>, activeUser?:
         target.toUpperCase() === 'SEMUANYA';
 
       if (isSemua) {
+        if (!args.konfirmasi_eksplisit) {
+          const countTarget = all.filter((r) => r.actionStatus === statusAsal).length;
+          return {
+            status: 'need_confirmation',
+            message: `Terdapat ${countTarget} tiket berstatus '${statusAsal}'. Perubahan status massal membutuhkan konfirmasi eksplisit dari pengguna. Silakan tanyakan konfirmasi kepada pengguna terlebih dahulu sebelum mengeksekusi.`,
+          };
+        }
+
         const toUpdate = all.filter((r) => r.actionStatus === statusAsal);
         if (toUpdate.length === 0) {
           return {
@@ -825,8 +833,8 @@ Aturan Khusus Rekap To-Do List:
 3. Format output daftar to-do dengan rapi (sebutkan judul, prioritas, batas waktu jika ada, nomor tiket terkait jika ada, serta sub-item to-do beserta status centangnya jika memiliki checklist lanjutan).`;
 
   try {
-    // Primary model: gemini-3.5-flash-lite (kecepatan tinggi & kuota free tier besar)
-    const modelName = 'gemini-3.5-flash-lite';
+    // Primary model: gemini-2.5-flash (kecepatan tinggi & performa multimodal optimal)
+    const modelName = 'gemini-2.5-flash';
 
     // Format riwayat percakapan sebelumnya untuk multi-turn context
     const previousContents = (history || [])
@@ -934,7 +942,7 @@ Aturan Khusus Rekap To-Do List:
         });
 
         const res = await fallbackAi.models.generateContent({
-          model: 'gemini-3.5-flash',
+          model: 'gemini-2.0-flash',
           contents: [
             ...((history || []).slice(-8).map((m) => ({
               role: m.role,

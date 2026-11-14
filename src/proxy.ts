@@ -12,6 +12,7 @@ export function proxy(request: NextRequest) {
   // 1. Pengecualian rute publik:
   // - Autentikasi PIN (/api/auth/pin)
   // - Form Lapor Publik kirim tiket (/api/reports [POST])
+  // - Download lampiran laporan (/api/reports/[id]/attachment [GET])
   // - Pencarian publik untuk auto-fill nama di form lapor (/api/payroll-results/query) -> disanitasi di route handler
   // - Cron jobs (memiliki otorisasi CRON_SECRET sendiri)
   // - Telegram Webhook (/api/telegram/webhook [POST]) -> diverifikasi via Telegram Secret Token
@@ -21,17 +22,28 @@ export function proxy(request: NextRequest) {
     pathname.startsWith('/api/cron/') ||
     (pathname === '/api/telegram/webhook' && method === 'POST') ||
     (pathname === '/api/reports' && method === 'POST') ||
+    (pathname.startsWith('/api/reports/') && pathname.endsWith('/attachment') && method === 'GET') ||
     pathname.startsWith('/api/payroll-results/query') ||
     (pathname === '/api/settings' && method === 'GET')
   ) {
     return NextResponse.next();
   }
 
-  // 2. Proteksi rute API internal menggunakan verifikasi token kriptografis
-  if (pathname.startsWith('/api/')) {
-    const authCookie = request.cookies.get('payroll_auth_session')?.value;
-    const isAuthed = verifySessionToken(authCookie);
+  const authCookie = request.cookies.get('payroll_auth_session')?.value;
+  const isAuthed = verifySessionToken(authCookie);
 
+  // 2. Proteksi rute halaman tools (jika belum login, redirect ke halaman utama dengan lock screen)
+  if (pathname.startsWith('/tools/')) {
+    if (!isAuthed) {
+      const loginUrl = new URL('/', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    return NextResponse.next();
+  }
+
+  // 3. Proteksi rute API internal menggunakan verifikasi token kriptografis
+  if (pathname.startsWith('/api/')) {
     if (!isAuthed) {
       return NextResponse.json(
         {
@@ -47,5 +59,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/api/:path*'],
+  matcher: ['/api/:path*', '/tools/:path*'],
 };
