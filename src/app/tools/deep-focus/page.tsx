@@ -46,6 +46,7 @@ import {
   formatPeriodTitle,
   formatStopwatchSeconds,
   formatTimeDot,
+  subtractMinutesFromTimeDot,
 } from '@/lib/overtimeUtils';
 import { generateOvertimeSpklBlob } from '@/lib/overtimeDocx';
 
@@ -126,6 +127,8 @@ export default function DeepFocusPage() {
   const [formStartTime, setFormStartTime] = useState<string>('17.00');
   const [formEndTime, setFormEndTime] = useState<string>('21.00');
   const [formPauseMins, setFormPauseMins] = useState<number>(0);
+  const [deductedPauseMins, setDeductedPauseMins] = useState<number>(0);
+  const [rawRealEndTime, setRawRealEndTime] = useState<string>('');
   const [formJob, setFormJob] = useState<string>('');
   const [formTarget, setFormTarget] = useState<string>('');
   const [formReason, setFormReason] = useState<string>(DEFAULT_OVERTIME_DOC_CONFIG.defaultReason);
@@ -231,13 +234,19 @@ export default function DeepFocusPage() {
 
   const handleOpenFinishActiveModal = () => {
     const nowDot = formatTimeDot(new Date());
+    // Potong langsung jeda ke jam selesai
+    const effectiveEndDot =
+      pauseMinutes > 0 ? subtractMinutesFromTimeDot(nowDot, pauseMinutes) : nowDot;
+
     setEditingLogId(null);
     setIsFromActiveTimer(true);
     setFormUser(session.userProfile);
     setFormDate(startDateIso);
     setFormStartTime(startTimeDot);
-    setFormEndTime(nowDot);
-    setFormPauseMins(pauseMinutes);
+    setFormEndTime(effectiveEndDot);
+    setFormPauseMins(0); // Jeda sudah dipotong langsung ke jam selesai
+    setDeductedPauseMins(pauseMinutes);
+    setRawRealEndTime(nowDot);
     setFormJob(session.jobDescription);
     setFormTarget(session.targetDescription);
     setFormReason(session.reason || docConfig.defaultReason);
@@ -247,6 +256,8 @@ export default function DeepFocusPage() {
   const handleOpenManualAddModal = () => {
     setEditingLogId(null);
     setIsFromActiveTimer(false);
+    setDeductedPauseMins(0);
+    setRawRealEndTime('');
     setFormUser(filterUser === 'ALL' ? setupUser : filterUser);
     setFormDate(getTodayIso());
     setFormStartTime('17.00');
@@ -261,6 +272,8 @@ export default function DeepFocusPage() {
   const handleOpenEditModal = (log: OvertimeLog) => {
     setEditingLogId(log.id);
     setIsFromActiveTimer(false);
+    setDeductedPauseMins(0);
+    setRawRealEndTime('');
     setFormUser(log.userProfile);
     setFormDate(log.workDate);
     setFormStartTime(log.startTime);
@@ -1386,6 +1399,33 @@ export default function DeepFocusPage() {
                   />
                 </div>
               </div>
+
+              {/* Info Pengurangan Jeda Otomatis ke Jam Selesai */}
+              {isFromActiveTimer && deductedPauseMins > 0 ? (
+                <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-[11px] text-amber-900 dark:text-amber-200 flex items-center gap-2">
+                  <Clock className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <span>
+                    Waktu jeda <strong>{deductedPauseMins} menit</strong> telah otomatis dipotong ke Jam Selesai (dari jam riil <strong>{rawRealEndTime}</strong> menjadi <strong>{formEndTime}</strong>) agar durasi di SPKL selaras.
+                  </span>
+                </div>
+              ) : formPauseMins > 0 ? (
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/50 text-[11px] text-amber-900 dark:text-amber-200">
+                  <span>
+                    Terdapat jeda {formPauseMins} menit. Ingin langsung potong ke jam selesai?
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormEndTime(subtractMinutesFromTimeDot(formEndTime, formPauseMins));
+                      toast.info(`Jam selesai dimundurkan ${formPauseMins} menit.`);
+                      setFormPauseMins(0);
+                    }}
+                    className="font-bold underline text-amber-700 dark:text-amber-400 hover:text-amber-900 cursor-pointer text-xs"
+                  >
+                    Potong Sekarang
+                  </button>
+                </div>
+              ) : null}
 
               <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-xs">
                 <span className="font-semibold text-emerald-800 dark:text-emerald-300">

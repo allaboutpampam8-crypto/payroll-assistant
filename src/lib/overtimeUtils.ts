@@ -110,6 +110,32 @@ export function formatTimeDot(date: Date): string {
 }
 
 /**
+ * Mengurangi waktu HH.mm dengan sejumlah menit.
+ * Contoh: subtractMinutesFromTimeDot("15.00", 30) -> "14.30"
+ * Mendukung lewat tengah malam jika diperlukan.
+ */
+export function subtractMinutesFromTimeDot(
+  timeDot: string,
+  minutesToSubtract: number
+): string {
+  if (!timeDot || !minutesToSubtract || minutesToSubtract <= 0) return timeDot;
+  const normalized = timeDot.trim().replace(':', '.');
+  const parts = normalized.split('.');
+  if (parts.length !== 2) return timeDot;
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  if (isNaN(h) || isNaN(m)) return timeDot;
+
+  let totalMinutes = h * 60 + m - Math.round(minutesToSubtract);
+  while (totalMinutes < 0) {
+    totalMinutes += 24 * 60;
+  }
+  const newH = Math.floor(totalMinutes / 60) % 24;
+  const newM = totalMinutes % 60;
+  return `${String(newH).padStart(2, '0')}.${String(newM).padStart(2, '0')}`;
+}
+
+/**
  * Normalisasi format jam ke "HH.mm" dua digit (contoh "9.00" -> "09.00")
  */
 export function normalizeTimeDot(str: string): string {
