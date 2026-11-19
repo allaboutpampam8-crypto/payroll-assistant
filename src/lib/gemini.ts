@@ -832,135 +832,97 @@ Aturan Khusus Rekap To-Do List:
 2. HANYA tampilkan to-do list milik ${userGreeting} (${activeUser}). JANGAN PERNAH mencampur atau menampilkan to-do list milik user lain, KECUALI jika pengguna secara eksplisit meminta melihat to-do list orang lain (misal: "lihat to do list Ucup") atau meminta melihat semua to-do list ("tampilkan semua to-do list").
 3. Format output daftar to-do dengan rapi (sebutkan judul, prioritas, batas waktu jika ada, nomor tiket terkait jika ada, serta sub-item to-do beserta status centangnya jika memiliki checklist lanjutan).`;
 
-  try {
-    // Primary model: gemini-2.5-flash (kecepatan tinggi & performa multimodal optimal)
-    const modelName = 'gemini-2.5-flash';
+  // Format riwayat percakapan sebelumnya untuk multi-turn context
+  const previousContents = (history || [])
+    .slice(-8) // Ambil 8 percakapan terakhir agar fokus, cepat, & hemat token
+    .filter((m) => m.text && (m.role === 'user' || m.role === 'model'))
+    .map((m) => ({
+      role: m.role,
+      parts: [{ text: m.text.replace(/<[^>]*>/g, '').trim() }],
+    }));
 
-    // Format riwayat percakapan sebelumnya untuk multi-turn context
-    const previousContents = (history || [])
-      .slice(-8) // Ambil 8 percakapan terakhir agar fokus, cepat, & hemat token
-      .filter((m) => m.text && (m.role === 'user' || m.role === 'model'))
-      .map((m) => ({
-        role: m.role,
-        parts: [{ text: m.text.replace(/<[^>]*>/g, '').trim() }],
-      }));
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const currentParts: any[] = [];
-    if (attachment && attachment.data && attachment.mimeType) {
-      currentParts.push({
-        inlineData: {
-          mimeType: attachment.mimeType,
-          data: attachment.data,
-        },
-      });
-    }
-
-    const promptText =
-      userMessage.trim() ||
-      (attachment
-        ? 'Tolong analisa slip gaji terlampir ini secara menyeluruh, cocokkan dengan master data payroll dan evaluasi upah pokoknya terhadap bulan sebelumnya.'
-        : 'Halo Si PALI');
-
-    currentParts.push({ text: promptText });
-
-    const currentTurnContent = { role: 'user' as const, parts: currentParts };
-
-    // Step 1: Panggil model dengan riwayat percakapan + pertanyaan saat ini (termasuk attachment jika ada)
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: [...previousContents, currentTurnContent],
-      config: {
-        systemInstruction,
-        tools: [{ functionDeclarations: toolDeclarations }],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const currentParts: any[] = [];
+  if (attachment && attachment.data && attachment.mimeType) {
+    currentParts.push({
+      inlineData: {
+        mimeType: attachment.mimeType,
+        data: attachment.data,
       },
     });
+  }
 
-    // Step 2: Cek apakah model meminta pemanggilan tool
-    const functionCalls = response.functionCalls;
-    if (functionCalls && functionCalls.length > 0) {
-      const call = functionCalls[0];
-      if (call.name) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const toolResult = await executeTool(call.name, (call.args || {}) as Record<string, any>, activeUser);
-        const modelParts = response.candidates?.[0]?.content?.parts || [{ functionCall: call }];
+  const promptText =
+    userMessage.trim() ||
+    (attachment
+      ? 'Tolong analisa slip gaji terlampir ini secara menyeluruh, cocokkan dengan master data payroll dan evaluasi upah pokoknya terhadap bulan sebelumnya.'
+      : 'Halo Si PALI');
 
-        // Step 3: Kirim balik hasil tool ke Gemini untuk diformulasikan menjadi jawaban ramah
-        const secondResponse = await ai.models.generateContent({
-          model: modelName,
-          contents: [
-            ...previousContents,
-            currentTurnContent,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            { role: 'model', parts: modelParts as any },
-            {
-              role: 'user',
-              parts: [
-                {
-                  functionResponse: {
-                    name: call.name,
-                    response: { result: toolResult },
+  currentParts.push({ text: promptText });
+
+  const currentTurnContent = { role: 'user' as const, parts: currentParts };
+
+  // Daftar model resmi aktif berurutan untuk redundansi & auto-failover
+  const candidateModels = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-3.5-flash-lite'];
+  let lastError: unknown = null;
+
+  for (const modelName of candidateModels) {
+    try {
+      // Step 1: Panggil model dengan riwayat percakapan + pertanyaan saat ini
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: [...previousContents, currentTurnContent],
+        config: {
+          systemInstruction,
+          tools: [{ functionDeclarations: toolDeclarations }],
+        },
+      });
+
+      // Step 2: Cek apakah model meminta pemanggilan tool
+      const functionCalls = response.functionCalls;
+      if (functionCalls && functionCalls.length > 0) {
+        const call = functionCalls[0];
+        if (call.name) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const toolResult = await executeTool(call.name, (call.args || {}) as Record<string, any>, activeUser);
+          const modelParts = response.candidates?.[0]?.content?.parts || [{ functionCall: call }];
+
+          // Step 3: Kirim balik hasil tool ke Gemini untuk diformulasikan menjadi jawaban ramah
+          const secondResponse = await ai.models.generateContent({
+            model: modelName,
+            contents: [
+              ...previousContents,
+              currentTurnContent,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              { role: 'model', parts: modelParts as any },
+              {
+                role: 'user',
+                parts: [
+                  {
+                    functionResponse: {
+                      name: call.name,
+                      response: { result: toolResult },
+                    },
                   },
-                },
-              ],
-            },
-          ],
-          config: {
-            systemInstruction,
-          },
-        });
-
-        return secondResponse.text || 'Maaf Pak, saya tidak dapat merumuskan jawaban saat ini.';
-      }
-    }
-
-    return response.text || 'Maaf Pak, saya belum memahami pertanyaan tersebut.';
-  } catch (error: unknown) {
-    console.error('Gemini AI Query Error:', error);
-    const err = error as { message?: string; status?: number };
-
-    // Fallback jika model lite terkena rate-limit, coba gemini-3.5-flash
-    if (err.message?.includes('429') || err.status === 429) {
-      try {
-        const fallbackAi = new GoogleGenAI({ apiKey });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const fallbackParts: any[] = [];
-        if (attachment && attachment.data && attachment.mimeType) {
-          fallbackParts.push({
-            inlineData: {
-              mimeType: attachment.mimeType,
-              data: attachment.data,
+                ],
+              },
+            ],
+            config: {
+              systemInstruction,
             },
           });
+
+          return secondResponse.text || 'Maaf Pak, saya tidak dapat merumuskan jawaban saat ini.';
         }
-        fallbackParts.push({
-          text:
-            userMessage.trim() ||
-            (attachment
-              ? 'Tolong analisa slip gaji terlampir ini.'
-              : 'Halo Si PALI'),
-        });
-
-        const res = await fallbackAi.models.generateContent({
-          model: 'gemini-2.0-flash',
-          contents: [
-            ...((history || []).slice(-8).map((m) => ({
-              role: m.role,
-              parts: [{ text: m.text.replace(/<[^>]*>/g, '').trim() }],
-            }))),
-            { role: 'user', parts: fallbackParts },
-          ],
-          config: {
-            systemInstruction,
-          },
-        });
-        return res.text || 'Maaf Pak, terjadi kendala saat memproses jawaban.';
-      } catch (fallbackErr: unknown) {
-        const fbMsg = fallbackErr instanceof Error ? fallbackErr.message : 'Error';
-        return `⚠️ Kuota rate limit API tercapai. Silakan coba kembali beberapa saat lagi. (${fbMsg})`;
       }
-    }
 
-    return `⚠️ Maaf Pak, terjadi kesalahan saat menghubungi asisten AI: ${err.message || 'Terjadi kesalahan sistem'}`;
+      return response.text || 'Maaf Pak, saya belum memahami pertanyaan tersebut.';
+    } catch (error: unknown) {
+      console.warn(`Model ${modelName} gagal, mencoba model berikutnya...`, error);
+      lastError = error;
+    }
   }
+
+  const err = lastError as { message?: string; status?: number };
+  return `⚠️ Maaf Pak, terjadi kesalahan saat menghubungi asisten AI: ${err?.message || 'Layanan sedang sibuk. Silakan coba kembali beberapa saat lagi.'}`;
 }
